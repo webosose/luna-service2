@@ -1,0 +1,12 @@
+{
+    "appId": true,
+    "allowedName": ["com.palm.app.malformed"],
+    "type": "regular",
+    "permissions": [
+        {
+            "service": "com.palm.app.malformed",
+            "outbound": ["*"],
+            "inbound": ["*"]
+        }
+    ]
+}

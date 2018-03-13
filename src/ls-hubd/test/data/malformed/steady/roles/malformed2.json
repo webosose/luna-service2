@@ -1,0 +1,11 @@
+{
+    "exeName": "/bin/malformed2",
+    "type": "privileged",
+    "permissions": [
+        {
+            "service": "com.webos.malformed2",
+            "outbound": ["*"],
+            "inbound": ["*"]
+        }
+    ]
+}

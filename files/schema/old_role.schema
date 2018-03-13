@@ -1,0 +1,26 @@
+{
+    "type": "object",
+    "properties": {
+        "role": {
+            "type": "object",
+            "properties": {
+                "exeName": { "type": "string", "minLength": 1 },
+                "type": { "enum": ["regular", "privileged"] },
+                "allowedNames" : { "type": "array", "items": { "type": "string" }, "minItems": 1, "uniqueItems": true }
+            },
+            "required": ["exeName", "type", "allowedNames"]
+        },
+        "permissions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "service": { "type": "string" },
+                    "inbound": { "type": "array", "items": { "type": "string" } },
+                    "outbound": { "type": "array", "items": { "type": "string" } }
+                }
+            }
+        }
+    },
+    "required": ["role", "permissions"]
+}

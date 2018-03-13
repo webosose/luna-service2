@@ -1,0 +1,11 @@
+{
+    "exeName":"@WEBOS_INSTALL_BINDIR@/luna-send-pub",
+    "type": "devmode",
+    "allowedNames": ["*"],
+    "permissions": [
+        {
+            "service": "com.webos.lunasendpub-*",
+            "outbound": ["*"]
+        }
+    ]
+}

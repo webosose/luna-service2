@@ -1,0 +1,17 @@
+{
+  "signals.all": [
+    "com.palm.bus/signal/*",
+    "com.palm.lunabus/signal/*",
+    "com.webos.service.bus/signal/*"
+  ],
+  "signals.all.subscribe": [
+    "com.palm.bus/signal/subscribe/*",
+    "com.palm.lunabus/signal/subscribe/*",
+    "com.webos.service.bus/signal/subscribe/*"
+  ],
+  "signals.register": [
+    "com.palm.bus/signal/registerServerStatus",
+    "com.palm.lunabus/signal/registerServerStatus",
+    "com.webos.service.bus/signal/registerServerStatus"
+  ]
+}

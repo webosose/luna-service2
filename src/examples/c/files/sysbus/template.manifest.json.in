@@ -1,0 +1,17 @@
+{
+    "clientPermissionFiles": [
+        "@WEBOS_INSTALL_SYSBUS_PERMISSIONSDIR@/@SERVICE_NAME@.app.json"
+    ],
+    "apiPermissionFiles": [
+        "@WEBOS_INSTALL_SYSBUS_APIPERMISSIONSDIR@/all.api.json",
+        "@WEBOS_INSTALL_SYSBUS_APIPERMISSIONSDIR@/@SERVICE_NAME@.api.json"
+    ],
+    "serviceFiles": [
+        "@WEBOS_INSTALL_SYSBUS_SERVICESDIR@/@SERVICE_NAME@.service"
+    ],
+    "version": "1.0.0",
+    "roleFiles": [
+        "@WEBOS_INSTALL_SYSBUS_ROLESDIR@/@SERVICE_NAME@.role.json"
+    ],
+    "id": "@SERVICE_NAME@"
+}

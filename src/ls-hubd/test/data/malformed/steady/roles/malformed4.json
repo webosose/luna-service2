@@ -1,0 +1,12 @@
+{
+    "exeName":["exeName is array"],
+    "allowedNames": ["com.webos.malformed4"],
+    "type": "regular",
+    "permissions": [
+        {
+            "service": "com.webos.malformed4",
+            "outbound": ["*"],
+            "inbound": ["*"]
+        }
+    ]
+}

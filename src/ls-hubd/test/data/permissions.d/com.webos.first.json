@@ -1,0 +1,7 @@
+{
+  "com.webos.foo*":["foo"],
+  "com.webos.bar":["bar"],
+  "com.webos.all":["foo","bar"],
+  "com.webos.all*":["foobar"],
+  "com.webos.app*":["app"]
+}

@@ -1,0 +1,11 @@
+{
+    "exeName":"@WEBOS_INSTALL_BINDIR@/luna-send",
+    "type": "privileged",
+    "allowedNames": ["*"],
+    "permissions": [
+        {
+            "service": "com.webos.lunasend-*",
+            "outbound": ["*"]
+        }
+    ]
+}

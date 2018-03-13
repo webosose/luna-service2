@@ -1,0 +1,7 @@
+{
+    "id": "test",
+    "version": "2.0.0",
+    "roleFiles": ["roles/role_v2.json"],
+    "apiPermissionFiles": ["permissions/provides_v2.json"],
+    "clientPermissionFiles": ["permissions/requires_v2.json"]
+}

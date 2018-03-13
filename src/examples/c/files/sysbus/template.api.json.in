@@ -1,0 +1,14 @@
+{
+  "timerMethod": [
+      "@SERVICE_NAME@/timerMethod"
+  ],
+   "all": [
+      "@SERVICE_NAME@/timerMethod"
+  ],
+  "public": [
+      "@SERVICE_NAME@/timerMethod"
+  ],
+  "config" : [
+      "@SERVICE_NAME@/getConfigs"
+  ]
+}

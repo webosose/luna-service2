@@ -1,0 +1,5 @@
+{
+  "com.webos.all":["private"],
+  "com.webos.all*":["public"],
+  "com.webos.app.id*":["id"]
+}

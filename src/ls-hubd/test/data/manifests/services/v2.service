@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=com.webos.a
+Exec=/usr/bin/test
+Type=dynamic

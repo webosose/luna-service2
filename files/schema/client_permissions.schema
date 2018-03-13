@@ -1,0 +1,13 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "patternProperties": {
+        "^[-._a-zA-Z0-9]*[*]?$": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "pattern": "^[-._a-zA-Z0-9]+$"
+            }
+        }
+    }
+}

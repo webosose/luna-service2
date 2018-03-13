@@ -1,0 +1,12 @@
+{
+    "exeName":"@WEBOS_INSTALL_BINDIR@/@SERVICE_NAME@",
+    "allowedNames": ["@SERVICE_NAME@"],
+    "type": "regular",
+    "permissions": [
+        {
+            "service":"@SERVICE_NAME@",
+            "inbound":["*"],
+            "outbound":["*"]
+        }
+    ]
+}

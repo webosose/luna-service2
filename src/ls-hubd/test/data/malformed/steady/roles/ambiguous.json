@@ -1,0 +1,13 @@
+{
+    "exeName": "/bin/ambiguous",
+    "appId": "com.palm.app.ambiguous",
+    "allowedNames": ["com.palm.app.ambiguous*"],
+    "type": "regular",
+    "permissions": [
+        {
+            "service": "com.palm.app.ambiguous*",
+            "outbound": ["*"],
+            "inbound": ["*"]
+        }
+    ]
+}

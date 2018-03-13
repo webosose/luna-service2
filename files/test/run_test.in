@@ -1,0 +1,37 @@
+#!/bin/sh
+# Copyright (c) 2015-2018 LG Electronics, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+# LICENSE@@@
+
+# ensure that any unhandled fail will lead to whole script failure
+# and inform about all actions script performs
+set -e -x
+
+config_file="$(readlink -f "$1")"
+test_path_prefix="$(dirname "$config_file")"
+
+hub_conf='@WEBOS_INSTALL_SYSCONFDIR@/luna-service2/ls-hubd.conf'
+hub_exe='@WEBOS_INSTALL_SBINDIR@/ls-hubd'
+
+. "$(dirname "$(readlink -f "$0")")/libtest.sh"
+
+if [[ $# != 1 ]]; then
+	usage
+	exit 1
+fi
+
+main

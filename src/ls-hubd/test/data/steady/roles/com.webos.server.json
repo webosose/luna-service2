@@ -1,0 +1,11 @@
+{
+    "exeName": "/bin/server",
+    "allowedNames": ["com.webos.server"],
+    "permissions": [
+        {
+            "service": "com.webos.server",
+            "outbound": ["com.webos.client"],
+            "inbound": ["com.webos.client"]
+        }
+    ]
+}

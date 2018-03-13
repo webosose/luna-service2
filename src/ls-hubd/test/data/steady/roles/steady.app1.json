@@ -1,0 +1,11 @@
+{
+    "exeName": "/bin/steady.app1",
+    "allowedNames": ["steady.app1*"],
+    "permissions": [
+        {
+            "service": "steady.app1*",
+            "outbound": ["*"],
+            "inbound": ["*"]
+        }
+    ]
+}

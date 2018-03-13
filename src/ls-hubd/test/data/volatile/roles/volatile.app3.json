@@ -1,0 +1,11 @@
+{
+    "exeName": "/bin/volatile.app3",
+    "allowedNames": ["volatile.app3*"],
+    "permissions": [
+        {
+            "service": "volatile.app3*",
+            "outbound": ["*"],
+            "inbound": ["*"]
+        }
+    ]
+}

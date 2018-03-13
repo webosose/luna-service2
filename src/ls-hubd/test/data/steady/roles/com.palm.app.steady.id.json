@@ -1,0 +1,12 @@
+{
+    "appId": "com.palm.app.steady.id",
+    "allowedNames": ["com.palm.app.steady.id-*"],
+    "type": "regular",
+    "permissions": [
+        {
+            "service": "com.palm.app.steady.id-*",
+            "outbound": ["*"],
+            "inbound": ["*"]
+        }
+    ]
+}

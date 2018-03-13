@@ -1,0 +1,21 @@
+{
+    "type": "object",
+    "properties": {
+        "exeName": { "type": "string", "minLength": 1 },
+        "appId": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["devmode", "regular", "privileged"] },
+        "allowedNames" : { "type": "array", "items": { "type": "string" }, "minItems": 1, "uniqueItems": true },
+        "permissions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "service": { "type": "string" },
+                    "inbound": { "type": "array", "items": { "type": "string" } },
+                    "outbound": { "type": "array", "items": { "type": "string" } }
+                }
+            }
+        }
+    },
+    "required": ["allowedNames", "permissions"]
+}

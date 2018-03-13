@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=@SERVICE_NAME@
+Exec=@WEBOS_INSTALL_BINDIR@/@SERVICE_NAME@
+Type=dynamic

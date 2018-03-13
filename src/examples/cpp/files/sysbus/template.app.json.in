@@ -1,0 +1,3 @@
+{
+    "@SERVICE_NAME@" : [ "timerMethod", "all", "public" ]
+}

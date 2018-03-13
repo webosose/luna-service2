@@ -1,0 +1,12 @@
+{
+    "exeName": "/usr/bin/test",
+    "type": "regular",
+    "allowedNames": ["com.webos.service.test.a"],
+    "permissions":[
+        {
+            "service": "com.webos.service.test.a",
+            "inbound": ["com.webos.in"],
+            "outbound": ["com.webos.out"]
+        }
+    ]
+}

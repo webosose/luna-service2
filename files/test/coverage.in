@@ -1,0 +1,128 @@
+#!/bin/bash
+# Copyright (c) 2015-2018 LG Electronics, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+SOURCE_DIR="@CMAKE_SOURCE_DIR@"
+CURRENT_GCOVR_RESULT="coverage_result.txt"
+PREV_GCOVR_RESULT="${1-@WEBOS_GCOVR_REPORT@}"
+
+function _output_uncovered_lines
+{
+	local line=
+	while read cur_line; do
+		# Sometimes gcovr splits lines, to preserve blocks, we don't need this
+		line="$line$cur_line"
+		if [[ "$cur_line" != *\ * ]] && [[ "$cur_line" != ----* ]]; then line="$line   "; continue; fi
+
+		if [[ "$cur_line" == *%* ]]; then
+			local filename=$(sed "s/^\([^ ]*\).*/\1/" <<< "$line")
+			IFS=',' declare -a 'current_lines=($(sed -n "s/.* [0-9]\+% \(.*\)/\1/p" <<< "$line"))'
+
+			for range in ${current_lines[@]}; do
+				echo -e "$SOURCE_DIR/$filename:${range%-*}:1"
+			done
+		fi
+
+		line=
+	done <<< "$1"
+}
+
+function _colorize_gcovr_output
+{
+	if [ ! -t 1 ]; then
+		echo "$1"
+		return
+	fi
+
+	local prev_gcovr_text=
+	if [ -e "$PREV_GCOVR_RESULT" ]; then
+		prev_gcovr_text=$(cat "$PREV_GCOVR_RESULT")
+	else
+		echo "No previous coverage result ($PREV_GCOVR_RESULT). Running standalone test."
+	fi
+
+	echo > "$CURRENT_GCOVR_RESULT"
+	local line=
+	while read cur_line; do
+		# Sometimes gcovr splits lines, to preserve blocks, we don't need this
+		line="$line$cur_line"
+		if [[ "$cur_line" != *\ * ]] && [[ "$cur_line" != ----* ]]; then line="$line   "; continue; fi
+
+		# Write new coverage log
+		echo -e "$line" >> "$CURRENT_GCOVR_RESULT"
+
+		# Skip decoration
+		if [[ "$cur_line" == *%* ]]; then
+			local filename=$(sed "s/^\([^ ]*\).*/\1/" <<< "$line")
+
+			local previous_filename_result=$(grep "$filename " <<< "$prev_gcovr_text")
+
+			local persentage_color="37"
+			if [ -n "$previous_filename_result" ]; then
+				# Get current and previous data
+				local current_persentage=$(sed "s/.* \([0-9]\+\)%.*/\1/" <<< "$line")
+				local previous_persentage=$(sed "s/.* \([0-9]\+\)%.*/\1/" <<< "$previous_filename_result")
+
+				if [ "$current_persentage" -lt "$previous_persentage" ]; then
+					persentage_color="1;91"
+				else
+					if [ "$current_persentage" -gt "$previous_persentage" ]; then
+						persentage_color="1;92"
+					fi
+				fi
+			fi
+
+			line=$(sed -e "s/^[^ ]*/\\\\e[94m&\\\\e[0m/g"\
+			           -e "s/[0-9]\+%/\\\\e[${persentage_color}m&\\\\e[0m/g" <<< "$line")
+		else
+			# Colorize separators
+			line=$(sed "s/-\\{3,\}/\\\\e[33m&\\\\e[0m/g" <<< "$line")
+		fi
+
+		echo -e "$line"
+		line=
+	done <<< "$1"
+}
+
+gcov_files=$(find src -iname '*.gcda')
+if [ -z "$gcov_files" ]; then
+	ctest
+fi
+
+
+if [[ "${1}" == "-h" ]] || [[ "${1}" == "--help" ]]; then
+	echo "
+Usage: coverage [ -h, --help | -u, --uncovered | PREVIOUS_COVERAGE_RESULT ]
+Display project coverage information.
+
+  Options:
+    -h, --help        Show this help.
+    -u, --uncovered   Show uncovered lines in quickfix format.
+
+If PREVIOUS_COVERAGE_RESULT is set, compares current coverage data with
+previous one. Colorizes differences.
+
+Every run, writes raw coverage result to the 'coverage_result.txt'
+"
+	exit 0
+fi
+
+
+if [[ "${1}" == "-u" ]] || [[ "${1}" == "--uncovered" ]]; then
+	_output_uncovered_lines "$(gcovr -r "$SOURCE_DIR" -e '.*/test/.*' 2>/dev/null)"
+else
+	_colorize_gcovr_output "$(gcovr -r "$SOURCE_DIR" -e '.*/test/.*' 2>/dev/null)"
+fi

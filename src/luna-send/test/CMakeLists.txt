@@ -1,0 +1,28 @@
+# Copyright (c) 2015-2018 LG Electronics, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+add_definitions(-DLUNA_SEND="${CMAKE_CURRENT_BINARY_DIR}/../luna-send")
+
+set(INTEGRATION_TEST_SOURCES
+    "luna-send-q.cpp"
+    )
+
+set(TEST_LIBRARIES
+    luna-service2++
+    ${WEBOS_GTEST_LIBRARIES}
+    )
+
+add_integration_test_cases("integration.luna-send" "${INTEGRATION_TEST_SOURCES}" "${TEST_LIBRARIES}")

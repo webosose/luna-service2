@@ -1,0 +1,5 @@
+{
+  "*": ["luna.internal.public"],
+  "com.webos.monitor*": ["luna.internal"],
+  "com.webos.lunasend-*": ["all"]
+}

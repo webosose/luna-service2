@@ -1,0 +1,11 @@
+{
+    "exeName":"@WEBOS_INSTALL_SBINDIR@/ls-monitor",
+    "type": "regular",
+    "allowedNames": ["com.webos.monitor*"],
+    "permissions": [
+        {
+            "service":"com.webos.monitor*",
+            "outbound":["*"]
+        }
+    ]
+}

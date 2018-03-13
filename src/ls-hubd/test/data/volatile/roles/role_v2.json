@@ -1,0 +1,13 @@
+{
+    "appId": "test",
+    "allowedNames": ["com.webos.app.customer", "com.webos.app.another_customer"],
+    "permissions": [
+    {
+        "service": "com.webos.app.customer",
+        "outbound": ["*"]
+    },
+    {
+        "service": "com.webos.app.another_customer",
+        "outbound": ["*"]
+    }]
+}

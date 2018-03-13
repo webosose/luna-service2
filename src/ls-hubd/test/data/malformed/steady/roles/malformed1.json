@@ -1,0 +1,11 @@
+{
+    "allowedNames": ["com.webos.malformed1"],
+    "type": "regular",
+    "permissions": [
+        {
+            "service": "com.webos.malformed1",
+            "outbound": ["*"],
+            "inbound": ["*"]
+        }
+    ]
+}

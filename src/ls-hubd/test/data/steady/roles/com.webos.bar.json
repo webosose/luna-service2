@@ -1,0 +1,12 @@
+{
+    "exeName": "/bin/bar",
+    "allowedNames": ["com.webos.bar*"],
+    "type": "privileged",
+    "permissions": [
+        {
+            "service": "com.webos.bar*",
+            "outbound": ["*"],
+            "inbound": ["*"]
+        }
+    ]
+}

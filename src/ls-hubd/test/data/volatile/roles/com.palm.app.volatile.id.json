@@ -1,0 +1,12 @@
+{
+    "appId": "com.palm.app.volatile.id",
+    "allowedNames": ["com.palm.app.volatile.id-*"],
+    "type": "regular",
+    "permissions": [
+        {
+            "service": "com.palm.app.volatile.id-*",
+            "outbound": ["*"],
+            "inbound": ["*"]
+        }
+    ]
+}

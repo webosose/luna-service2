@@ -1,0 +1,617 @@
+#!/bin/sh
+# Copyright (c) 2015-2018 LG Electronics, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+usage()
+{
+	cat <<-EOT
+	Usage: $(basename "$0") <CONFIG_FILE>
+	EOT
+
+	column -t -s\& <<-EOT
+	<CONFIG_FILE>   &    Test environment configuration
+	EOT
+}
+
+die()
+{
+	echo "$*" >&2
+	exit 1
+}
+
+cleanup()
+{
+	# Kill helper services
+	[[ -n "$service_pid_to_kill" ]] && kill $service_pid_to_kill
+	# Kill spawn hubs
+	[[ -n "$hub_pids" ]] && kill $hub_pids
+	wait # until the hubs exit
+	rm -rf $conf_root || echo >&2 "Failed to remove the temp directory"
+}
+
+SEP=$(echo -e '\033')
+xargs_list()
+{
+	local prog=$1; shift
+	local list=$1; shift
+	local ifs="$IFS"
+	IFS="$SEP"
+	set -f
+	set -- "$@" ${list#$SEP}
+	set +f
+	IFS="$ifs"
+	"$prog" "$@"
+}
+
+join_args()
+{
+	local IFS=$1; shift
+	echo "$*"
+}
+
+dquote_args()
+{
+	{
+	local str
+	for str in "$@"; do
+		echo -n "$str" | sed -re 's/["\]/\\&/g;s/^/"/;s/$/",/'
+	done
+	} | sed -e 's/,$/\n/'
+}
+
+dquote_zstream()
+{
+	sed -ne '
+		s/["\]/\\&/g; s/^/"/; s/$/",/;
+		H;
+		${ g; s/\x0//g; s/,$//; p; }
+	'
+}
+
+api_v2_flush() { :; } # stub for actual flush
+api_v2()
+{
+	api_v2_reset()
+	{
+		# reset global variables
+		current_exeName= # executable for current scope
+		current_exePath= # path to executable for current scope
+		current_launch=static
+		current_need_role= # no - means that custom role is used
+
+		# services to process
+		current_services=
+		# old distinguished by bus
+		current_services_pub=
+		current_services_prv=
+		current_inbound=
+		current_outbound='"*"'
+		current_type=regular
+		current_is_app=false
+		current_api_versions=
+		permissions=
+		permissions_pub=
+		permissions_prv=
+	}
+	api_v2_reset
+
+	api_v2_flush()
+	{
+		[[ -n "$current_exeName" ]] || return 0 # nothing todo
+		v2_install_service_files
+		if [[ -z "$current_need_role" ]]; then
+			v2_install_role_file
+			v2_install_old_role_files
+		fi
+		api_v2_reset
+	}
+
+	#### API v2
+	executable() # start executable definition
+	{
+		api_v2_flush # setup prev entry if exists
+		local register_stmt='services_to_spawn="$services_to_spawn$SEP$current_exePath"'
+		while [[ $# -gt 0 ]]; do
+			case "$1" in
+			--endless)
+				shift
+				register_stmt='services_to_spawn_and_kill="$services_to_spawn_and_kill$SEP$current_exePath"'
+				;;
+			--dynamic)
+				shift
+				current_launch=dynamic
+				;;
+			--privileged)
+				shift
+				current_type=privileged
+				;;
+			--devmode)
+				shift
+				current_type=devmode
+				;;
+			--) break ;;
+			--*) die "Wrong option $1" ;;
+			*) break ;;
+			esac
+		done
+		[[ $# -eq 1 ]] || die "Expecting only one executable name, but got $*"
+		current_exeName=$1
+		current_exePath=$(get_full_exe_path "$1")
+		eval "$register_stmt"
+	}
+
+	application() # start application definition
+	{
+		api_v2_flush # setup prev entry if exists
+		while [[ $# -gt 0 ]]; do
+			case "$1" in
+			--privileged)
+				shift
+				current_type=privileged
+				;;
+			--devmode)
+				shift
+				current_type=devmode
+				;;
+			--) break ;;
+			--*) die "Wrong option $1" ;;
+			*) break ;;
+			esac
+		done
+		current_exeName="$1"
+		current_exePath="$current_exeName"
+		current_is_app=true
+	}
+
+	# Declare executable as container
+	container()
+	{
+		local containers_dst=${conf_root}${webos_sysbus_containersdir}
+		mkdir -p "${containers_dst}"
+		local target="$containers_dst/${current_exeName}.json"
+		cat > "$target" <<-END
+		{ "exeNames":["${current_exePath}"] }
+		END
+	}
+
+	# Declare services (on buses) that executable from current scope can
+	# register
+	# Allows to specify API version after a colon
+	# Note: all service will have permissions according to last inbound/oubound
+	#       declarations
+	services()
+	{
+		local launch=static
+		local buses srv
+		for srv in "$@"; do
+			case "$srv" in
+			--pub) buses="pub"; continue ;;
+			--prv) buses="prv"; continue ;;
+			--both) buses="pub prv"; continue ;;
+			--none) buses=""; continue ;;
+			esac
+
+			# Extract version data, if set
+			local version
+			case $srv in
+				*:*)
+					version=${srv#*:}
+					srv=${srv%:*}
+					;;
+			esac
+
+			if [[ -n "$buses" ]]; then
+				local bus
+				for bus in $buses; do
+					CODE="$(cat <<-CODE
+					current_services_${bus}="\$current_services_${bus}\$SEP\$srv"
+					local p_sep=", "
+					[[ -n "\$permissions_${bus}" ]] || p_sep=
+					permissions_${bus}="\$permissions_${bus}\${p_sep}\$(v2_build_permission_old "\$srv")"
+					CODE
+					)"
+					eval "$CODE"
+				done
+			else
+				current_services="$current_services$SEP$srv"
+
+				local p_sep=", "
+				[[ -n "$permissions" ]] || p_sep=
+				permissions="$permissions${p_sep}$(v2_build_permission "$srv")"
+			fi
+
+			if [[ $version ]]; then
+				local v_sep=", "
+				[[ -n "$current_api_versions" ]] || v_sep=
+				current_api_versions="$current_api_versions${v_sep}\"$srv\":\"$version\""
+			fi
+		done
+	}
+
+	exeName() { echo "$current_exePath"; }
+	allowedNames()
+	{
+		local target_services
+		case "$#/$1" in
+		0/*)
+			target_services=$current_services
+			;;
+		1/pub)
+			target_services=$current_services_pub
+			;;
+		1/prv)
+			target_services=$current_services_prv
+			;;
+		*) die "Invalid arguments $*" ;;
+		esac
+		xargs_list dquote_args "$target_services"
+	}
+
+	custom_role()
+	{
+		local buses
+		local filter=yes
+		local filename="${current_exeName}.json"
+		while [[ $# -gt 0 ]]; do
+			case "$1" in
+			--pub) buses="pub"; shift ;;
+			--prv) buses="prv"; shift ;;
+			--both) buses="pub prv"; shift ;;
+			--raw) filter=; shift ;;
+			esac
+		done
+		case "$#/$1" in
+		0/*) ;;
+		1/*) filename=$1 ;;
+		*) die "Invalid arguments $*" ;;
+		esac
+
+		local targets
+		if [[ -n "$buses" ]]; then
+			local bus
+			for bus in $buses; do
+				targets="$targets${SEP}$(eval "echo ${conf_root}\$webos_sysbus_${bus}rolesdir/${filename}")"
+			done
+		else
+			targets="$targets${SEP}${conf_root}${webos_sysbus_rolesdir}/${filename}"
+		fi
+
+		if [[ -z "$filter" ]]; then
+			xargs_list tee "$targets" > /dev/null
+		else
+			sed -e "s|^\(\s*\"exeName\"\s*:\s*\)\"[^\"]*\"|\\1\"${current_exePath}\"|" | xargs_list tee "$targets" > /dev/null
+		fi
+		current_need_role=no
+	}
+
+	devmode_certificate()
+	{
+		dst=${conf_root}${webos_sysbus_devdatadir}
+		mkdir -p $dst
+
+		local filename="devmode_certificate.json"
+
+		[[ -f "$dst/$filename" ]] && die "Duplicate devmode certificate $filename" || true
+		cat > "$dst/$filename"
+	}
+
+	group_definitions()
+	{
+		dst=${conf_root}${webos_sysbus_apipermissionsdir}
+		mkdir -p $dst
+
+		local filename="groups.json"
+		case "$#/$1" in
+		0/*) ;;
+		1/*) filename=$1 ;;
+		*) die "Invalid arguments $*" ;;
+		esac
+
+		[[ -f "$dst/$filename" ]] && die "Duplicate group definitions $filename" || true
+		cat > "$dst/$filename"
+	}
+
+	permissions_file()
+	{
+		dst=${conf_root}${webos_sysbus_permissionsdir}
+		mkdir -p $dst
+
+		local filename="permissions.json"
+		case "$#/$1" in
+		0/*) ;;
+		1/*) filename=$1 ;;
+		*) die "Invalid arguments $*" ;;
+		esac
+
+		[[ -f "$dst/$filename" ]] && die "Duplicate permissions file $filename" || true
+		cat > "$dst/$filename"
+	}
+
+	# Change inbound/permissions used for next services() declarations
+	# Note: being reset to default "*" on next executable() section start
+	inbound() { current_inbound=$(dquote_args "$@"); }
+	outbound() { current_outbound=$(dquote_args "$@"); }
+
+	#### Internals
+	v2_build_permission_old()
+	{
+		[[ -n "$current_inbound" ]] || current_inbound='"*"'
+		cat <<-END
+		{
+		    "service": "$1",
+		    "inbound": [${current_inbound}],
+		    "outbound": [${current_outbound}]
+		}
+		END
+	}
+
+	v2_build_permission()
+	{
+		cat <<-END
+		{
+		    "service": "$1",
+		END
+		if [[ -n "$current_inbound" ]]; then
+			cat <<-END
+			    "inbound": [${current_inbound}],
+			END
+		fi
+		cat <<-END
+		    "outbound": [${current_outbound}]
+		}
+		END
+	}
+
+	v2_install_service_files()
+	{
+		# Skip service files for applications
+		[[ "$current_is_app" == true ]] && return || true
+
+		local bus
+		local target_services
+
+		for bus in _pub _prv ''; do
+			eval 'target_services="$(xargs_list join_args "$current_services'${bus}'" ";")"'
+			[[ -n "$target_services" ]] || continue
+			[[ -n "$bus" ]] || bus=_pub
+
+			eval 'services_dir="$webos_sysbus'${bus}'servicesdir"'
+			local target="${conf_root}${services_dir}/${current_exeName}.service"
+			cat > "$target" <<-END
+			[D-BUS Service]
+			Name=$target_services
+			Exec=$(exeName)
+			Type=$current_launch
+			END
+		done
+	}
+
+	v2_install_old_role_file()
+	{
+		local bus=$1
+		[[ $# -eq 1 ]] || return 0
+		{
+			cat <<-END
+			{
+			    "role": {
+			        "exeName": "$(exeName)",
+			        "type": "${current_type}",
+			        "allowedNames": [$(allowedNames $bus)]
+			    },
+			    "permissions": [
+			        $(eval 'echo $permissions_'$bus)
+			    ]
+			}
+			END
+		} | custom_role --$bus --raw
+	}
+
+	v2_install_old_role_files()
+	{
+		[[ -z "$current_services_pub" ]] || v2_install_old_role_file pub
+		[[ -z "$current_services_prv" ]] || v2_install_old_role_file prv
+	}
+
+	v2_install_role_file()
+	{
+		[[ -z "$current_services" ]] && return 0
+
+		local name_elem=$([[ "$current_is_app" == true ]] && echo "appId" || echo "exeName")
+
+		{
+			cat <<-END
+			{
+			    "${name_elem}": "$(exeName)",
+			    "type": "${current_type}",
+			    "allowedNames": [$(allowedNames)],
+			    "permissions": [
+			        $permissions
+			    ],
+			    "versions": {
+			        $current_api_versions
+			    }
+			}
+			END
+		} | custom_role --raw
+	}
+}
+
+install_files()
+{
+	# Prepare directories to avoid ENOENT
+	for dir in \
+		webos_sysbus_rolesdir       \
+		webos_sysbus_pubrolesdir    \
+		webos_sysbus_prvrolesdir    \
+		webos_sysbus_servicesdir    \
+		webos_sysbus_pubservicesdir \
+		webos_sysbus_prvservicesdir
+	do
+		eval 'mkdir -p "${conf_root}${'$dir'}"'
+	done
+	mkdir -p "${conf_root}${webos_sysbus_containersdir}"
+	mkdir -p "${conf_root}${webos_sysbus_permissionsdir}"
+	mkdir -p "${conf_root}${webos_sysbus_apipermissionsdir}"
+	mkdir -p "${conf_root}${webos_sysbus_manifestsdir}"
+
+	get_full_exe_path()
+	{
+		# Be accurate about file name, because it's used for the security
+		# authentication. So double slashes may mess it up.
+		exeName="$test_path_prefix/$1"
+		readlink -f $exeName || die "Failed to reach exe $exeName"
+	}
+
+	# Place no-op to custom command
+	run_custom_command()
+	{
+		true
+	}
+
+	# Read configuration
+	source $config_file || die "Failed to source config file"
+
+	api_v2_flush # flush installation of last entry in config
+
+	install_manifest
+}
+
+install_manifest()
+{
+	cat > ${conf_root}${webos_sysbus_manifestsdir}/generic.manifest.json <<-END
+	{
+	    "id": "generic",
+	    "version": "0.0.0",
+	    "roleFiles": [$(find ${conf_root}${webos_sysbus_rolesdir} -type f -name '*.json' | dquote_zstream)],
+	    "roleFilesPub": [$(find ${conf_root}${webos_sysbus_pubrolesdir} -type f -name '*.json' | dquote_zstream)],
+	    "roleFilesPrv": [$(find ${conf_root}${webos_sysbus_prvrolesdir} -type f -name '*.json' | dquote_zstream)],
+	    "serviceFiles": [$(find ${conf_root}${webos_sysbus_servicesdir} ${conf_root}${webos_sysbus_pubservicesdir} ${conf_root}${webos_sysbus_prvservicesdir} -type f  -name '*.service' | dquote_zstream)],
+	    "apiPermissionFiles": [$(find ${conf_root}/${webos_sysbus_apipermissionsdir} -type f -name '*.json' | dquote_zstream)],
+	    "clientPermissionFiles": [$(find ${conf_root}/${webos_sysbus_permissionsdir} -type f -name '*.json' | dquote_zstream)]
+	}
+	END
+}
+
+spawn_hubd()
+{
+	mkdir -p $hub_dir
+
+	conf=$conf_root/etc/luna-service2/ls-hubd.conf
+
+	mkdir -p $(dirname $conf)
+
+	sed \
+		-e "/^PidDirectory=/s|=.*$|=${conf_root}/run|" \
+		-e "/^ContainersDirectories=/s|=.*$|=${conf_root}${webos_sysbus_containersdir}|" \
+		-e "/^ManifestsDirectories=/s|=.*$|=${conf_root}${webos_sysbus_manifestsdir}|" \
+		-e "/^ManifestsVolatileDirectories=/s|=.*$|=|" \
+		-e "/^DevmodeCertificate=/s|=.*$|=${conf_root}${webos_sysbus_devdatadir}/devmode_certificate.json|" \
+		-e "s|ExecPrefix=.*|ExecPrefix=|g" \
+		$hub_conf > $conf \
+		|| die "Failed to prepare ls-hubd.conf"
+
+	# Switch on or off security depending on the configuration file.
+	# This chunk implies the config file has been sourced.
+	security_enabled=false
+	[[ "$security" == "enabled" ]] && security_enabled=true || true
+	sed -i -e "s|^Enabled=.*$|Enabled=$security_enabled|g" $conf
+
+	# override dynamic service launch timeout to speed up tests
+	sed -i -e "s|^LaunchTimeout=.*$|LaunchTimeout=300|g" $conf
+
+	# Launch the hub
+	LS_CONF_ROOT=$conf_root \
+		$hub_exe -c $conf &
+	[[ $? -eq 0 ]] || die "Failed to launch ls-hubd"
+	hub_pids="$hub_pids $!"
+
+	set +x
+	while [[ ! -S $hub_dir/com.palm.hub ]]; do
+		sleep 0.1 2>/dev/null || usleep 100000
+	done
+	set -x
+}
+
+main ()
+{
+	webos_sysbus_rolesdir='@WEBOS_INSTALL_SYSBUS_ROLESDIR@'
+	webos_sysbus_pubrolesdir='@WEBOS_INSTALL_SYSBUS_PUBROLESDIR@'
+	webos_sysbus_prvrolesdir='@WEBOS_INSTALL_SYSBUS_PRVROLESDIR@'
+
+	webos_sysbus_servicesdir='@WEBOS_INSTALL_SYSBUS_SERVICESDIR@'
+	webos_sysbus_pubservicesdir='@WEBOS_INSTALL_SYSBUS_PUBSERVICESDIR@'
+	webos_sysbus_prvservicesdir='@WEBOS_INSTALL_SYSBUS_PRVSERVICESDIR@'
+
+	webos_sysbus_containersdir='@WEBOS_INSTALL_SYSBUS_CONTAINERSDIR@'
+	webos_sysbus_permissionsdir='@WEBOS_INSTALL_SYSBUS_PERMISSIONSDIR@'
+	webos_sysbus_apipermissionsdir='@WEBOS_INSTALL_SYSBUS_APIPERMISSIONSDIR@'
+
+	webos_sysbus_manifestsdir='@WEBOS_INSTALL_SYSBUS_MANIFESTSDIR@'
+	webos_sysbus_devdatadir='@WEBOS_INSTALL_SYSBUS_DEVDATADIR@'
+
+	for v in `set | awk 'BEGIN {FS = "="}; /^webos_sysbus_/ {print $1}'`
+	do
+		eval $v'=${'$v'#@WEBOS_INSTALL_ROOT@}'
+	done
+
+	# Allocate a temporary directory for the hub configuration.
+	conf_root=$(mktemp -d /tmp/ls-hubd-conf.XXXXXXXX) || die "Failed to allocate temp directory"
+	# Custom directory for hubs' sockets
+	hub_dir=$conf_root/tmp
+
+	trap cleanup EXIT
+
+	install_files
+
+	export LS_HUB_CONF_ROOT=$conf_root
+	export LS_HUB_LOCAL_SOCKET_DIRECTORY=$hub_dir
+
+	# drop artifacts from prev. runs (not always we have clean shutdown)
+	[[ -S $hub_dir/com.palm.hub ]] && rm $hub_dir/com.palm.hub || true
+
+	run_custom_command
+
+	spawn_hubd
+
+	local ifs="$IFS"
+	IFS="$SEP"
+
+	set -f
+	set -- ${services_to_spawn_and_kill#$SEP}
+	set +f
+	for service in "$@"; do
+		echo "Launching $service"
+		LS_CONF_ROOT=$conf_root \
+			$service &
+		[[ $? -eq 0 ]] || die "Failed to start $service"
+		service_pid_to_kill="$service_pid_to_kill $!"
+	done
+
+	set -f
+	set -- ${services_to_spawn#$SEP}
+	set +f
+	for service in "$@"; do
+		echo "Launching $service"
+		LS_CONF_ROOT=$conf_root \
+			$service &
+		[[ $? -eq 0 ]] || die "Failed to start $service"
+		service_pid="$service_pid $!"
+	done
+
+	IFS="$ifs"
+
+	wait $service_pid || die "Failure detected"
+}

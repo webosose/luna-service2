@@ -1,0 +1,14 @@
+{
+	"role": {
+		"exeName": "/bin/server",
+		"type": "regular",
+		"allowedNames": ["com.webos.server"]
+	},
+	"permissions": [
+		{
+			"service": "com.webos.server",
+			"inbound": ["com.webos.client"],
+			"outbound": ["com.webos.client"]
+		}
+	]
+}

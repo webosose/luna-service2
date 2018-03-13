@@ -1,0 +1,12 @@
+{
+    "exeName": "/bin/foo",
+    "allowedNames": ["com.webos.foo"],
+    "type": "regular",
+    "permissions": [
+        {
+            "service": "com.webos.foo",
+            "outbound": ["*"],
+            "inbound": ["*"]
+        }
+    ]
+}

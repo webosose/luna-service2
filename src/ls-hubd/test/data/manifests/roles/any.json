@@ -1,0 +1,12 @@
+{
+    "appId": "com.webos.app.any",
+    "type": "regular",
+    "allowedNames": ["com.webos.app.any"],
+    "permissions":[
+        {
+            "service": "com.webos.app.any",
+            "inbound": ["com.webos.in"],
+            "outbound": ["com.webos.out"]
+        }
+    ]
+}

@@ -1,0 +1,15 @@
+{
+    "type": "object",
+    "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": "string" },
+        "serviceFiles": { "type": "array", "items": { "type": "string", "minLength": 1 }},
+        "roleFiles": { "type": "array", "items": { "type": "string", "minLength": 1 }},
+        "roleFilesPub": { "type": "array", "items": { "type": "string", "minLength": 1 }},
+        "roleFilesPrv": { "type": "array", "items": { "type": "string", "minLength": 1 }},
+        "apiPermissionFiles": { "type": "array", "items": { "type": "string", "minLength": 1 }},
+        "clientPermissionFiles": { "type": "array", "items": { "type": "string", "minLength": 1 }}
+    },
+    "required": [ "id",  "version" ],
+    "additionalProperties": false
+}
