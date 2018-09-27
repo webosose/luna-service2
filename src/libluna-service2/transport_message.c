@@ -1653,7 +1653,7 @@ ServiceNameCompactCopy(const char *service_name, char buffer[], size_t buffer_si
         }
     }
     /* keep at least last two nodes as is include delimiter */
-    strcpy(compact_node, tmp_node);
+    strncpy(compact_node, tmp_node, strlen(tmp_node));
 
     return buffer;
 }
@@ -1695,6 +1695,9 @@ LSTransportMessagePrintCompactHeaderCommon(const char *caller_service_name,
     int nfill = 0;
     char caller_compact[strlen(caller_service_name) + 1];
     char callee_compact[strlen(callee_service_name) + 1];
+
+    memset(caller_compact, '\0', sizeof(caller_compact));
+    memset(callee_compact, '\0', sizeof(callee_compact));
 
     ServiceNameCompactCopy(caller_service_name, caller_compact, sizeof(caller_compact));
     ServiceNameCompactCopy(callee_service_name, callee_compact, sizeof(callee_compact));
