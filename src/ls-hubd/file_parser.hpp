@@ -24,6 +24,7 @@
 #include "role.hpp"
 #include "manifest.hpp"
 #include "permission.hpp"
+#include "groups.hpp"
 
 struct _Service;
 
@@ -77,5 +78,8 @@ bool ParseRequiresFile(const std::string &path, CategoryMap &requires, LSError *
 
 bool ParseProvidesString(const std::string &data, CategoryMap &provides, LSError *lserror);
 bool ParseProvidesFile(const std::string &path, CategoryMap &provides, LSError *lserror);
+
+bool ParseGroupsString(const std::string &data, TrustMap &trust_level, LSError *error);
+bool ParseGroupsFile(const std::string &path, TrustMap &trust_level, LSError *error);
 
 #endif //_FILE_PARSER_HPP_

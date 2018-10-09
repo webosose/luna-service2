@@ -25,5 +25,5 @@ extern pbnjson::JSchema manifest_schema;
 extern pbnjson::JSchema api_permissions_schema;
 extern pbnjson::JSchema client_permissions_schema;
 extern pbnjson::JSchema container_schema;
-
+extern pbnjson::JSchema groups_schema;
 #endif //_FILE_SCHEMA_HPP_

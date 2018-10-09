@@ -119,6 +119,7 @@ HubService::HubService()
 
 std::string HubService::IsCallAllowed(_LSTransportMessage *message, const char *payload)
 {
+	LOG_LS_DEBUG("Hub_Service: %s\n", __func__);
     (void)message;
 
     auto object = pbnjson::JDomParser::fromString(payload, is_call_allowed_schema);
@@ -146,6 +147,7 @@ std::string HubService::IsCallAllowed(_LSTransportMessage *message, const char *
 
 std::string HubService::AddOneManifest(_LSTransportMessage *message, const char *payload)
 {
+	LOG_LS_DEBUG("Hub_Service: %s\n", __func__);
     (void)message;
 
     auto object = pbnjson::JDomParser::fromString(payload, one_manifest_schema);
@@ -185,6 +187,7 @@ std::string HubService::AddOneManifest(_LSTransportMessage *message, const char 
 
 std::string HubService::RemoveOneManifest(_LSTransportMessage *message, const char *payload)
 {
+	LOG_LS_DEBUG("Hub_Service: %s\n", __func__);
     (void)message;
 
     auto object = pbnjson::JDomParser::fromString(payload, one_manifest_schema);
@@ -217,6 +220,7 @@ std::string HubService::RemoveOneManifest(_LSTransportMessage *message, const ch
 
 std::string HubService::AddManifestsDir(_LSTransportMessage *message, const char *payload)
 {
+	LOG_LS_DEBUG("Hub_Service: %s\n", __func__);
     auto object = pbnjson::JDomParser::fromString(payload, manifests_dir_schema);
     if (!object)
     {
@@ -270,6 +274,7 @@ std::string HubService::AddManifestsDir(_LSTransportMessage *message, const char
 
 std::string HubService::RemoveManifestsDir(_LSTransportMessage *message, const char *payload)
 {
+	LOG_LS_DEBUG("Hub_Service: %s\n", __func__);
     auto object = pbnjson::JDomParser::fromString(payload, manifests_dir_schema);
     if (!object)
     {
@@ -309,6 +314,7 @@ std::string HubService::RemoveManifestsDir(_LSTransportMessage *message, const c
 
 std::string HubService::GetServiceApiVersions(_LSTransportMessage *message, const char *payload)
 {
+	LOG_LS_DEBUG("Hub_Service: %s\n", __func__);
     (void)message;
 
     auto object = pbnjson::JDomParser::fromString(payload, get_service_api_versions_schema);
@@ -384,6 +390,7 @@ std::string HubService::GetServiceApiVersions(_LSTransportMessage *message, cons
 
 void HubService::HandleMethodCall(_LSTransportMessage *message)
 {
+	LOG_LS_DEBUG("Hub_Service: %s\n", __func__);
     _LSTransportMessageIter iter;
     _LSTransportMessageIterInit(message, &iter);
 
@@ -421,6 +428,7 @@ namespace {
 
 std::string RespondServicePermissions(const CategoryMap &provided, const Groups &required)
 {
+	LOG_LS_DEBUG("Hub_Service: %s\n", __func__);
     static_assert(std::is_scalar<Groups::value_type>::value,
                   "We'll iterate scalar Groups items by value in this function");
 
@@ -453,6 +461,7 @@ std::string RespondServicePermissions(const CategoryMap &provided, const Groups 
 
 std::string HubService::QueryServicePermissions(_LSTransportMessage *message, const char *payload)
 {
+	LOG_LS_DEBUG("Hub_Service: %s\n", __func__);
     (void)message;
 
     // Parse message payload

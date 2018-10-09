@@ -17,5 +17,5 @@
             }
         }
     },
-    "required": ["allowedNames", "permissions"]
+    "required": ["allowedNames"]
 }

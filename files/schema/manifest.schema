@@ -8,7 +8,8 @@
         "roleFilesPub": { "type": "array", "items": { "type": "string", "minLength": 1 }},
         "roleFilesPrv": { "type": "array", "items": { "type": "string", "minLength": 1 }},
         "apiPermissionFiles": { "type": "array", "items": { "type": "string", "minLength": 1 }},
-        "clientPermissionFiles": { "type": "array", "items": { "type": "string", "minLength": 1 }}
+        "clientPermissionFiles": { "type": "array", "items": { "type": "string", "minLength": 1 }},
+        "groupsFiles": { "type": "array", "items": { "type": "string", "minLength": 1}}
     },
     "required": [ "id",  "version" ],
     "additionalProperties": false

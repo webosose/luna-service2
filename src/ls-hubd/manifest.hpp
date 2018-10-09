@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2018 LG Electronics, Inc.
+// Copyright (c) 2015-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 #include "service.hpp"
 #include "permission.hpp"
 #include "semantic_version.hpp"
+#include "groups.hpp"
 
 struct Manifest
 {
@@ -115,6 +116,8 @@ public:
     Services services;
     CategoryMap requires;
     CategoryMap provides;
+    TrustMap access;
+
 };
 
 class ExternalManifestData : public ManifestData

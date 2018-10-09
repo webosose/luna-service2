@@ -64,6 +64,11 @@ install (
     DESTINATION "${WEBOS_INSTALL_SYSBUS_SERVICESDIR}"
 )
 
+install (
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/${SERVICE_NAME}.groups.json"
+    DESTINATION "${WEBOS_INSTALL_SYSBUS_GROUPSDIR}"
+)
+
 add_executable(${SERVICE_NAME} ${SOURCE_FILES})
 target_link_libraries(${SERVICE_NAME}
                       ${GLIB2_LDFLAGS}

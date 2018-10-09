@@ -50,6 +50,7 @@ public:
 
     std::string DumpRequiredCsv() const;
     std::string DumpProvidedCsv() const;
+	std::string DumpTrustLevelCsv() const;
 
 private:
     struct Data
@@ -58,6 +59,7 @@ private:
         Groups required_terminal;
         CategoryMap provided_pattern;
         CategoryMap provided_terminal;
+		TrustMap trust_level;
 
         Data() = default;
         Data(const Data &) = delete;

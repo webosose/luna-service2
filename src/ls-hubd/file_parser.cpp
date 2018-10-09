@@ -47,6 +47,7 @@ using namespace std::placeholders;
 #define OUTBOUND_KEY        "outbound"
 #define APP_ID_KEY          "appId"
 #define VERSION_KEY         "versions"
+#define ACCESS_KEY          "trustLevel"
 
 /** Allowed service file group names */
 const char* service_group_names[] = {
@@ -637,6 +638,39 @@ bool ParseProvidesFile(const std::string &path, CategoryMap &provides, LSError *
 
     JParseKeyedStrArrays parser(std::bind(&ParseHandler, std::ref(provides), _1, _2), error);
     return parser.parseFile(path.c_str(), api_permissions_schema);
+}
+
+static void ParseGroupsHandler(TrustMap &map, const std::string &key, pbnjson::JInput value)
+{
+
+    /*bool is_trust_level = json[ACCESS_KEY].isString();
+
+    if (!is_trust_level)
+    {
+        _LSErrorSet(error, MSGID_LSHUB_GROUP_FILE_ERR, -1, "No trust level present in group file (%s)",
+                    path.c_str());
+    }
+
+    std::string trustLevel = json[ACCESS_KEY].asString();*/
+
+    const char *fixed = g_intern_string(std::string(value.m_str, value.m_len).c_str());
+    LOG_LS_DEBUG("Nilay: Trust Level: %s\n", fixed);
+    map[key].push_back(fixed);
+    //map[trustLevel].push_back(fixed);
+}
+
+bool ParseGroupsString(const std::string &data, TrustMap &trust_level, LSError *error)
+{
+    JParseKeyedStrArrays parser(std::bind(&ParseGroupsHandler, std::ref(trust_level), _1, _2), error);
+    return parser.parse(data, groups_schema);
+}
+
+bool ParseGroupsFile(const std::string &path, TrustMap &trust_level, LSError *error)
+{
+    LOG_LS_DEBUG("%s: parsing JSON from file: \"%s\"", __func__, path.c_str());
+
+    JParseKeyedStrArrays parser(std::bind(&ParseGroupsHandler, std::ref(trust_level), _1, _2), error);
+    return parser.parseFile(path.c_str(), groups_schema);
 }
 
 /** @endcond INTERNAL */

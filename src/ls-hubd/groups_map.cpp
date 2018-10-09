@@ -25,6 +25,25 @@
 /// @addtogroup LunaServiceHubSecurity
 /// @{
 
+static std::string
+GroupsToString(const Groups& s)
+{
+    std::stringstream ss;
+	
+    ss << "[";
+    if (!s.empty())
+    {
+        auto it = s.begin();
+        ss << "\"" << *it << "\"";
+
+        for (++it; it != s.end(); ++it)
+            ss << ", \"" << *it << "\"";
+    }
+    ss << "]";
+
+    return  ss.str();
+}
+
 static inline bool is_pattern(const char *str)
 {
     return str[strlen(str) - 1] == '*';
@@ -96,6 +115,7 @@ void GroupsMap::RemoveProvided(const char *service_name, const char *category_na
 /// @param[in] group_name    ACG name
 void GroupsMap::AddRequired(const char *service_name, const char *group_name)
 {
+    LOG_LS_DEBUG("Nilay: %s\n", __func__);
     LS_ASSERT(service_name != nullptr);
     LS_ASSERT(group_name != nullptr);
 
@@ -111,6 +131,7 @@ void GroupsMap::AddRequired(const char *service_name, const char *group_name)
 /// @param[in] group_name    ACG name
 void GroupsMap::RemoveRequired(const char *service_name, const char *group_name)
 {
+    LOG_LS_DEBUG("Nilay: %s\n", __func__);
     LS_ASSERT(service_name != nullptr);
     LS_ASSERT(group_name != nullptr);
 
@@ -131,6 +152,7 @@ void GroupsMap::RemoveRequired(const char *service_name, const char *group_name)
 /// @return Set of required groups
 Groups GroupsMap::GetRequired(const char *service_name) const
 {
+    LOG_LS_DEBUG("Nilay: %s\n", __func__);
     Groups groups;
 
     auto action = [&groups](const Data &data)
@@ -141,7 +163,7 @@ Groups GroupsMap::GetRequired(const char *service_name) const
     auto leaf = _groups->Search(service_name, action);
     if (leaf)
         groups.insert(leaf->required_terminal);
-
+	
     return groups;
 }
 

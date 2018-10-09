@@ -167,6 +167,19 @@ bool ManifestData::ProcessManifest(const pbnjson::JValue &manifest, const std::s
         }
     }
 
+    for (const auto &f : manifest["groupsFiles"].items())
+    {		
+        TrustMap trust_level;
+        if (!ParseGroupsFile(BuildFilename(prefix, f.asString()), trust_level, error))
+        {
+            return false;
+        }
+
+        for (const auto &child : trust_level)
+        {
+            data.access[child.first].insert(child.second);
+        }
+    }
     return true;
 }
 
@@ -186,7 +199,7 @@ void ExternalManifestData::Save()
 
     auto manifest = pbnjson::JDomParser::fromString(data, manifest_schema);
     const char *keys[] = { "roleFiles", "roleFilesPub", "roleFilesPrv", "serviceFiles",
-                           "clientPermissionFiles", "apiPermissionFiles" };
+                           "clientPermissionFiles", "apiPermissionFiles", "groupsFiles" };
     for (const auto &key : keys)
     {
         for (const auto &f :  manifest[key].items())
@@ -302,6 +315,21 @@ void ExternalManifestData::LoadFromMemory()
             }
         }
     }
+
+    for (const auto &f : manifest["groupsFiles"].items())
+    {
+        auto fn = BuildFilename(prefix, f.asString());
+        std::string data = external_manifests_data[fn];
+
+        TrustMap trust_level;
+        if (ParseGroupsString(data, trust_level, nullptr))
+        {
+            for (const auto &child : trust_level)
+            {
+                access[child.first].insert(child.second);
+            }
+        }
+    }
 }
 
 void ExternalManifestData::Remove()
@@ -334,6 +362,11 @@ void ExternalManifestData::Remove()
     }
 
     for (const auto &f : manifest["apiPermissionFiles"].items())
+    {
+        external_manifests_data.erase(BuildFilename(prefix, f.asString()));
+    }
+	
+	for (const auto &f : manifest["groupsFiles"].items())
     {
         external_manifests_data.erase(BuildFilename(prefix, f.asString()));
     }

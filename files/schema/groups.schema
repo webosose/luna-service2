@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "^[-._a-zA-Z0-9]*[*]?$": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "trustLevel": {
+          "type": "array",
+            "items": {
+                "type": "string",
+                "pattern": "^(?:[-_.a-zA-Z0-9]*[*]?)(?:\/[-_.a-zA-Z0-9\/]*[*]?)?$"
+            }
+        }
+      },
+      "required": [
+        "description",
+        "trustLevel"
+      ]
+    }
+  }
+}

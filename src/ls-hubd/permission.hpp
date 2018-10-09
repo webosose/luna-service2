@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -74,8 +74,42 @@ public:
     }
 };
 
+class TrustLevel : public std::vector<const char *>
+{
+    typedef std::vector<const char *> Base;
+
+public:
+    TrustLevel() = default;
+    TrustLevel(std::initializer_list<const char*> l)
+        : Base(l)
+    {}
+
+    void insert(const TrustLevel &other)
+    {
+        Base::insert(begin(), other.begin(), other.end());
+    }
+
+    void erase(const char *trust_level)
+    {
+        Base::erase(std::find(begin(), end(), trust_level));
+    }
+
+    bool operator== (const TrustLevel& other) const
+    {
+        if (this == &other) return true;
+        if (size() != other.size()) return false;
+
+        std::vector<value_type> lhs(*this), rhs(other);
+        std::sort(lhs.begin(), lhs.end());
+        std::sort(rhs.begin(), rhs.end());
+
+        return std::equal(lhs.begin(), lhs.end(), rhs.begin());
+    }
+};
+
 /// Map of category pattern to set of provided groups
 typedef std::unordered_map<std::string, Groups> CategoryMap;
+typedef std::unordered_map<std::string, TrustLevel> TrustMap;
 
 /// Permission data (section #/permissions/* from role files)
 struct LSHubPermission {
@@ -88,6 +122,7 @@ struct LSHubPermission {
     CategoryMap provides;         //< Map of category patterns to their provided ACG
     uint32_t perm_flags;          //< Flag of permission origin (new vs legacy, private vs public)
     pbnjson::JValue version;      //< Service API version
+    TrustMap trustLevel;
 };
 
 typedef std::unique_ptr<LSHubPermission, bool(*)(LSHubPermission*)> PermissionPtr;
@@ -156,6 +191,12 @@ LSHubPermissionGetProvided(const LSHubPermission *perm)
     return perm->provides;
 }
 
+static inline const TrustMap&
+LSHubPermissionGetTrust(const LSHubPermission *perm)
+{
+    return perm->trustLevel;
+}
+
 static inline const pbnjson::JValue &
 LSHubPermissionGetAPIVersion(LSHubPermission *perm)
 {
@@ -175,6 +216,12 @@ LSHubPermissionSetProvided(LSHubPermission *perm, const CategoryMap& provides)
 }
 
 static inline void
+LSHubPermissionSetTrust(LSHubPermission *perm, const TrustMap& trust_level)
+{
+    perm->trustLevel = trust_level;
+}
+
+static inline void
 LSHubPermissionSetAPIVersion(LSHubPermission *perm, const pbnjson::JValue &version)
 {
     perm->version = version;
@@ -185,6 +232,9 @@ LSHubPermissionAddRequired(LSHubPermission *perm, const char *group_name);
 
 bool
 LSHubPermissionAddProvided(LSHubPermission *perm, const char *category_name, const char *group_name);
+
+bool
+LSHubPermissionAddTrust(LSHubPermission *perm, const char *group_name, const char *trust_level);
 
 bool
 LSHubPermissionIsEqual(const LSHubPermission *a, const LSHubPermission *b);

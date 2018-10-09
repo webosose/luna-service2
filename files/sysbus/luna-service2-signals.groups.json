@@ -1,0 +1,14 @@
+{
+  "signals.all": {
+        "description": "Public luna service2 signals",
+        "public": true
+  },
+  "signals.all.subscribe": {
+        "description": "Public luna service2 signals",
+        "public": true
+  },
+  "signals.register": {
+        "description": "Public luna service2 signals",
+        "public": true
+  }
+}

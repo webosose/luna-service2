@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 #include "patternqueue.hpp"
 #include "permissions_map.hpp"
 #include "active_permission_map.hpp"
+
 
 /// @cond INTERNAL
 /// @addtogroup LunaServiceHubSecurity
@@ -60,6 +61,8 @@ LSHubPermissionRequiresToString(const LSHubPermission* perm)
 std::string
 LSHubPermissionProvidesToString(const LSHubPermission* perm)
 {
+    LOG_LS_DEBUG("%s\n", __func__);
+
     const CategoryMap& cm = perm->provides;
 
     std::stringstream ss;
@@ -199,6 +202,7 @@ std::string LSHubPermissionDump(const LSHubPermission *perm)
     dump = dump + ", \"outbound\": " + _LSHubPatternQueueDump(perm->outbound);
     dump = dump + ", \"requires\": " + LSHubPermissionRequiresToString(perm);
     dump = dump + ", \"provides\": " + LSHubPermissionProvidesToString(perm);
+    //dump = dump + ", \"access\": " + perm->
     dump = dump + "}";
 
     return dump;
@@ -253,10 +257,31 @@ LSHubPermissionAddRequired(LSHubPermission *perm, const char *group_name)
 bool
 LSHubPermissionAddProvided(LSHubPermission *perm, const char *category_name, const char *group_name)
 {
+    LOG_LS_DEBUG("Nilay: %s\n", __func__);
     LS_ASSERT(perm != nullptr);
+
+    //const char* trust_level;
 
     LOG_LS_DEBUG("%s: add provided group: \"%s\" to category \"%s\"", __func__, group_name, category_name);
     perm->provides[category_name].push_back(g_intern_string(group_name));
+    //perm->trustLevel[group_name].push_back(g_intern_string(trust_level));
+    return true;
+}
+
+/// @brief Add a group to the set of provided groups of a given category
+///
+/// @param[in,out] perm           permissions to inflate
+/// @param[in]     category_name  category pattern to extend
+/// @param[in]     group_name     another provided group
+/// @return false if the group is already known
+bool
+LSHubPermissionAddTrust(LSHubPermission *perm, const char *group_name, const char *trust_level)
+{
+    LS_ASSERT(perm != nullptr);
+
+    LOG_LS_DEBUG("%s: add trust level: \"%s\" to provided group \"%s\"", __func__, trust_level, group_name);
+    perm->trustLevel[group_name].push_back(g_intern_string(trust_level));
+    LOG_LS_DEBUG("Nilay: Trust Level: %s\n", trust_level);
     return true;
 }
 
@@ -304,3 +329,19 @@ LSHubPermissionRemovePermissions(LSHubPermission *from, const LSHubPermission *w
 
 /// @} END OF GROUP LunaServiceHubSecurity
 /// @endcond
+
+
+// ***************************************************************************************************
+/* bool
+LSHubPermissionAddAccess(LSHubPermission *perm, bool access)
+{
+    LS_ASSERT(perm != nullptr);
+
+    std::string group_name = getGroupAccess();
+
+    LOG_LS_DEBUG("%s: add provided access: \"%s\" to category \"%d\"", __func__, group_name, access);
+    perm->groupAccess[group_name] = gboolean(access);
+
+    return true;
+} */
+// ***************************************************************************************************

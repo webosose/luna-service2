@@ -847,6 +847,8 @@ _LSHubSendRequestNameReply(_LSTransportClient *client, const char *unique_name, 
     LS_ASSERT(client);
 
     std::string jval_str = "[]";
+    std::string trustLevel = "[]";
+
     if (g_conf_security_enabled)
     {
         LSHubPermission *active_perm = LSHubActivePermissionMapLookup(unique_name);
@@ -856,14 +858,23 @@ _LSHubSendRequestNameReply(_LSTransportClient *client, const char *unique_name, 
             for (const auto &category : LSHubPermissionGetProvided(active_perm))
             {
                 pbnjson::JValue group_json = pbnjson::Array();
+                pbnjson::JValue trust_json = pbnjson::Array();
                 for (const auto &group : category.second)
                 {
                     group_json << pbnjson::JValue(group);
+                    for (const auto &groupMap : LSHubPermissionGetTrust(active_perm))
+                    {
+                        for (const auto &trust : groupMap.second)
+                        {
+                            trust_json << pbnjson::JValue(trust);
+                        }
+                    }
                 }
 
                 jval << (pbnjson::Object()
                          << pbnjson::JValue::KeyValue("category", category.first)
-                         << pbnjson::JValue::KeyValue("groups", group_json));
+                         << pbnjson::JValue::KeyValue("groups", group_json)
+                         << pbnjson::JValue::KeyValue("trustLevel", trust_json));
             }
             jval_str = pbnjson::JGenerator::serialize(jval, true);
         }
@@ -1203,9 +1214,9 @@ _LSHubSendQueryNameReplyMessage(_LSTransportClient *client, const _LSTransportCl
                             is_dynamic ? "dynamic" : "static", fd);
         }
 
-        LOG_LS_DEBUG("%s: err_code: %ld, service_name: \"%s\", unique_name: \"%s\", %s, fd %d\n",
+        LOG_LS_DEBUG("%s: err_code: %ld, service_name: \"%s\", unique_name: \"%s\", %s, fd %d, groups: \"%s\"\n",
                      __func__, err_code, service_name, unique_name,
-                     is_dynamic ? "dynamic" : "static", fd);
+                     is_dynamic ? "dynamic" : "static", fd, groups.c_str());
 
         // Set the connection fd on the message (-1 on error)
         _LSTransportMessageSetFd(reply_message, fd);

@@ -13,5 +13,8 @@
     "roleFiles": [
         "@WEBOS_INSTALL_SYSBUS_ROLESDIR@/@SERVICE_NAME@.role.json"
     ],
+	"groupsFiles": [
+		"@WEBOS_INSTALL_SYSBUS_GROUPSDIR@/@SERVICE_NAME@.groups.json"
+	],
     "id": "@SERVICE_NAME@"
 }
