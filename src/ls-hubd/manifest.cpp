@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2018 LG Electronics, Inc.
+// Copyright (c) 2015-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,41 @@
 
 std::unordered_map<std::string, std::string> external_manifests;
 std::unordered_map<std::string, std::string> external_manifests_data;
+
+/*void DumpTrustMap(const TrustMap &trust_level, std::string &dump)
+{
+    LOG_LS_DEBUG("NILESH >>>>>>>>>>>> %s : DUMPING COMPLETE TRUST MAP", __func__);
+    for(const auto& e : trust_level)
+    {
+        dump += "Group: " + e.first + " ";
+        for(auto &str : e.second)
+        {    dump += str; dump += " "; }
+    }
+    LOG_LS_DEBUG("NILESH >>>>>>>>>> %s : DUMPING COMPLETE TRUST MAP - END", __func__);
+}
+
+void DumpTrustMapToFile(std::string filename, ServiceToTrustMap &trust_level, std::string title)
+{
+    if (filename.empty()) return;
+    if (trust_level.size() == 0) return;
+
+    std::ofstream file;
+    std::string name = "/tmp/" + std::string(filename);
+    file.open(name);
+    if(file.is_open())
+    {
+        file << "TrustMap for => " << title << std::endl;
+        std::string trustmap;
+        for(const auto& e : trust_level)
+        {
+            file << "Service Name: " << e.first << std::endl;
+            std::string dump;
+            DumpTrustMap(e.second, dump);
+            file << dump << std::endl;
+        }
+        file.close();
+    }
+}*/
 
 Manifest::Manifest(const std::string &path, const std::string &prefix)
     : path(path)
@@ -77,19 +112,33 @@ bool ManifestData::ProcessManifest(const std::string &path, const std::string &p
     return ProcessManifest(manifest, prefix, data, error);
 }
 
-bool ManifestData::ProcessManifest(const pbnjson::JValue &manifest, const std::string &prefix, ManifestData &data, LSError *error)
+bool ManifestData::ProcessManifest(const pbnjson::JValue &manifest, const std::string &prefix, ManifestData &data,LSError *error)
 {
+    LOG_LS_DEBUG("NILESH>>>>: %s\n", __func__);
     for (const auto &f : manifest["roleFiles"].items())
     {
         Permissions perms;
         RolePtr role(nullptr, LSHubRoleUnref);
-        if (!ParseRoleFile(BuildFilename(prefix, f.asString()), prefix, role, perms, error))
+        ServiceToTrustMap trust_level_required;
+		std::string trustLevel;
+        if (!ParseRoleFile(BuildFilename(prefix, f.asString()), prefix, role, perms, trust_level_required, trustLevel,error))
         {
             return false;
         }
-
+        std::string file_name(BuildFilename(prefix, f.asString()));
+        //DumpTrustMapToFile("ManifestData_ProcessManifest_trust_level_required_" + extract_filename(file_name), trust_level_required, extract_filename(file_name));
         data.roles.push_back(std::move(role));
+		data.trustLevel = trustLevel;
         std::move(perms.begin(), perms.end(), std::back_inserter(data.perms));
+
+        //TBD: Fill trust map for required trust
+        // Make sure that require map is filled properly while parsing role file
+         for (const auto &e : trust_level_required)
+        {
+            LOG_LS_DEBUG("NILESH >>>> %s : for service [%s]", __func__, e.first);
+                data.trust_level_required[e.first] = (e.second);
+        }
+        //DumpTrustMapToFile("ManifestData_ProcessManifest_data.trust_level_required_" + extract_filename(file_name), data.trust_level_required, extract_filename(file_name));
     }
 
     for (const auto &f : manifest["roleFilesPub"].items())
@@ -167,18 +216,24 @@ bool ManifestData::ProcessManifest(const pbnjson::JValue &manifest, const std::s
         }
     }
 
+    // Parse groups provided by services
     for (const auto &f : manifest["groupsFiles"].items())
-    {		
-        TrustMap trust_level;
-        if (!ParseGroupsFile(BuildFilename(prefix, f.asString()), trust_level, error))
+    {
+        LOG_LS_DEBUG("NILESH>>>> Parsing %s \n", f.asString().c_str());
+        ServiceToTrustMap trust_level_provided;
+        if (!ParseGroupsFile(BuildFilename(prefix, f.asString()), trust_level_provided, error))
         {
             return false;
         }
-
-        for (const auto &child : trust_level)
+        std::string file_name(BuildFilename(prefix, f.asString()));
+        //DumpTrustMapToFile( "ManifestData_ProcessManifest_trust_level_provided_" + extract_filename(file_name), trust_level_provided, extract_filename(file_name));
+        for (const auto &e : trust_level_provided)
         {
-            data.access[child.first].insert(child.second);
+            LOG_LS_DEBUG("NILESH >>>> %s : for service [%s]", __func__, e.first);
+            data.trust_level_provided[e.first] = (e.second);
         }
+        //DumpTrustMapToFile( "ManifestData_ProcessManifest_data.trust_level_provided_" + extract_filename(file_name), data.trust_level_provided, extract_filename(file_name));
+        LOG_LS_DEBUG("NILESH>>>> Completed Parsing %s \n", f.asString().c_str());
     }
     return true;
 }
@@ -226,13 +281,23 @@ void ExternalManifestData::LoadFromMemory()
     {
         auto fn = BuildFilename(prefix, f.asString());
         std::string data = external_manifests_data[fn];
-
+        //TBD: Modify to read required permission and permissionLevel
         Permissions perms;
         RolePtr role(nullptr, LSHubRoleUnref);
-        if (ParseRoleString(data, prefix, role, perms, nullptr))
+        ServiceToTrustMap required_trust_level;
+		std::string trustLevel;
+        if (ParseRoleString(data, prefix, role, perms, required_trust_level, trustLevel, nullptr))
         {
             roles.push_back(std::move(role));
             std::move(perms.begin(), perms.end(), std::back_inserter(this->perms));
+        }
+
+        //TBD: Fill trust map for required trust
+        // Make sure that require map is filled properly while parsing role file
+         for (const auto &e : required_trust_level)
+        {
+            LOG_LS_DEBUG("NILESH >>>> %s : for [%s]", __func__, e.first);
+            trust_level_required[e.first] = (e.second);
         }
     }
 
@@ -321,12 +386,12 @@ void ExternalManifestData::LoadFromMemory()
         auto fn = BuildFilename(prefix, f.asString());
         std::string data = external_manifests_data[fn];
 
-        TrustMap trust_level;
-        if (ParseGroupsString(data, trust_level, nullptr))
+        ServiceToTrustMap provided_trust_level;
+        if (ParseGroupsString(data, provided_trust_level, nullptr))
         {
-            for (const auto &child : trust_level)
+            for (const auto &e : provided_trust_level)
             {
-                access[child.first].insert(child.second);
+                trust_level_provided[e.first] = (e.second);
             }
         }
     }

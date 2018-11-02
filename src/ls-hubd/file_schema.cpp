@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2018 LG Electronics, Inc.
+// Copyright (c) 2015-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ namespace {
         auto schema = pbnjson::JSchema::fromFile(path.c_str());
         if (!schema)
         {
-            LOG_LS_DEBUG("Failed to load schema %s from file %s. No validation will be done", id, path.c_str());
+            LOG_LS_DEBUG("NILESH: Failed to load schema %s from file %s. No validation will be done", id, path.c_str());
             return pbnjson::JSchema::AllSchema();
         }
         else

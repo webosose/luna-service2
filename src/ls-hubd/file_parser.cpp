@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2018 LG Electronics, Inc.
+// Copyright (c) 2015-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 #include "file_parser.hpp"
 
 #include <functional>
+#include <fstream>
+#include <iostream>
 
 #include <glib.h>
 #include <pbnjson.hpp>
@@ -47,7 +49,8 @@ using namespace std::placeholders;
 #define OUTBOUND_KEY        "outbound"
 #define APP_ID_KEY          "appId"
 #define VERSION_KEY         "versions"
-#define ACCESS_KEY          "trustLevel"
+#define TRUST_LEVEL_KEY          "trustLevel" // Currently is decided as permissionLevel
+#define REQUIRED_PERMISSIONS_KEY "requiredPermissions"
 
 /** Allowed service file group names */
 const char* service_group_names[] = {
@@ -159,6 +162,58 @@ ParseJSONGetRole(const pbnjson::JValue &json, const std::string &path, const std
     return std::move(role);
 }
 
+bool 
+ParseJSONGetRequiredTrust(const pbnjson::JValue &json, const std::string &path,
+                                                         const std::string &prefix, ServiceToTrustMap &trust_level, std::string &trustLevel, LSError *error)
+{
+    LOG_LS_DEBUG("NILESH >>>> START %s: ",__func__);
+    //TBD:
+    // 1. parse trust level of permission level
+    // 2. parse required permission
+    // 3. modify trust level map to include these both
+    // 4. After above 3 are done, check wht to do with outbound * things
+    bool is_exe_role = json[EXE_NAME_KEY].isString(); // Not really needed, but still keeping for now
+    bool is_app_role = json[APP_ID_KEY].isString(); // Read application id
+    if (!is_exe_role && !is_app_role)
+    {
+        _LSErrorSet(error, MSGID_LSHUB_ROLE_FILE_ERR, -1, "No application path/id present in role file (%s)",
+                    path.c_str());
+        return false;
+    }
+    else if (is_exe_role && is_app_role)
+    {
+        _LSErrorSet(error, MSGID_LSHUB_ROLE_FILE_ERR, -1,
+                     "Role file is ambiguous - both application path and id specified (%s)", path.c_str());
+        return false;
+    }
+
+    if (is_app_role || is_exe_role) // We do this only for applications as of now. We can enable it for services later.
+    {
+        // Read permission/trust level
+        bool is_trust_level = json[TRUST_LEVEL_KEY].isString();
+        if(!is_trust_level)
+        {
+            _LSErrorSet(error, MSGID_LSHUB_ROLE_FILE_ERR, -1, "No trust level specified for application in role file (%s)",
+            path.c_str());
+            //Currently, we will simply return true.
+            // Once all applications have mentioned trust level, this should return false
+            //return false;
+            return true;
+        }
+        else
+        {
+            std::string json_str = json.asString();
+            std::string trust = json[TRUST_LEVEL_KEY].asString(); //Must be only one
+            trustLevel = trust;
+            ParseJSONGetRequiredPermissions(json, trust, trust_level, error);
+            //DumpTrustMapToFile("parser_ParseJSONGetRequiredTrust_requiredtrust_" + extract_filename(path), trust_level, extract_filename(path));
+        }
+    }
+
+    LOG_LS_DEBUG("NILESH >>>> END %s: ",__func__);
+    return true;
+}
+
 PermissionArray
 ParseJSONGetPermissions(const pbnjson::JValue &json, const std::string &id)
 {
@@ -224,7 +279,7 @@ bool ParseJSONGetAPIVersions(const pbnjson::JValue &json, const std::string &pat
 
 static inline
 bool ParseRole(const pbnjson::JValue &object, const std::string &path, const std::string &prefix,
-               RolePtr &role, PermissionArray &perms, LSError *lserror)
+               RolePtr &role, PermissionArray &perms, ServiceToTrustMap &trust_level, std::string &trustLevel, LSError *lserror)
 {
     role = std::move(ParseJSONGetRole(object, path, prefix, lserror));
     if (!role)
@@ -233,12 +288,13 @@ bool ParseRole(const pbnjson::JValue &object, const std::string &path, const std
     }
 
     perms = std::move(ParseJSONGetPermissions(object[PERMISSION_KEY], role->id));
+    ParseJSONGetRequiredTrust(object, path, prefix, trust_level, trustLevel, lserror);
     ParseJSONGetAPIVersions(object, path, perms, lserror);
     return true;
 }
 
 bool ParseRoleString(const std::string &data, const std::string &prefix, RolePtr &role, PermissionArray &perms,
-                     LSError *error)
+                     ServiceToTrustMap &trust_level, std::string &trustLevel, LSError *error)
 {
     auto json = pbnjson::JDomParser::fromString(data, role_schema);
     if (!json)
@@ -248,11 +304,11 @@ bool ParseRoleString(const std::string &data, const std::string &prefix, RolePtr
         return false;
     }
 
-    return ParseRole(json, std::string(), prefix, role, perms, error);
+    return ParseRole(json, std::string(), prefix, role, perms, trust_level, trustLevel, error);
 }
 
 bool ParseRoleFile(const std::string &path, const std::string &prefix, RolePtr &role, PermissionArray &perms,
-                   LSError *error)
+                   ServiceToTrustMap &trust_level, std::string &trustLevel, LSError *error)
 {
     LOG_LS_DEBUG("%s: parsing JSON from file: \"%s\"", __func__, path.c_str());
 
@@ -264,7 +320,7 @@ bool ParseRoleFile(const std::string &path, const std::string &prefix, RolePtr &
         return false;
     }
 
-    return ParseRole(json, path, prefix, role, perms, error);
+    return ParseRole(json, path, prefix, role, perms, trust_level, trustLevel,error);
 }
 
 RolePtr
@@ -541,7 +597,7 @@ namespace {
                 if (lserror)
                 {
                     g_prefix_error(err.pptr(),
-                                   "Failed to get contents of json file %s: ", filename);
+                                   "NILESH: Failed to get contents of json file %s: ", filename);
                     _LSErrorSetFromGError(lserror, MSGID_LSHUB_JSON_READ_ERR, err.release());
                 }
                 return false;
@@ -566,7 +622,7 @@ namespace {
                     (void) jerror_to_string(err, err_msg, sizeof(err_msg)); // render error
                     jerror_free(err); // no more need in jerror
 
-                    _LSErrorSet(lserror, MSGID_LSHUB_JSON_ERR, -1, "Failed to parse json: %s", err_msg);
+                    _LSErrorSet(lserror, MSGID_LSHUB_JSON_ERR, -1, "NILESH: Failed to parse json: %s", err_msg);
                 }
 
                 return status;
@@ -608,8 +664,11 @@ namespace {
 
 static void ParseHandler(CategoryMap &map, const std::string &key, pbnjson::JInput value)
 {
+    LOG_LS_DEBUG("NILESH >>>> %s: START parsing JSON from file: ");
     const char *fixed = g_intern_string(std::string(value.m_str, value.m_len).c_str());
     map[key].push_back(fixed);
+    LOG_LS_DEBUG("NILESH >>>> %s: [ key :%s ] , [value: %s]", __func__, key.c_str(),fixed);
+    LOG_LS_DEBUG("NILESH >>>> %s: FINISH parsing JSON from file:");
 }
 
 bool ParseRequiresString(const std::string &data, CategoryMap &requires, LSError *error)
@@ -634,6 +693,7 @@ bool ParseProvidesString(const std::string &data, CategoryMap &provides, LSError
 
 bool ParseProvidesFile(const std::string &path, CategoryMap &provides, LSError *error)
 {
+    LOG_LS_DEBUG("Nilesh: %s\n", __func__);
     LOG_LS_DEBUG("%s: parsing JSON from file: \"%s\"", __func__, path.c_str());
 
     JParseKeyedStrArrays parser(std::bind(&ParseHandler, std::ref(provides), _1, _2), error);
@@ -642,6 +702,7 @@ bool ParseProvidesFile(const std::string &path, CategoryMap &provides, LSError *
 
 static void ParseGroupsHandler(TrustMap &map, const std::string &key, pbnjson::JInput value)
 {
+    LOG_LS_DEBUG("NILESH >>>> %s: START parsing JSON from file: ");
 
     /*bool is_trust_level = json[ACCESS_KEY].isString();
 
@@ -654,23 +715,134 @@ static void ParseGroupsHandler(TrustMap &map, const std::string &key, pbnjson::J
     std::string trustLevel = json[ACCESS_KEY].asString();*/
 
     const char *fixed = g_intern_string(std::string(value.m_str, value.m_len).c_str());
-    LOG_LS_DEBUG("Nilay: Trust Level: %s\n", fixed);
+   LOG_LS_DEBUG("NILESH >>>> %s: [ key :%s ] , [value: %s]", __func__, key.c_str(),fixed);
     map[key].push_back(fixed);
+   LOG_LS_DEBUG("NILESH >>>> %s: FINISH parsing JSON from file:");
     //map[trustLevel].push_back(fixed);
 }
 
-bool ParseGroupsString(const std::string &data, TrustMap &trust_level, LSError *error)
+bool ParseGroupsString(const std::string &data, ServiceToTrustMap &trust_level, LSError *error)
 {
-    JParseKeyedStrArrays parser(std::bind(&ParseGroupsHandler, std::ref(trust_level), _1, _2), error);
-    return parser.parse(data, groups_schema);
+    LOG_LS_DEBUG("Nilesh: %s\n", __func__);
+    //JParseKeyedStrArrays parser(std::bind(&ParseGroupsHandler, std::ref(trust_level), _1, _2), error);
+    //return parser.parse(data, groups_schema);
+    pbnjson::JValue json(data);
+    ParseServicetoTrustMap(json, trust_level, error);
 }
 
-bool ParseGroupsFile(const std::string &path, TrustMap &trust_level, LSError *error)
+bool ParseGroupsFile(const std::string &path, ServiceToTrustMap &trust_level, LSError *error)
 {
-    LOG_LS_DEBUG("%s: parsing JSON from file: \"%s\"", __func__, path.c_str());
+    LOG_LS_DEBUG("NILESH >>> %s: parsing JSON from file: \"%s\"", __func__, path.c_str());
+    auto json = pbnjson::JDomParser::fromFile(path.c_str());
+    if (!json)
+    {
+        _LSErrorSet(error, MSGID_LSHUB_ROLE_FILE_ERR, -1, "%s: failed to parse JSON file %s with error %s",
+                    __func__, path.c_str(), json.errorString().c_str());
+        return false;
+    }
 
-    JParseKeyedStrArrays parser(std::bind(&ParseGroupsHandler, std::ref(trust_level), _1, _2), error);
-    return parser.parseFile(path.c_str(), groups_schema);
+    ParseServicetoTrustMap(json, trust_level, error);
+    //DumpTrustMapToFile("parser_ParseGroupsFile_providedtrust" + extract_filename(path), trust_level, extract_filename(path));
+    return true;
+}
+
+std::string extract_filename(const std::string& filepath)
+{
+    auto pos = filepath.rfind("/");
+    if(pos == std::string::npos)
+        pos = -1;
+    return std::string(filepath.begin() + pos + 1, filepath.end());
+}
+
+void ParseServicetoTrustMap(pbnjson::JValue &object, ServiceToTrustMap &trust_level, LSError *error)
+{
+    pbnjson::JValue service_names = object[ALLOWED_NAMES_KEY];
+    std::string s = service_names.stringify();
+    if (object.remove(ALLOWED_NAMES_KEY))
+    {
+        std::string o = object.stringify();
+        TrustMap trusts;
+        JParseKeyedStrArrays parser(std::bind(&ParseGroupsHandler, std::ref(trusts), _1, _2), error);
+        bool retVal = parser.parse(object.stringify(), groups_schema);
+
+        // Populate service t trust map
+        for (auto & service_name: service_names.items())
+        {
+            std::string service = service_name.asString();
+            trust_level[service] = (trusts);
+        }
+    }
+    else
+    {
+        LOG_LS_DEBUG("NILESH >>>>> %s : ERRRRRR Cannot remove ALLOWED_NAMES_KEY !!", __func__);
+    }
+}
+
+bool
+ParseJSONGetRequiredPermissions(const pbnjson::JValue &json, const std::string &trust,
+                                                         ServiceToTrustMap &trust_level, LSError *error)
+{
+    LOG_LS_DEBUG("NILESH >>>> %s: START", __func__);
+    pbnjson::JValue required_permisson = json[REQUIRED_PERMISSIONS_KEY];
+    pbnjson::JValue service_names = json[ALLOWED_NAMES_KEY];
+
+    // App has given trust level it thinks it belongs to :)
+    // It has given groups information it wants to work with
+    //So, we create a mapping of groups and trust level
+    std::string required = required_permisson.stringify();
+    std::string services = service_names.stringify();
+    pbnjson::JValue tmp_json = json;
+
+    TrustMap trusts;
+    const char *trust_str = g_intern_string(trust.c_str());
+    for (auto &group_name : required_permisson.items())
+    {
+        std::string group = group_name.asString();
+        trusts[group].push_back(trust_str);
+    }
+
+    // Populate service t trust map
+    for (auto & service_name: service_names.items())
+    {
+        std::string service = service_name.asString();
+        trust_level[service] = (trusts);
+    }
+
+    LOG_LS_DEBUG("NILESH >>>> %s: END", __func__);
+}
+
+void DumpTrustMapToFile(std::string filename, ServiceToTrustMap &trust_level, std::string title)
+{
+    if (filename.empty()) return;
+    if (trust_level.size() == 0) return;
+    std::ofstream file;
+    std::string name = "/tmp/" + std::string(filename);
+    file.open(name);
+    if(file.is_open())
+    {
+        file << "TrustMap for => " << title << std::endl;
+        std::string trustmap;
+        for(const auto& e : trust_level)
+        {
+            file << "Service Name: " << e.first << std::endl;
+            std::string dump;
+            DumpTrustMap(e.second, dump);
+            file << dump << std::endl;
+        }
+        file.close();
+    }
+}
+
+void DumpTrustMap(const TrustMap &trust_level, std::string &dump)
+{
+    LOG_LS_DEBUG("NILESH >>>>>>>>>>>> %s : DUMPING COMPLETE TRUST MAP", __func__);
+    for(const auto& e : trust_level)
+    {
+        dump += "Group: " + e.first + " ";
+        for(auto &str : e.second)
+        {    dump += std::string(str); dump += " "; }
+    }
+    LOG_LS_DEBUG("NILESH >>>>>>>>>> %s : DUMPING COMPLETE TRUST MAP - END", __func__);
 }
 
 /** @endcond INTERNAL */

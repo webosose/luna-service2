@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018 LG Electronics, Inc.
+// Copyright (c) 2014-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@
 
 #define PUBLIC_SECGROUP_NAME    "public"
 #define PRIVATE_SECGROUP_NAME   "private"
+#define DEFAULT_TRUST_LEVEL   "dev"
 
 #endif //SECURITY_COMPATIBILITY
 
@@ -48,9 +49,30 @@ public:
 
     Groups GetRequired(const char *service_name) const;
 
+    void AddProvidedTrustLevel(const char *service_name, const TrustMap &map);
+    void RemoveProvidedTrustLevel(const char *service_name,
+                                                     const char *group,
+                                                     const char *trust);
+
+    void AddRequiredTrustLevel(const char *service_name, const TrustMap &map);
+	void AddRequiredTrustLevelAsString(const char *service_name, const std::string &trustLevel);
+    void RemoveRequiredTrustLevel(const char *service_name,
+                                                     const char *group,
+                                                     const char *trust);
+
+    TrustMap GetProvidedTrust(const char *service_name) const;
+    TrustMap GetRequiredTrust(const char *service_name) const;
+    std::string GetRequiredTrustAsString(const char *service_name) const;
+
     std::string DumpRequiredCsv() const;
     std::string DumpProvidedCsv() const;
-	std::string DumpTrustLevelCsv() const;
+
+    std::string DumpRequiredTrustLevelCsv() const;
+    std::string DumpProvidedTrustLevelCsv() const;
+    std::string DumpRequiredTrustLevelCsv(const char* service, const  TrustMap &required) const;
+    std::string DumpProvidedTrustLevelCsv(const char* service, const  TrustMap &provided) const;
+    std::string DumpProvidedTrustLevelForServiceCsv(const char* service) const;
+    std::string DumpRequiredTrustLevelForServiceCsv(const char* service) const;
 
 private:
     struct Data
@@ -59,7 +81,9 @@ private:
         Groups required_terminal;
         CategoryMap provided_pattern;
         CategoryMap provided_terminal;
-		TrustMap trust_level;
+        TrustMap trust_level_provided;
+        TrustMap trust_level_required;
+		std::string trustLevel;
 
         Data() = default;
         Data(const Data &) = delete;

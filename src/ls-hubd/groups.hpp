@@ -1,4 +1,4 @@
-// Copyright (c) 2018 LG Electronics, Inc.
+// Copyright (c) 2018-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 
 #include "error.h"
 #include "conf.hpp"
+#include "permission.hpp"
 
 typedef GSList _LSHubTrustLevels;
 
@@ -32,8 +33,8 @@ struct LSHubGroups {
     int ref;                    // ref count
     char **groups_name;         // names of groups provided
     int num_groups;             // number of groups
-	bool access;                // public true or false
-
+    bool access;                // public true or false
+    TrustMap trustLevel;
     //_LSHubTrustLevels trustLevel;    // trust level
 };
 

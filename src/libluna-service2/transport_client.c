@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,32 @@
 #include "transport_utils.h"
 #include "log.h"
 //#include "transport_client.h"
+void DumpToFileTransportClient(const char* filename, const char* dump, _LSTransportClient *client)
+{
+    if (!filename) return;
+    char full_path[256] = {0};
+    strcpy(full_path, "/tmp/");
+    strcat(full_path, filename);
+    const char* file_name = _LSTransportClientGetServiceName(client);
+    if (file_name && strlen(file_name) > 0)
+    {
+        strcat(full_path, "_");
+        strcat(full_path, file_name);
+    }
 
+    FILE *fp;
+    // open file for writing 
+    fp = fopen (full_path, "w"); 
+    if (fp == NULL) 
+    { 
+        //fprintf(stderr, "\nError opend file\n"); 
+        return;
+    }
+    fprintf(fp, file_name);
+    fprintf(fp, "\n");
+    fprintf (fp, dump);
+    fclose(fp);
+}
 /**
  * @cond INTERNAL
  * @defgroup LunaServiceTransportClient Transport client
@@ -289,6 +314,22 @@ _LSTransportClientGetApplicationId(const _LSTransportClient *client)
 
 /**
  *******************************************************************************
+ * @brief Set a client's trust level.
+ *
+ * @param  client   IN  client
+ * @param  app_id IN trust level of client
+ *
+ *******************************************************************************
+ */
+void _LSTransportClientSetTrustString(_LSTransportClient *client, const char *trust)
+{
+    LS_ASSERT(client != NULL);
+    g_free(client->trust_level_string);
+    client->trust_level_string = g_strdup(trust);
+}
+
+/**
+ *******************************************************************************
  * @brief Set a client's application Id.
  *
  * @param  client   IN  client
@@ -319,6 +360,13 @@ _LSTransportClientGetServiceName(const _LSTransportClient *client)
     return client->service_name;
 }
 
+const char*
+ _LSTransportClientGetTrustString(const _LSTransportClient *client)
+{
+    LS_ASSERT(client != NULL);
+    return client->trust_level_string;
+}
+
 /**
  *******************************************************************************
  * @brief Get the channel associated with this client. Does not ref count the
@@ -335,6 +383,18 @@ _LSTransportClientGetChannel(_LSTransportClient *client)
     LS_ASSERT(client != NULL);
     return &client->channel;
 }
+
+const char*
+_LSTransportClientGetTrust(const _LSTransportClient *client)
+{
+    LS_ASSERT(client != NULL);
+
+	if(client->transport->trust_as_string)
+		//printf("[%s] trust: %s \n", __func__, client->transport->trust_as_string);
+
+	return client->transport->trust_as_string;
+}
+
 
 _LSTransport*
 _LSTransportClientGetTransport(const _LSTransportClient *client)
@@ -402,10 +462,13 @@ _LSTransportClientInitializeSecurityGroups(_LSTransportClient *client, const cha
 {
     LS_ASSERT(client);
     LS_ASSERT(groups_json);
-
+    //printf("NILESH >> %s : groups_json [%s]\n", __func__, groups_json);
     JSchemaInfo schemaInfo;
     jschema_info_init(&schemaInfo, jschema_all(), NULL, NULL);
 
+	//printf("[%s] client service name : %s, client trasport service name : %s group: %s \n",
+		//__func__,client->service_name, client->transport->service_name, groups_json);
+	
     jvalue_ref jgroups = jdom_parse(j_str_to_buffer(groups_json, strlen(groups_json)), DOMOPT_NOOPT, &schemaInfo);
     if (!jis_array(jgroups))
     {
@@ -428,8 +491,11 @@ _LSTransportClientInitializeSecurityGroups(_LSTransportClient *client, const cha
         const char *group = jstring_get_fast(jgroup).m_str;
 
         gpointer value = NULL;
-        if (g_hash_table_lookup_extended(group_code_map, group, NULL, &value))
+        if (g_hash_table_lookup_extended(group_code_map, group, NULL, &value)) {
             BitMaskSetBit(mask, GPOINTER_TO_INT(value));
+            		//printf("[client->transport->service_name: %s],[client->service_name: %s], Group: %s, valu: %d , mask: %d \n", 
+                //client->transport->service_name,client->service_name, group, value, *mask);
+        }
     }
 
     client->security_required_groups = mask;
@@ -438,6 +504,36 @@ _LSTransportClientInitializeSecurityGroups(_LSTransportClient *client, const cha
     return true;
 }
 
+/**
+ * @brief  Initialize mask for required trust by client
+ *
+ * @param  client       IN  Client transport
+ * @param  groups_json  IN  JSON string - array of strings, a string - security group. Example:
+ *                          ["camera", "torch"]
+ *
+ * @retval true on success
+ */
+bool _LSTransportClientInitializeTrustLevel(_LSTransportClient *client, const char *trust_level) {
+    LOG_LS_DEBUG("NILESH >>>>>>>>> %s : ", __func__);
+    // Now all the services will not have required groups mentioned
+    // hence we follow thru onlyf iff groups are mentioned
+    if (!trust_level && strlen(trust_level) == 0)
+        return true;
+
+    //DumpToFileTransportClient("transport_client_c_LSTransportClientInitializeTrustLevel", trust_level, client);
+
+	//printf("[%s] client service name : %s, client trasport service name : %s trsut_level: %s \n",
+	//	__func__, client->service_name, client->transport->service_name, trust_level);
+	
+    LS_ASSERT(client);
+    LS_ASSERT(trust_level);
+    //TBD: Here we have to get the trust level information
+    // Need to check how
+    //NEED TO COMPLETE THIS
+    
+    client->trust_level_string = g_strdup(trust_level);
+    return true;
+}
 /**
  * @} END OF LunaServiceTransportClient
  * @endcond

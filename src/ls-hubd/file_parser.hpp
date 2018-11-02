@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2018 LG Electronics, Inc.
+// Copyright (c) 2015-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,6 +52,9 @@ public:
 private:
     std::vector<std::string> _files;
 };
+void DumpTrustMap(const TrustMap &trust_level, std::string &dump);
+void DumpTrustMapToFile(std::string filename,ServiceToTrustMap &trust_level, std::string title);
+std::string extract_filename(const std::string& filepath);
 
 bool ProcessDirectory(const char *dir, void* ctx, LSError *lserror);
 
@@ -61,9 +64,10 @@ RolePtr ParseJSONGetRole(const pbnjson::JValue &json, const std::string &path, c
 bool ParseJSONGetAPIVersions(const pbnjson::JValue &json, const std::string &path, PermissionArray &perms, LSError *error);
 
 bool ParseRoleString(const std::string &data, const std::string &prefix, RolePtr &role,
-               PermissionArray &perms, LSError *lserror);
+               PermissionArray &perms, ServiceToTrustMap &trust_level, std::string &trustLevel, LSError *lserror);
+
 bool ParseRoleFile(const std::string &path, const std::string &prefix, RolePtr &role,
-                   PermissionArray &perms, LSError *lserror);
+                   PermissionArray &perms, ServiceToTrustMap &trust_level, std::string &trustLevel, LSError *lserror);
 
 bool ParseOldRoleString(const std::string &data, const std::string &prefix, uint32_t flags, RolePtr &role,
                         PermissionArray &perms, LSError *lserror);
@@ -79,7 +83,16 @@ bool ParseRequiresFile(const std::string &path, CategoryMap &requires, LSError *
 bool ParseProvidesString(const std::string &data, CategoryMap &provides, LSError *lserror);
 bool ParseProvidesFile(const std::string &path, CategoryMap &provides, LSError *lserror);
 
-bool ParseGroupsString(const std::string &data, TrustMap &trust_level, LSError *error);
-bool ParseGroupsFile(const std::string &path, TrustMap &trust_level, LSError *error);
+bool ParseGroupsString(const std::string &data, ServiceToTrustMap &trust_level, LSError *error);
+bool ParseGroupsFile(const std::string &path, ServiceToTrustMap &trust_level, LSError *error);
+
+bool 
+ParseJSONGetRequiredTrust(const pbnjson::JValue &json, const std::string &path,
+                       const std::string &prefix, ServiceToTrustMap &trust_level, LSError *error);
+bool
+ParseJSONGetRequiredPermissions(const pbnjson::JValue &json, const std::string &trust,
+                                                         ServiceToTrustMap &trust_level, LSError *error);
+
+void ParseServicetoTrustMap(pbnjson::JValue &object, ServiceToTrustMap &trust_level, LSError *error);
 
 #endif //_FILE_PARSER_HPP_

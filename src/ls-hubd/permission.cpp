@@ -52,10 +52,94 @@ _LSHubGroupsToString(const Groups& s)
     return  ss.str();
 }
 
+static std::string
+_LSHubTrustLevelsToString(const TrustLevel& s)
+{
+    std::stringstream ss;
+
+    ss << "[";
+    if (!s.empty())
+    {
+        auto it = s.begin();
+        ss << "\"" << *it << "\"";
+        for (++it; it != s.end(); ++it)
+        {
+            ss << ", \"" << *it << "\"";
+        }
+    }
+    ss << "]";
+
+    return  ss.str();
+}
+
+//std::string
+//LSHubPermissionTrustLevelsToString(const LSHubPermission* perm)
+//{
+//    return _LSHubTrustLevelsToString(perm->trustLevel);
+//}
+
 std::string
 LSHubPermissionRequiresToString(const LSHubPermission* perm)
 {
     return _LSHubGroupsToString(perm->requires);
+}
+
+std::string
+LSHubPermissionRequiredTrustLevelsToString(const LSHubPermission* perm)
+{
+    LOG_LS_DEBUG("%s\n", __func__);
+
+    const TrustMap& cm = perm->trust_level_required;
+
+    std::stringstream ss;
+
+    ss << "{";
+    if (!cm.empty())
+    {
+        for (auto it = cm.begin(); it != cm.end(); ++it)
+        {
+            const std::string &key = it->first;
+            const auto &value = it->second;
+
+            if (it != cm.begin())
+            {
+                ss  << ", ";
+            }
+            ss << "\"" << key << "\" : " << _LSHubTrustLevelsToString(value);
+        }
+    }
+    ss << "}";
+
+    return ss.str();
+}
+
+std::string
+LSHubPermissionProvidedTrustLevelsToString(const LSHubPermission* perm)
+{
+    LOG_LS_DEBUG("%s\n", __func__);
+
+    const TrustMap& cm = perm->trust_level_provided;
+
+    std::stringstream ss;
+
+    ss << "{";
+    if (!cm.empty())
+    {
+        for (auto it = cm.begin(); it != cm.end(); ++it)
+        {
+            const std::string &key = it->first;
+            const auto &value = it->second;
+
+            if (it != cm.begin())
+            {
+                ss  << ", ";
+            }
+            ss << "\"" << key << "\" : " << _LSHubTrustLevelsToString(value);
+        }
+    }
+    ss << "}";
+
+    return ss.str();
 }
 
 std::string
@@ -194,6 +278,7 @@ LSHubPermissionFree(LSHubPermission *perm)
 
 std::string LSHubPermissionDump(const LSHubPermission *perm)
 {
+    LOG_LS_DEBUG("NILESH >>>> START %s :", __func__);
     std::string dump;
     dump = dump + "{";
     dump = dump + "\"service\": " + "\"" + perm->service_name + "\"";
@@ -202,9 +287,11 @@ std::string LSHubPermissionDump(const LSHubPermission *perm)
     dump = dump + ", \"outbound\": " + _LSHubPatternQueueDump(perm->outbound);
     dump = dump + ", \"requires\": " + LSHubPermissionRequiresToString(perm);
     dump = dump + ", \"provides\": " + LSHubPermissionProvidesToString(perm);
+    dump = dump + ",\"providedtrustLevels\":" + LSHubPermissionProvidedTrustLevelsToString(perm);
+    dump = dump + ",\"requiredtrustLevels\":" + LSHubPermissionRequiredTrustLevelsToString(perm);
     //dump = dump + ", \"access\": " + perm->
     dump = dump + "}";
-
+    LOG_LS_DEBUG("NILESH >>>> end %s :", __func__);
     return dump;
 }
 
@@ -257,7 +344,7 @@ LSHubPermissionAddRequired(LSHubPermission *perm, const char *group_name)
 bool
 LSHubPermissionAddProvided(LSHubPermission *perm, const char *category_name, const char *group_name)
 {
-    LOG_LS_DEBUG("Nilay: %s\n", __func__);
+	LOG_LS_DEBUG("NILESH: %s\n", __func__);
     LS_ASSERT(perm != nullptr);
 
     //const char* trust_level;
@@ -268,20 +355,31 @@ LSHubPermissionAddProvided(LSHubPermission *perm, const char *category_name, con
     return true;
 }
 
-/// @brief Add a group to the set of provided groups of a given category
+/// @brief Add a trust level to the set of provided groups of a given category
 ///
 /// @param[in,out] perm           permissions to inflate
 /// @param[in]     category_name  category pattern to extend
 /// @param[in]     group_name     another provided group
 /// @return false if the group is already known
 bool
-LSHubPermissionAddTrust(LSHubPermission *perm, const char *group_name, const char *trust_level)
+LSHubPermissionAddProvidedTrust(LSHubPermission *perm, const char *group_name, const char *trust_level)
 {
     LS_ASSERT(perm != nullptr);
+	
+    LOG_LS_DEBUG("NILESH >>>> %s: add trust level: \"%s\" to provided group \"%s\"", __func__, trust_level, group_name);
+    perm->trust_level_provided[group_name].push_back(g_intern_string(trust_level));
+	LOG_LS_DEBUG("NILESH: Trust Level: %s\n", trust_level);
+    return true;
+}
 
-    LOG_LS_DEBUG("%s: add trust level: \"%s\" to provided group \"%s\"", __func__, trust_level, group_name);
-    perm->trustLevel[group_name].push_back(g_intern_string(trust_level));
-    LOG_LS_DEBUG("Nilay: Trust Level: %s\n", trust_level);
+bool
+LSHubPermissionAddRequiredTrust(LSHubPermission *perm, const char *group_name, const char *trust_level)
+{
+    LS_ASSERT(perm != nullptr);
+	
+    LOG_LS_DEBUG("NILESH >>>>%s: add trust level: \"%s\" to provided group \"%s\"", __func__, trust_level, group_name);
+    perm->trust_level_required[group_name].push_back(g_intern_string(trust_level));
+	LOG_LS_DEBUG("NILESH: Trust Level: %s\n", trust_level);
     return true;
 }
 

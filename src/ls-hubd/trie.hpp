@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2018 LG Electronics, Inc.
+// Copyright (c) 2016-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,6 +62,26 @@ struct Trie : T
 
     // Find the leaf node for the key or nullptr.
     const Trie<T>* Find(const char *key) const
+    {
+        auto node = this;
+
+        while (true)
+        {
+            char ch = *key;
+
+            if (_IsCharTerminal(ch))
+                return node;
+
+            node = node->Child(ch);
+            if (!node)
+                return nullptr;
+
+            ++key;
+        }
+    }
+
+    // Find the leaf node for the key or nullptr.
+    Trie<T>* Get(const char *key)
     {
         auto node = this;
 

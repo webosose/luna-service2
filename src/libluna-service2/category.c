@@ -436,7 +436,7 @@ LSRegisterCategoryAppend(LSHandle *sh, const char *category,
                              PMLOGKFV("FLAGS", "%d", m->flags),
                              "Request to register method with invalid flags");
             }
-
+            //printf("[%s] sh->name: %s, category: %s m->name : %s \n", __func__, sh->name, category, m->name);  
             LSMethodEntry *entry = g_hash_table_lookup(table->methods, m->name);
             if (entry == NULL)
             {
@@ -466,6 +466,7 @@ LSRegisterCategoryAppend(LSHandle *sh, const char *category,
                         BitMaskBitwiseOr(entry->security_provided_groups,
                                          category_bitmask->group_bitmask,
                                          LSTransportGetSecurityMaskSize(sh->transport));
+                        //printf("[%s] entry->security_provided_groups: %d \n", __func__, *entry->security_provided_groups);
                     }
                 }
 

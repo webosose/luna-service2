@@ -207,7 +207,9 @@ LSHubPushRole(const _LSTransportClient *client, const char *path, bool public_bu
     }
     else
     {
-        ParseRoleFile(path, std::string(), role,perms, lserror);
+        ServiceToTrustMap required;
+		std::string trustLevel;
+        ParseRoleFile(path, std::string(), role,perms, required, trustLevel, lserror);
     }
 
     if (!role)
@@ -746,6 +748,7 @@ bool
 LSHubIsCallAllowed(const char *service, const char *dest_service,
                    const char *category, const char *method)
 {
+    LOG_LS_DEBUG("NILESH: %s\n", __func__);
     LS_ASSERT(service);
     LS_ASSERT(category);
 
@@ -1187,11 +1190,53 @@ void SecurityData::LoadManifestData(ManifestData &&data)
     for (const auto &item : data.provides)
     {
         const std::string &name = item.first;
-        for (const auto &pattern : item.second)
+        for (const auto &pattern : item.second) 
         {
             groups.AddProvided(getServiceNameFromUri(pattern).c_str(), pattern, name.c_str());
         }
     }
+
+    //TBD: Do we have to add provided as well as required trustlevels ??
+    //Search group in provided and get service name
+    if (!data.trust_level_provided.empty()) { // This condition will not be needed once everyone has trust level
+      //DumpTrustMapToFile("security_cpp_LoadManifest_trust_level_provided", data.trust_level_provided, "Security_cpp_LoadManifest_trust_level_provided");
+      for (const auto &item : data.trust_level_provided)
+      {
+          const std::string service_name_provided = item.first;
+          LOG_LS_DEBUG("NILESH >>>> Found trustmap..service_name : %s", service_name_provided);
+          TrustMap trusts_map;
+          for (const auto &map : item.second)
+          {
+              for(const auto &e : map.second) {
+                  std::string g = map.first;
+                  trusts_map[g].push_back(e);
+              }
+          }
+          groups.AddProvidedTrustLevel(service_name_provided.c_str(), trusts_map);
+      }
+    }
+
+    if (!data.trust_level_required.empty()) { // This condition will not be needed once everyone has trust level
+      //DumpTrustMapToFile("security_cpp_LoadManifest_trust_level_required", data.trust_level_required, "Security_cpp_LoadManifest_trust_level_required");
+      std::string service_name_required;
+      for (const auto &item : data.trust_level_required)
+      {
+          service_name_required = item.first;
+          LOG_LS_DEBUG("NILESH >>>> Found trustmap..groupname : %s", service_name_required);
+          TrustMap trusts_map;
+          for (const auto &map : item.second)
+          {
+              for(const auto &e : map.second) {
+                  std::string g = map.first;
+                  trusts_map[g].push_back(e);
+              }
+          }
+          groups.AddRequiredTrustLevel(service_name_required.c_str(), trusts_map);
+
+      }
+	  groups.AddRequiredTrustLevelAsString(service_name_required.c_str(), data.trustLevel);
+    }
+    //TBD: Check here if we need to add trust inormation
 }
 
 void SecurityData::UnloadManifestData(ManifestData &&data)
@@ -1224,6 +1269,30 @@ void SecurityData::UnloadManifestData(ManifestData &&data)
         for (const auto &pattern : item.second)
         {
             groups.RemoveProvided(getServiceNameFromUri(pattern).c_str(), pattern, name.c_str());
+        }
+    }
+
+    // Remove provided trust levels
+    for (const auto &item : data.trust_level_provided)
+    {
+        const std::string service_name = item.first;
+        for (const auto &map : item.second)
+        {
+            const std::string group = map.first;
+            for (const auto &trust : map.second)
+                groups.RemoveProvidedTrustLevel((service_name).c_str(), group.c_str(), trust);
+        }
+    }
+
+    // Remove required trust levels
+    for (const auto &item : data.trust_level_required)
+    {
+        const std::string service_name = item.first;
+        for (const auto &map : item.second)
+        {
+            const std::string group = map.first;
+            for (const auto &trust : map.second)
+                groups.RemoveRequiredTrustLevel((service_name).c_str(), group.c_str(), trust);
         }
     }
 }

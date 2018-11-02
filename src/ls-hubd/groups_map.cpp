@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018 LG Electronics, Inc.
+// Copyright (c) 2014-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ static std::string
 GroupsToString(const Groups& s)
 {
     std::stringstream ss;
-	
+
     ss << "[";
     if (!s.empty())
     {
@@ -55,11 +55,143 @@ bool GroupsMap::Data::IsEmpty() const
            required_terminal.empty() &&
            provided_pattern.empty() &&
            provided_terminal.empty();
+           // Enable below when everyone follows trust level + group
+           // trust_level_provided.empty() &&
+           // trust_level_required.empty() &&
+           // provided_terminal.empty();
 }
 
 GroupsMap::GroupsMap()
     : _groups(Trie<Data>::PtrT(new Trie<Data>))
 {
+}
+
+void GroupsMap::AddProvidedTrustLevel(const char *service_name, const TrustMap &map) {
+
+// TBD: Get service name as paramete
+// from that get categories and groups
+//    LS_ASSERT(trust != nullptr);
+    LS_ASSERT(service_name != nullptr);
+    LOG_LS_DEBUG("NILESH >>>> %s ", __func__);
+    auto *node = _groups->Get(service_name);
+    if (!node)
+    {
+        LOG_LS_DEBUG("NILESH >>>> ERRR %s : service_name [ %s ] not found in trie tree",__func__, service_name);
+    }
+    else
+    {
+        LOG_LS_DEBUG("NILESH >>>> %s : FOUND : service_name [ %s ]",__func__, service_name);
+        for (auto &item : map)
+        {
+          const std::string group = item.first;
+          for (auto &trust : item.second)
+          {
+            node->trust_level_provided[group].push_back(g_intern_string(trust));
+          }
+        }
+        std::string provided = DumpProvidedTrustLevelForServiceCsv(service_name);
+        //LOG_LS_DEBUG("NILESH >>>> %s : FOUND : service_name [ %s ], provided map [%s]",__func__, service_name, provided.c_str());
+    }
+}
+
+void GroupsMap::RemoveProvidedTrustLevel(const char *service_name,
+                                                     const char *group,
+                                                     const char *trust)
+{
+    // TBD: Remove provided trust level
+    // If we keep these functions seperate, then we have to make sure that these are called
+    // before removing required and provided groups, because
+    LS_ASSERT(service_name != nullptr);
+    LS_ASSERT(group != nullptr);
+    LS_ASSERT(trust != nullptr);
+    auto *node = _groups->Get(service_name);
+    if (!node)
+    {
+        LOG_LS_DEBUG("NILESH >>>> ERRR %s : service_name [ %s ] not found in trie tree",__func__, service_name);
+    }
+    else
+    {
+        LOG_LS_DEBUG("NILESH >>>> %s : FOUND : service_name [ %s ]",__func__, service_name);
+        auto action = [service_name, group, trust](const char *key, Data &data)
+        {
+            auto &container = data.trust_level_provided;
+            container[group].erase(trust);
+            if (container[group].empty())
+                container.erase(group);
+        };
+        _groups->Remove(service_name, action);
+    }
+}
+
+void GroupsMap::AddRequiredTrustLevel(const char *service_name, const TrustMap &map)
+{
+// TBD: Get service name as paramete
+// from that get categories and groups
+//    LS_ASSERT(trust != nullptr);
+    LS_ASSERT(service_name != nullptr);
+    LOG_LS_DEBUG("NILESH >>>> %s ", __func__);
+    //TBD: Add [trust : groups] map entry provided by app/services
+    auto *node = _groups->Get(service_name);
+    if (!node) {
+        LOG_LS_DEBUG("NILESH >>>> ERRR %s : service_name [ %s ] not found in trie tree",__func__, service_name);
+    } else {
+        LOG_LS_DEBUG("NILESH >>>> %s : FOUND : service_name [ %s ]",__func__, service_name);
+        for (auto &item : map)
+        {
+            const std::string group = item.first;
+            for (auto &trust : item.second)
+            {
+                node->trust_level_required[group].push_back(g_intern_string(trust));
+            }
+        }
+        std::string required = DumpRequiredTrustLevelForServiceCsv(service_name);
+        //LOG_LS_DEBUG("NILESH >>>> %s : FOUND : service_name [ %s ], required map [%s]",__func__, service_name, required.c_str());
+    }
+}
+
+void GroupsMap::AddRequiredTrustLevelAsString(const char *service_name, const std::string &trustLevel)
+{
+// TBD: Get service name as paramete
+// from that get categories and groups
+//    LS_ASSERT(trust != nullptr);
+    LS_ASSERT(service_name != nullptr);
+    LOG_LS_DEBUG("NILESH >>>> %s ", __func__);
+    //TBD: Add [trust : groups] map entry provided by app/services
+    auto *node = _groups->Get(service_name);
+    if (!node) {
+        LOG_LS_DEBUG("NILESH >>>> ERRR %s : service_name [ %s ] not found in trie tree",__func__, service_name);
+    } else {
+        LOG_LS_DEBUG("NILESH >>>> %s : FOUND : service_name [ %s ]",__func__, service_name);
+        node->trustLevel = trustLevel;        
+        LOG_LS_DEBUG("NILESH >>>> %s : FOUND : service_name [ %s ], required trustLevel [%s]",__func__, service_name, trustLevel.c_str());
+    }
+}
+
+
+void GroupsMap::RemoveRequiredTrustLevel(const char *service_name,
+                                                     const char *group,
+                                                     const char *trust)
+{
+    LS_ASSERT(service_name != nullptr);
+    LS_ASSERT(group != nullptr);
+    LS_ASSERT(trust != nullptr);
+    auto *node = _groups->Get(service_name);
+    if (!node)
+    {
+        LOG_LS_DEBUG("NILESH >>>> ERRR %s : service_name [ %s ] not found in trie tree",__func__, service_name);
+    }
+    else
+    {
+        LOG_LS_DEBUG("NILESH >>>> %s : FOUND : service_name [ %s ]",__func__, service_name);
+        auto action = [service_name, group, trust](const char *key, Data &data)
+        {
+            auto &container = data.trust_level_required;
+            container[group].erase(trust);
+            if (container[group].empty())
+                container.erase(group);
+        };
+        _groups->Remove(service_name, action);
+    }
 }
 
 /// @brief Add provided ACG to the security data
@@ -78,7 +210,6 @@ void GroupsMap::AddProvided(const char *service_name, const char *category_name,
     // Leave only category pattern for method matching
     const char *category_only = strchr(category_name, '/');
     const char *category_pattern = category_only ? category_only : "/";
-
     auto& container = is_pattern(service_name) ? node->provided_pattern : node->provided_terminal;
     container[category_pattern].push_back(g_intern_string(group_name));
 }
@@ -104,6 +235,7 @@ void GroupsMap::RemoveProvided(const char *service_name, const char *category_na
         auto &container = !(*key) ? data.provided_terminal : data.provided_pattern;
         container[category_pattern].erase(group);
         if (container[category_pattern].empty()) container.erase(category_pattern);
+        //TBD: Here Do we have to remove required trust levels, or keep removal seperate? Food fot thought 
     };
 
     _groups->Remove(service_name, action);
@@ -115,7 +247,7 @@ void GroupsMap::RemoveProvided(const char *service_name, const char *category_na
 /// @param[in] group_name    ACG name
 void GroupsMap::AddRequired(const char *service_name, const char *group_name)
 {
-    LOG_LS_DEBUG("Nilay: %s\n", __func__);
+//    LOG_LS_DEBUG("NILESH >>>> %s \n", __func__);
     LS_ASSERT(service_name != nullptr);
     LS_ASSERT(group_name != nullptr);
 
@@ -131,7 +263,7 @@ void GroupsMap::AddRequired(const char *service_name, const char *group_name)
 /// @param[in] group_name    ACG name
 void GroupsMap::RemoveRequired(const char *service_name, const char *group_name)
 {
-    LOG_LS_DEBUG("Nilay: %s\n", __func__);
+//    LOG_LS_DEBUG("NILESH: %s\n", __func__);
     LS_ASSERT(service_name != nullptr);
     LS_ASSERT(group_name != nullptr);
 
@@ -141,9 +273,80 @@ void GroupsMap::RemoveRequired(const char *service_name, const char *group_name)
     {
         auto &container = !(*key) ? data.required_terminal : data.required_pattern;
         container.erase(group);
+        //TBD: Here Do we have to remove required trust levels, or keep removal seperate? Food fot thought 
     };
 
     _groups->Remove(service_name, action);
+}
+
+/// @brief Get set of required trusts for a service
+///
+/// @param[in] service_name
+/// @return Set of required trustlevel
+TrustMap GroupsMap::GetProvidedTrust(const char *service_name) const
+{
+    LOG_LS_DEBUG("NILESH >>>> : %s\n", __func__);
+    TrustMap trust_map;
+
+    auto action = [&trust_map](const Data &data)
+    {
+        for (const auto &c : data.trust_level_provided)
+            trust_map[c.first].insert(c.second);
+    };
+
+    auto leaf = _groups->Search(service_name, action);
+//    if (leaf)
+//    {
+//        for (const auto &c : leaf->trust_level)
+//            trust_map[c.first].insert(c.second);
+//    }
+
+    return trust_map;
+}
+
+TrustMap GroupsMap::GetRequiredTrust(const char *service_name) const
+{
+    LOG_LS_DEBUG("NILESH >>>> : %s\n", __func__);
+    TrustMap trust_map;
+
+    auto action = [&trust_map](const Data &data)
+    {
+        for (const auto &c : data.trust_level_required)
+            trust_map[c.first].insert(c.second);
+    };
+
+    auto leaf = _groups->Search(service_name, action);
+//    if (leaf)
+//    {
+//        for (const auto &c : leaf->trust_level)
+//            trust_map[c.first].insert(c.second);
+//    }
+
+    return trust_map;
+}
+
+std::string GroupsMap::GetRequiredTrustAsString(const char *service_name) const
+{
+    std::string trust_string;
+    auto action = [&trust_string](const Data &data)
+    {
+         //if (data.trust_level_required.empty())
+         //{
+         //    trust_string = DEFAULT_TRUST_LEVEL;
+         //}
+         //else
+         {
+             //trust_string = (data.trust_level_required.begin()->second)[0];// It all will be same, so first string is enough
+             trust_string = data.trustLevel;
+         }
+    };
+
+    auto leaf = _groups->Search(service_name, action);
+    // If trust is not available, default is "dev"
+    if (trust_string.empty())
+        trust_string = DEFAULT_TRUST_LEVEL;
+    LOG_LS_DEBUG("NILESH >>>>> %s : trust_string[ %s ]\n", __func__, trust_string.c_str());
+    return trust_string;
 }
 
 /// @brief Get set of required groups for a service
@@ -152,7 +355,7 @@ void GroupsMap::RemoveRequired(const char *service_name, const char *group_name)
 /// @return Set of required groups
 Groups GroupsMap::GetRequired(const char *service_name) const
 {
-    LOG_LS_DEBUG("Nilay: %s\n", __func__);
+    LOG_LS_DEBUG("NILESH: %s\n", __func__);
     Groups groups;
 
     auto action = [&groups](const Data &data)
@@ -163,7 +366,7 @@ Groups GroupsMap::GetRequired(const char *service_name) const
     auto leaf = _groups->Search(service_name, action);
     if (leaf)
         groups.insert(leaf->required_terminal);
-	
+
     return groups;
 }
 
@@ -173,6 +376,7 @@ Groups GroupsMap::GetRequired(const char *service_name) const
 /// @return Category pattern map to set of groups
 CategoryMap GroupsMap::GetProvided(const char *service_name) const
 {
+    LOG_LS_DEBUG("NILESH: %s\n", __func__);
     CategoryMap category_map;
 
     auto action = [&category_map](const Data &data)
@@ -258,6 +462,156 @@ std::string GroupsMap::DumpProvidedCsv() const
     _groups->Visit(action);
 
     return oss.str();
+}
+
+std::string  GroupsMap::DumpRequiredTrustLevelCsv() const
+{
+    std::ostringstream oss;
+    auto action = [&oss](const std::string &prefix, const Data &data)
+    {
+        auto dump_trust = [&oss](const std::string &prefix, const TrustMap &trustLevels)
+        {
+            for(auto &entry : trustLevels)
+            {
+                for(const char *group : entry.second)
+                {
+                    // Tag
+                    oss << "Required Group," << entry.first;
+                    // Sorted list of trust levels
+                    oss << ',' << group;
+                    oss << '\n';
+                }
+            }
+        };
+
+        if(data.trust_level_required.empty())
+        {
+             LOG_LS_DEBUG("NILESH >>>> %s : ERR!No Trust level info in tree !!!! ", __func__);
+        }
+        else
+        {
+            dump_trust(prefix, data.trust_level_required);
+        }
+    };
+    _groups->Visit(action);
+
+    return oss.str();
+
+}
+
+std::string  GroupsMap::DumpProvidedTrustLevelCsv() const
+{
+    std::ostringstream oss;
+    auto action = [&oss](const std::string &prefix, const Data &data)
+    {
+        auto dump_trust = [&oss](const std::string &prefix, const TrustMap &trustLevels)
+        {
+            for(auto &entry : trustLevels)
+            {
+                for(const char *group : entry.second)
+                {
+                    // Tag
+                    oss << "Provided Group," << entry.first;
+                    // Sorted list of trust levels
+                    oss << ',' << group;
+                    oss << '\n';
+                }
+            }
+        };
+
+        if(data.trust_level_provided.empty())
+        {
+             LOG_LS_DEBUG("NILESH >>>> %s : ERR!No Trust level info in tree !!!! ", __func__);
+        }
+        else
+        {
+            dump_trust(prefix, data.trust_level_provided);
+        }
+    };
+    _groups->Visit(action);
+
+    return oss.str();
+
+}
+std::string  GroupsMap::DumpRequiredTrustLevelCsv(const char* service, const  TrustMap &required) const
+{
+    std::ostringstream oss;
+
+        auto dump_trust = [&oss](const std::string &service, const TrustMap &trustLevels)
+        {
+            oss << "Service Name: " << std::string(service);
+            oss << std::endl;
+            for(auto &entry : trustLevels)
+            {
+                for(const char *group : entry.second)
+                {
+                    // Tag
+                    oss << "Required Group," << entry.first;
+                    // Sorted list of trust levels
+                    oss << ',' << group;
+                    oss << std::endl;
+                }
+            }
+        };
+
+        if(required.empty())
+        {
+            oss << "NILESH >>>>" <<__func__ << " : ERR!No Trust level info in tree for [ " << service << " ] !!!! " << std::endl;
+        }
+        else
+        {
+            dump_trust(std::string(service), required);
+        }
+
+    return oss.str();
+}
+
+std::string  GroupsMap::DumpProvidedTrustLevelCsv(const char* service, const  TrustMap &provided) const
+{
+    std::ostringstream oss;
+
+        auto dump_trust = [&oss](const std::string &service, const TrustMap &trustLevels)
+        {
+            oss << "Service Name: " << std::string(service);
+            oss << std::endl;
+            for(auto &entry : trustLevels)
+            {
+                for(const char *group : entry.second)
+                {
+                    // Tag
+                    oss << "Provided Group," << entry.first;
+                    // Sorted list of trust levels
+                    oss << ',' << group;
+                    oss << std::endl;
+                }
+            }
+        };
+
+        if(provided.empty())
+        {
+            oss << "NILESH >>>>" << __func__ << " : ERR!No Trust level info in tree for [ " << service << " ] !!!! " << std::endl;
+        }
+        else
+        {
+            dump_trust(std::string(service), provided);
+        }
+
+    return oss.str();
+}
+
+std::string  GroupsMap::DumpProvidedTrustLevelForServiceCsv(const char* service) const
+{
+    std::string map_in_string;
+    TrustMap provided = GetProvidedTrust(service);
+    map_in_string = DumpProvidedTrustLevelCsv(service, provided);
+    return map_in_string;
+}
+std::string  GroupsMap::DumpRequiredTrustLevelForServiceCsv(const char* service) const
+{
+    std::string map_in_string;
+    TrustMap required = GetRequiredTrust(service);
+    map_in_string = DumpRequiredTrustLevelCsv(service, required);
+    return map_in_string;
 }
 
 /// @} END OF GROUP LunaServiceHubSecurity

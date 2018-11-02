@@ -1,10 +1,4 @@
 {
-    "luna.internal.public": {
-        "description": "Public luna service2 APIs",
-        "trustLevel": ["part"]
-    },
-    "luna.internal": {
-        "description": "Private luna service2 APIs",
-        "trustLevel": ["part"]
-    }
+    "luna.internal.public": ["part", "dev"],
+    "luna.internal": ["part", "oem"]
 }

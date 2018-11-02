@@ -157,6 +157,10 @@ bool _LSTransportNodeUp(_LSTransport *transport, bool is_public_bus, LSError *ls
 
 bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *map_json, int length);
 
+bool _LSTransportInitializeTrustLevel(_LSTransport *transport, const char * provided_map_json
+                        , int provided_map_length,  const char * required_map_json, int required_map_length
+                        , const char * trust_as_string, int trust_string_length);
+
 /** @brief Category pattern ACG bitmask
  *
  * When a new category is registered, every method is assigned a bitmask (ACG set) based
@@ -168,15 +172,33 @@ typedef struct LSTransportCategoryBitmask {
     gboolean match_category_only;           /**< Does the pattern match only category? */
 } LSTransportCategoryBitmask;
 
+typedef struct LSTransportTrustLevelGroupBitmask {
+    GPatternSpec *group_pattern;         /**< Category/method pattern */
+    LSTransportBitmaskWord *trustLevel_group_bitmask;  /**< ACG bitmask */
+    gboolean match_group_only;           /**< Does the pattern match only category? */
+} LSTransportTrustLevelGroupBitmask;
+
 LSTransportCategoryBitmask *LSTransportCategoryBitmaskNew(const char *pattern,
+                                                          LSTransportBitmaskWord *bitmask);
+LSTransportCategoryBitmask *LSTransportTrustLevelBitmaskNew(const char *pattern,
                                                           LSTransportBitmaskWord *bitmask);
 
 void LSTransportCategoryBitmaskFree(LSTransportCategoryBitmask *v);
+void LSTransportTrustLevelGroupBitmaskFree(LSTransportTrustLevelGroupBitmask *v);
 
 size_t LSTransportGetSecurityMaskSize(_LSTransport *transport);
 GSList *LSTransportGetCategoryGroups(_LSTransport *transport);
 jvalue_ref LSTransportGetGroupsFromMask(_LSTransport *transport, LSTransportBitmaskWord *mask);
 
+#ifdef LS_TRACK_MESSAGE
+jvalue_ref LSTransportGetConnections(_LSTransport *transport);
+jvalue_ref LSTransportGetMessages(_LSTransport *transport);
+
+void LSTransportAddMessage(_LSTransport *transport, LSMessage *message);
+void LSTransportRemoveMessage(_LSTransport *transport, LSMessage *message);
+#endif
+size_t LSTransportGetTrustLevelSecurityMaskSize(_LSTransport *transport);
+const char* LSTransportGetTrustLevelAsString(_LSTransport *transport);
 
 #ifdef SECURITY_COMPATIBILITY
 

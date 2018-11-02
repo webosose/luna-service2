@@ -99,6 +99,7 @@ public:
     typedef std::vector<RolePtr> Roles;
     typedef std::vector<ServicePtr> Services;
     typedef std::vector<PermissionPtr> Permissions;
+    typedef std::vector<GroupsPtr> Groups;
 
     ManifestData() = default;
 
@@ -114,10 +115,12 @@ public:
     Roles roles;
     Permissions perms;
     Services services;
+    Groups groups;
     CategoryMap requires;
     CategoryMap provides;
-    TrustMap access;
-
+    ServiceToTrustMap trust_level_provided;
+    ServiceToTrustMap trust_level_required;
+	std::string trustLevel;
 };
 
 class ExternalManifestData : public ManifestData

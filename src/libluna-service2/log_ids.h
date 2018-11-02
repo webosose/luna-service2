@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2018 LG Electronics, Inc.
+// Copyright (c) 2015-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -165,5 +165,5 @@
 #define MSGID_LS_PALM_SERVICE_WITH_TWO_CONTEXTS "LS_PALM_SERVICE_WITH_TWO_CONTEXTS" /** Single transport used for Palm service. Need to resolve. */
 #define MSGID_LS_OLD_PALM_SERVICE_DETECTED      "LS_OLD_PALM_SERVICE_DETECTED"      /** Old Palm services are depricated. You should not LSRegister twice. */
 #define MSGID_LS_REQUIRES_SECURITY              "LS_REQUIRES_SECURITY"  /** Required security groups don't match provided */
-
+#define MSGID_LS_REQUIRES_TRUST              "LS_REQUIRES_TRUST"  /** Required trust level don't match provided */
 #endif /* _LOG_IDS_H */

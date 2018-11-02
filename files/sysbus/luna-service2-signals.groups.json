@@ -1,14 +1,5 @@
 {
-  "signals.all": {
-        "description": "Public luna service2 signals",
-        "public": true
-  },
-  "signals.all.subscribe": {
-        "description": "Public luna service2 signals",
-        "public": true
-  },
-  "signals.register": {
-        "description": "Public luna service2 signals",
-        "public": true
-  }
+  "signals.all": ["oem", "dev", "part"],
+  "signals.all.subscribe": ["oem", "dev", "part"],
+  "signals.register": ["oem", "dev", "part"]
 }

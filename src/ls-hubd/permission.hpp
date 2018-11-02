@@ -23,6 +23,7 @@
 #include <unordered_map>
 
 #include <pbnjson.hpp>
+#include "log.h"
 
 struct LSError;
 struct LSHubPermission;
@@ -33,6 +34,7 @@ typedef struct LSError LSError;
 typedef struct LSHubPermission LSHubPermission;
 typedef struct LSTransportClient _LSTransportClient;
 typedef struct _LSHubPatternQueue _LSHubPatternQueue;
+#define DEFAULT_TRUST_LEVEL "dev"
 
 /// @cond INTERNAL
 /// @addtogroup LunaServiceHubSecurity
@@ -109,7 +111,10 @@ public:
 
 /// Map of category pattern to set of provided groups
 typedef std::unordered_map<std::string, Groups> CategoryMap;
+/// Map of group to its trust level
 typedef std::unordered_map<std::string, TrustLevel> TrustMap;
+/// Map of services to its groups and their corresponding trusts
+typedef std::unordered_map<std::string, TrustMap> ServiceToTrustMap;
 
 /// Permission data (section #/permissions/* from role files)
 struct LSHubPermission {
@@ -122,7 +127,11 @@ struct LSHubPermission {
     CategoryMap provides;         //< Map of category patterns to their provided ACG
     uint32_t perm_flags;          //< Flag of permission origin (new vs legacy, private vs public)
     pbnjson::JValue version;      //< Service API version
-    TrustMap trustLevel;
+    const char *required_trust;        // < String containing required trust
+    TrustMap trust_level_required;          // < Map of groups to their required trust level
+    TrustMap trust_level_provided;          // < Map of groups to their provided trust level
+
+    LSHubPermission() { required_trust = nullptr; }
 };
 
 typedef std::unique_ptr<LSHubPermission, bool(*)(LSHubPermission*)> PermissionPtr;
@@ -183,6 +192,12 @@ LSHubPermissionGetRequired(const LSHubPermission *perm)
     return perm->requires;
 }
 
+static inline const std::string
+LSHubPermissionGetServiceName(const LSHubPermission *perm)
+{
+    return std::string(perm->service_name);
+}
+
 /// @brief Access category map to provided groups
 /// @param[in] perm
 static inline const CategoryMap&
@@ -192,9 +207,25 @@ LSHubPermissionGetProvided(const LSHubPermission *perm)
 }
 
 static inline const TrustMap&
-LSHubPermissionGetTrust(const LSHubPermission *perm)
+LSHubPermissionGetProvidedTrust(const LSHubPermission *perm)
 {
-    return perm->trustLevel;
+    return perm->trust_level_provided;
+}
+
+static inline const TrustMap&
+LSHubPermissionGetRequiredTrust(const LSHubPermission *perm)
+{
+    return perm->trust_level_required;
+}
+
+static inline const char*
+LSHubPermissionGetRequiredTrustAsString(const LSHubPermission *perm)
+{
+    // We can return first groups trust as this is a map of
+    // trustlevel from application to its required groups.
+    // Hence all required groups will have same trust level
+    LOG_LS_DEBUG("NILESH >>>> %s :get perm level perm->required_trust %s", __func__, perm->required_trust);
+    return perm->required_trust;
 }
 
 static inline const pbnjson::JValue &
@@ -216,9 +247,25 @@ LSHubPermissionSetProvided(LSHubPermission *perm, const CategoryMap& provides)
 }
 
 static inline void
-LSHubPermissionSetTrust(LSHubPermission *perm, const TrustMap& trust_level)
+LSHubPermissionSetProvidedTrust(LSHubPermission *perm, const TrustMap& trust_level)
 {
-    perm->trustLevel = trust_level;
+    perm->trust_level_provided = trust_level;
+}
+
+static inline void
+LSHubPermissionSetRequiredTrust(LSHubPermission *perm, const TrustMap& trust_level)
+{
+    perm->trust_level_required = trust_level;
+}
+
+static inline void
+LSHubPermissionSetTrustString(LSHubPermission *perm, const char* trust_level)
+{
+    if (trust_level)
+        perm->required_trust = g_strdup(trust_level);
+    else
+        perm->required_trust = g_strdup(DEFAULT_TRUST_LEVEL);
+    LOG_LS_DEBUG("NILESH >>>> %s :set perm level perm->required_trust %s", __func__, perm->required_trust);
 }
 
 static inline void

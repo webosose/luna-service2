@@ -16,25 +16,28 @@
 
 
 #include <glib.h>
-
+#include <pbnjson.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include <pthread.h>
 #include <errno.h>
 #include <unistd.h>
-
+#include <pbnjson/c/jtypes.h>
 #include <luna-service2/lunaservice.h>
 
+#include <luna-service2/payload.h>
+#include "simple_pbnjson.h"
 #include "base.h"
 #include "category.h"
 #include "message.h"
 #include "subscription.h"
 #include "debug_methods.h"
-#include "transport.h"
+
 #include "clock.h"
 #include "log.h"
 #include "transport_priv.h"
+#include "transport.h"
 #ifdef SECURITY_HACKS_ENABLED
 #include "security_hacks.h"
 #endif
@@ -43,6 +46,7 @@
 
 #include <pmtrace_ls2.h>
 
+#define ENHANCED_ACG
 
 /** @cond INTERNAL */
 
@@ -364,13 +368,92 @@ _LSSecurityCheckGroup(const LSTransportBitmaskWord *provides,
 {
     if (!provides || !requires)
         return false;
-
+  
+    //printf("[%s]provide : %d, requires : %d \n", __func__, *provides, *requires);
     int i = 0;
     for (; i < size; i++)
     {
-        if (provides[i] & requires[i])
-            return true;
+        if (provides[i] & requires[i]) {
+			//printf("[%s] Group CHeck pass[provides: %d] [requires: %d][pos: %d] \n",
+			//	__func__, provides[i], requires[i], i);			
+           return true;
+        }
     }
+    return false;
+}
+
+/** @brief Check if required ACG (of caller) intersect with provided ACG (of the service).
+ *
+ * Every call is tested against ACG by the receiving part. Bitmasks for ACG seem to be
+ * a good choice for good performance.
+ *
+ * @param[in] provides  Bit set of provided ACG
+ * @param[in] requires  Bit set of required ACG
+ * @param[in] size      Size of bit set in bitmask words
+ *
+ * @retval true If bit sets @p provides and @p requires have common bits
+ * @retval false If there's no common bit in @p provides and @p requires
+ */
+static inline bool
+_LSSecurityCheckTrustLevel(const char* provided_trust_level_string,
+                      					const char* required_trust_level_string)
+{  
+    if (!provided_trust_level_string || !required_trust_level_string)
+    {
+        // For now return true, as not all services/applications will have 
+        // trust information otherwise this should return false
+        //printf("NILESH @@@@@@@@ %s : Invalid params",__func__);
+        return false;
+    }
+
+
+	/* Trust level hierarchy
+
+				oem  part  dev
+		oem		 o    o     o
+		part     x    o     o
+		dev      x    x     o
+	*/
+    if (!strcmp(provided_trust_level_string, required_trust_level_string)) {
+
+		//printf("[%s] Trust Level Matched \
+		//	provided_trust_level_string : %s \
+		//	required_trust_level_string : %s \n", 
+		//	__func__, provided_trust_level_string, required_trust_level_string);
+		return true;
+	}
+
+	else if(!strcmp("oem", required_trust_level_string))
+	{
+		//printf("[%s]Required trust level [%s] superseeds every other trust level \n", 
+		//			__func__, required_trust_level_string);
+		return true;
+	}
+	else if(!strcmp("oem", provided_trust_level_string))
+	{
+		//printf("[%s]Required trust level [%s] superseeds every other trust level \n", 
+			//		__func__, provided_trust_level_string);
+		return false;
+	}
+	else if(!strcmp("part", required_trust_level_string))
+	{	
+		//printf("[%s]Required trust level [%s] can access other than OEM \n", 
+			//		__func__, required_trust_level_string);
+		return true;
+	}
+	else if(!strcmp("part", provided_trust_level_string))
+	{	
+		//printf("[%s]Required trust level [%s] can access other than OEM \n", 
+			//		__func__, provided_trust_level_string);
+		return false;
+	}
+	else
+	{
+		return false;
+	}
+
+	
+    // TESTING: just to avoid unstable luna service, till feature, otherwise returns false on mismatch
     return false;
 }
 
@@ -379,6 +462,11 @@ LSCategoryMethodCall(LSHandle *sh, LSCategoryTable *category,
                      _LSTransportClient *client, LSMessage *message)
 {
     const char *method_name = LSMessageGetMethod(message);
+	jvalue_ref providedGroupTrustLevel, providedGroupsRef;
+	char* providedTrustLevel = NULL;
+	char* providedGroup = NULL;
+	bool trustLevelFound = false;
+	LSMessageHandlerResult eResult = LSMessageHandlerResultHandled;
 
     /* find the method in the tableHandlers->methods hash */
     LSMethodEntry *method = g_hash_table_lookup(category->methods, method_name);
@@ -411,6 +499,110 @@ LSCategoryMethodCall(LSHandle *sh, LSCategoryTable *category,
                       "Service security groups don't allow method call.");
         return LSMessageHandlerResultPermissionDenied;
     }
+	//printf("\n\n\n");
+    //LSTransportGetGroupsFromMask(sh->transport, method->security_provided_groups);	
+	//printf("\n\n\n");
+//    printf("[%s]method_name: %s  method->security_provided_groups: %d, client->security_required_groups: %d, LSTransportGetSecurityMaskSize(sh->transport): %d \n", 
+  //          __func__, method_name,*method->security_provided_groups, *client->security_required_groups, LSTransportGetSecurityMaskSize(sh->transport));
+#ifdef ENHANCED_ACG
+	/* Compare the trust level */
+	
+	GSList *list = LSTransportGetTrustLevelToGroups(sh->transport);
+    if (list)
+    {
+		LOG_LS_INFO(MSGID_LS_NOT_AN_ERROR, 0,"Enhanced ACG \n");
+		// prepare full methods name for pattern matching
+        //char *full_name = g_build_path("/", category_path, m->name, NULL);
+		const LSTransportTrustLevelGroupBitmask *TrustLevel_bitmask = NULL;
+		//char *callerGroup = "all";
+
+		/* Get the provided groups and get the mask */
+		providedGroupsRef = LSTransportGetGroupsFromMask(sh->transport, method->security_provided_groups);
+
+		for (ssize_t i = 0; i != jarray_size(providedGroupsRef); ++i) {
+
+			jvalue_ref jgroup = jarray_get(providedGroupsRef, i);
+	        raw_buffer provided_raw = jstring_get_fast(jgroup);
+	        providedGroup = g_strndup(provided_raw.m_str, provided_raw.m_len);
+			list = LSTransportGetTrustLevelToGroups(sh->transport);
+			
+			for (; list; list = g_slist_next(list))
+	        {
+				TrustLevel_bitmask = (const LSTransportTrustLevelGroupBitmask *) list->data;
+
+				/* Default groups like all are added by default which do not have trust level */
+				/* Ignore such groups while checking for trust level */
+
+				//printf("[%s] providedGroup: %s \n", __func__, providedGroup);
+				
+	            if (g_pattern_match_string(TrustLevel_bitmask->group_pattern,
+	                                       providedGroup))
+	            {
+	            	 if(TrustLevel_bitmask->trustLevel_group_bitmask) {
+						
+					 	LOG_LS_INFO(MSGID_LS_NOT_AN_ERROR, 0, "[%s] found group bit mask : %d \n", __func__,*TrustLevel_bitmask->trustLevel_group_bitmask);
+						providedGroupTrustLevel = LSTransportGetTrustFromMask(sh->transport, 
+														TrustLevel_bitmask->trustLevel_group_bitmask);
+						trustLevelFound = true;
+						break;
+	            	}
+	            }
+	        }
+			/* Assumption is that only the group bit of the method is set */
+			if(trustLevelFound)
+				break;
+		}
+
+		/* Get required group's trust level */
+        if(providedGroupTrustLevel)
+        {
+    		for (ssize_t i = 0; i != jarray_size(providedGroupTrustLevel); ++i) {
+    			
+    	        jvalue_ref jgroup = jarray_get(providedGroupTrustLevel, i);
+    	        raw_buffer provided_raw = jstring_get_fast(jgroup);
+    	        providedTrustLevel = g_strndup(provided_raw.m_str, provided_raw.m_len);
+
+    			//g_free(caller_group_pattern);
+    			if (!_LSSecurityCheckTrustLevel(providedTrustLevel,
+    		                                    client->trust_level_string))
+    		    {
+    		        
+    		        eResult = LSMessageHandlerResultPermissionDenied;
+    				//printf("[%s] Tust Not matched [Provided : %s] [required : %s] \n",
+    				//			__func__,
+    				//			providedTrustLevel, 
+    				//			client->trust_level_string);
+    		    }
+    			else {
+    				eResult = LSMessageHandlerResultHandled;
+    				//printf("[%s] Tust level matched [Provided : %s] [required : %s] \n",
+    				//			__func__,
+    				//			providedTrustLevel, 
+    				//			client->trust_level_string);
+    				break;
+    			}
+    			
+    			//printf("NILESH >>>>>> LSCategoryMethodCall [ %s]", providedTrustLevel);
+        	}
+        }
+    }
+
+	if (eResult == LSMessageHandlerResultPermissionDenied) {
+		LOG_LS_WARNING(MSGID_LS_REQUIRES_TRUST, 3,
+                       PMLOGKS("SERVICE", sender ? sender : "(null)"),
+                       PMLOGKS("CATEGORY", LSMessageGetCategory(message)),
+                       PMLOGKS("METHOD", method_name),
+                      "Service security groups don't allow method call as trust level does not match");
+		//printf("*************************[%s] Error Case ********************\n", __func__);
+		return LSMessageHandlerResultPermissionDenied;
+	}
+	
+
+	// TBD: Here we have to add trust_level and required groups
+    // We dont really care about method
+    // We just need provided group and trustlevel info here
+    //HERE
+#endif
 
     char* receiver = g_strdup(sh->name ? sh->name : "(null)");
     bool validateCall = method->flags & LUNA_METHOD_FLAG_VALIDATE_IN;
@@ -424,7 +616,7 @@ LSCategoryMethodCall(LSHandle *sh, LSCategoryTable *category,
                      PMLOGKS("SERVICE", receiver),
                      PMLOGKS("CATEGORY", LSMessageGetCategory(message)),
                      PMLOGKS("METHOD", method_name),
-                     PMLOGKFV("FLAGS", "%d", method->flags),
+                      PMLOGKFV("FLAGS", "%d", method->flags),
                      "Called for method that was declared for validation but wasn't supplied with schema");
     }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -158,7 +158,10 @@ void BitMaskSetBit(LSTransportBitmaskWord *mask, int bit)
     const int bits = sizeof(LSTransportBitmaskWord) * 8;
     int nword = bit / bits;
     int nbit = bit % bits;
+    //printf("[%s] bit: %d, bits: %d, nword: %d, nbit: %d \n", __func__, bit, bits, nword, nbit);
+    //printf("[%s]mask[nword] : %d, mask: %d  \n",__func__, mask[nword],*mask);
     mask[nword] |= ((LSTransportBitmaskWord)1 << nbit);
+    //printf("[%s]mask : %d \n",__func__, *mask);
 }
 
 /**

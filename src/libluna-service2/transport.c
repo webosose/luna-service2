@@ -53,6 +53,36 @@ typedef struct _LSTransportMessageFailureItem
     _LSTransportMessageFailureType failure_type;    /**< type of failure */
 } _LSTransportMessageFailureItem;
 
+void DumpToFile(const char* filename, const char* dump, _LSTransport *transport)
+{
+    if (!filename) return;
+    if(strstr(dump, "[]") != NULL) return;
+    char full_path[1024] = {0};
+    char title[1024] = {0};
+
+    strcpy(full_path, "/tmp/");
+    strcat(full_path, filename);
+    strcat(full_path, "_");
+
+    if (transport->service_name && strlen(transport->service_name) > 0)
+    { strcpy(title, "ServiceName: "); strcat(title, transport->service_name); strcat(title, "\n"); strcat(full_path, transport->service_name); strcat(full_path, "_");}
+    if (transport->app_id && strlen(transport->app_id) > 0)
+    { strcat(title, "AppID: "); strcat(title, transport->app_id); strcat(title, "\n"); strcat(full_path, transport->app_id); strcat(full_path, "_");}
+    if (transport->unique_name && strlen(transport->unique_name) > 0)
+    { strcat(title, "UniqueName: "); strcat(title, transport->unique_name); strcat(title, "\n"); strcat(full_path, transport->unique_name); strcat(full_path, "_");}
+
+    FILE *fp;
+    // open file for writing 
+    fp = fopen (full_path, "w"); 
+    if (fp == NULL) 
+    { 
+        //fprintf(stderr, "\nError opend file\n"); 
+        return;
+    }
+    fprintf(fp, title); fprintf(fp, "\n");
+    fprintf (fp, dump); fprintf(fp, "\n");
+    fclose(fp);
+}
 bool _LSTransportProcessIncomingMessages(_LSTransportClient *client, LSError *lserror);
 
 
@@ -71,6 +101,11 @@ static void _LSTransportSetTransportFlags(_LSTransport *transport, int32_t trans
 // Initialize "provides" groups. json - an array of object, each object - category(or pattern) with array of string,each string - security group
 // Ex.: [{"/camera", ["com.webos.camera", "com.webos.torch"]}]
 bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char * json, int length);
+
+//Initialize trust level provided in groups.json
+bool _LSTransportInitializeTrustLevel(_LSTransport *transport, const char * provided_map_json
+                        , int provided_map_length,  const char * required_map_json, int required_map_length
+                        , const char * trust_as_string, int trust_string_length);
 
 bool _LSTransportSendMessagePrepend(_LSTransportMessage *message, _LSTransportClient *client, LSMessageToken *token, LSError *lserror);
 
@@ -1845,10 +1880,13 @@ _LSTransportRequestName(const char *requested_name,
     _LSTransportMessageIter iter;
     const char *unique_name_tmp = NULL;
     const char *security_json = NULL;
+    const char *trust_provided_map_json = NULL;
+    const char *trust_required_map_json = NULL;
     char *unique_name = NULL;
+    char *trust_level_string = NULL;
     int32_t transport_flags = _LSTransportFlagNoFlags;
 
-    LOG_LS_DEBUG("%s: requested_name: %s, app_id: %s, client: %p\n", __func__, requested_name, app_id, client);
+    LOG_LS_DEBUG("NILESH >>> %s: requested_name: %s, app_id: %s, client: %p\n", __func__, requested_name, app_id, client);
 
     _LSTransportMessage *message = _LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE);
     _LSTransportMessageSetType(message, _LSTransportMessageTypeRequestName);
@@ -1908,11 +1946,33 @@ _LSTransportRequestName(const char *requested_name,
             LS_ASSERT(NULL);
 
         _LSTransportMessageIterNext(&iter);
+        if (!_LSTransportMessageGetString(&iter, &trust_provided_map_json))
+            LS_ASSERT(NULL);
+
+        _LSTransportMessageIterNext(&iter);
+        if (!_LSTransportMessageGetString(&iter, &trust_required_map_json))
+            LS_ASSERT(NULL);
+
+        _LSTransportMessageIterNext(&iter);
+        if (!_LSTransportMessageGetString(&iter, &trust_level_string))
+            LS_ASSERT(NULL);
+
+        _LSTransportMessageIterNext(&iter);
         if (!_LSTransportMessageGetInt32(&iter, &transport_flags))
             LS_ASSERT(NULL);
 
         _LSTransportSetTransportFlags(client->transport, transport_flags);
         _LSTransportInitializeSecurityGroups(client->transport, security_json, strlen(security_json));
+
+        if (trust_provided_map_json && trust_required_map_json && trust_level_string)
+        {
+            _LSTransportInitializeTrustLevel(client->transport, trust_provided_map_json, strlen(trust_provided_map_json)
+                                                             , trust_required_map_json, strlen(trust_required_map_json)
+                                                             , trust_level_string, strlen(trust_level_string));
+            DumpToFile("transport_c__LSTransportRequestName_trust_provided_map_json", trust_provided_map_json, client->transport);
+            DumpToFile("transport_c__LSTransportRequestName_trust_required_map_json", trust_required_map_json, client->transport);
+            //DumpToFile("transport_c__LSTransportRequestName_trust_level_string", trust_level_string, client->transport);
+        }
 
         /* need copy since iterator points inside message */
         unique_name = g_strdup(unique_name_tmp);
@@ -2183,6 +2243,8 @@ _LSTransportQueryNameReplyGetGroups(_LSTransportMessage *message)
     return NULL;
 }
 
+//TBD: We need to put here trust level changes to get trust level
+
 /**
  *******************************************************************************
  * @brief Get client permissions from a "QueryName" reply message.
@@ -2213,6 +2275,71 @@ _LSTransportQueryNameReplyGetPermissions(_LSTransportMessage *message)
     return 0;
 }
 
+/**
+ *******************************************************************************
+ * @brief Get required trustlevels from a "QueryName" reply message.
+ *
+ * @warning The returned pointer points inside the message, so you should ref
+ * the message or copy the string if you need it to persist.
+ *
+ * @param  message  IN  message
+ *
+ * @retval trustlevels on success
+ * @retval NULL on failure
+ *******************************************************************************
+ */
+const char*
+_LSTransportQueryNameReplyGetTrustlevels(_LSTransportMessage *message)
+{
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryNameReply);
+    _LSTransportMessageIter iter;
+    const char *ret = NULL;
+
+    _LSTransportMessageIterInit(message, &iter);
+    /* move past return code, service name, unique name, dynamic flag, app_id, groups, permissions*/
+    _LSTransportMessageIterAdvance(&iter, 7);
+
+    if (_LSTransportMessageGetString(&iter, &ret))
+    {
+		//printf("[%s] ret: %s \n", __func__, ret?ret:"not supported");
+		return ret;
+    }
+    return NULL;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get required trustlevel string from a "QueryName" reply message.
+ *
+ * @warning The returned pointer points inside the message, so you should ref
+ * the message or copy the string if you need it to persist.
+ *
+ * @param  message  IN  message
+ *
+ * @retval trustlevels on success
+ * @retval NULL on failure
+ *******************************************************************************
+ */
+const char*
+_LSTransportQueryNameReplyGetTrustlevelString(_LSTransportMessage *message)
+{
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryNameReply);
+    _LSTransportMessageIter iter;
+    const char *ret = NULL;
+
+    _LSTransportMessageIterInit(message, &iter);
+    /* move past return code, service name, unique name, dynamic flag, app_id, groups, permissions,required trustlevel*/
+    _LSTransportMessageIterAdvance(&iter, 8);
+
+    if (_LSTransportMessageGetString(&iter, &ret))
+    {
+		//printf("[%s] ret: %s \n",__func__,ret);
+		return ret;
+    }
+    return NULL;
+}
 
 /**
  *******************************************************************************
@@ -2420,7 +2547,7 @@ _LSTransportHandleQueryNameFailure(_LSTransportMessage *message, long err_code, 
 void
 _LSTransportHandleQueryNameReply(_LSTransportMessage *message)
 {
-    LOG_LS_DEBUG("%s\n", __func__);
+    //printf("NILESH >>>>> %s\n", __func__);
 
     LSError lserror;
     LSErrorInit(&lserror);
@@ -2512,7 +2639,11 @@ _LSTransportHandleQueryNameReply(_LSTransportMessage *message)
     client->is_dynamic = is_dynamic;
 
     _LSTransportClientSetApplicationId(client, _LSTransportQueryNameReplyGetAppId(message));
+    _LSTransportClientSetTrustString(client, _LSTransportQueryNameReplyGetTrustlevelString(message));
     _LSTransportClientInitializeSecurityGroups(client, _LSTransportQueryNameReplyGetGroups(message));
+    //TBD :
+    // Initialize trust level for client
+    _LSTransportClientInitializeTrustLevel(client, _LSTransportQueryNameReplyGetTrustlevelString(message));
 
     /* We successfully connected to the far side, so remove the service from
      * the transport lookup queue.
@@ -5222,7 +5353,7 @@ _freePending(gpointer key, _LSTransportOutgoing *outgoing, gpointer user_data)
     LS_ASSERT(outgoing != NULL);
 
     //printf("%s: outgoing queue entries: %u, serial queue entries: %u\n", __func__,
-    //       g_queue_get_length(outgoing->queue), g_queue_get_length(outgoing->serial->queue));
+     //      g_queue_get_length(outgoing->queue), g_queue_get_length(outgoing->serial->queue));
 
     _LSTransportOutgoingFree(outgoing);
 
@@ -5241,7 +5372,7 @@ void
 _LSTransportDeinit(_LSTransport *transport)
 {
     LOG_LS_DEBUG("%s: transport: %p\n", __func__, transport);
-
+    // TBD: Clear all maps here in deinit
     if (transport)
     {
         /* destroy all hash tables */
@@ -5384,6 +5515,238 @@ static void _LSTransportSetTransportFlags(_LSTransport *transport, int32_t trans
     transport->is_public_allowed = (transport_flags & _LSTransportFlagPublicBus);
 }
 
+//Initialize trust level provided in groups.json
+bool _LSTransportInitializeTrustLevel(_LSTransport *transport, const char * provided_map_json
+                        , int provided_map_length,  const char * required_map_json, int required_map_length
+                        , const char * trust_as_string, int trust_string_length)
+{
+    LOG_LS_DEBUG("NILESH >>>: %s : provided_map_json [ %s ]\n", __func__, provided_map_json);
+    LOG_LS_DEBUG("NILESH >>>: %s : required_map_json [ %s ]\n", __func__, required_map_json);
+    LS_ASSERT(transport);
+    if ((required_map_json && strlen(required_map_json) > 0)
+         && (provided_map_json && strlen(provided_map_json) > 0))
+    {
+        DumpToFile("transport_c_LSTransportInitializeTrustLevel_provided", provided_map_json, transport);//DEBUG
+        DumpToFile("transport_c_LSTransportInitializeTrustLevel_required", required_map_json, transport);//DEBUG
+    }
+    else
+        return true; // Always true currently
+
+    JSchemaInfo schemaInfo;
+    jschema_info_init(&schemaInfo, jschema_all(), NULL, NULL);
+    jvalue_ref jmap = jdom_parse(j_str_to_buffer(provided_map_json, provided_map_length), DOMOPT_NOOPT, &schemaInfo);
+    if (!jis_array(jmap))
+    {
+        LOG_LS_DEBUG("NILESH >>>: %s : Fail to read JSON: %s. Not array\n", __func__, provided_map_json);
+        LOG_LS_ERROR(MSGID_LS_INVALID_JSON, 1,
+                     PMLOGKS("JSON", provided_map_json),
+                     "Fail to read JSON: %s. Not array\n", provided_map_json);
+        j_release(&jmap);
+        return false;
+    }
+
+    // Dispose old Provided groups trust level
+    if(transport->provided_trust_level_map)
+        g_hash_table_destroy(transport->provided_trust_level_map);
+    if(transport->provided_trust_level_to_group_map)
+        g_slist_free_full(transport->provided_trust_level_to_group_map, (GDestroyNotify) LSTransportTrustLevelGroupBitmaskFree);
+
+    // Dispose old required groups trust level
+    if(transport->required_trust_level_map)
+        g_hash_table_destroy(transport->required_trust_level_map);
+    if(transport->required_trust_level_to_group_map)
+        g_slist_free_full(transport->required_trust_level_to_group_map, (GDestroyNotify) LSTransportTrustLevelGroupBitmaskFree);
+
+   // Provided groups: Create hashmap [trustLevel: code]
+    GHashTable *provided_trust_level_map = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+    // const char *, jvalue_ref, const char *, jvalue_ref
+    gpointer patterns_provided_groups[jarray_size(jmap) * 2];
+
+    ssize_t i = 0;
+    for (; i < jarray_size(jmap); i++)
+    {
+        jvalue_ref record = jarray_get(jmap, i);
+        jvalue_ref provided_group, provided_trust_for_groups;
+        if(!jobject_get_exists(record, J_CSTR_TO_BUF("group"), &provided_group) ||
+          (!jobject_get_exists(record, J_CSTR_TO_BUF("provided"), &provided_trust_for_groups)))
+        {
+            // This simply means that there are no provided groups or trust levels
+            // In this scenario we will be returning with ls error. However we cannot do 
+            // that right now as not all services or applications are following this model
+            // hence wee simply return true. with ERR LOG message
+                LOG_LS_ERROR(MSGID_LS_INVALID_JSON, 1,
+                     PMLOGKS("JSON", provided_map_json),
+                     "NILESH >>>> Fail to read JSON: providedGroup or providedTrustForGroup NOT PRESENT\n", provided_map_json);
+            g_hash_table_destroy(provided_trust_level_map);
+            return true;
+        }
+
+        raw_buffer pattern = jstring_get_fast(provided_group);
+
+        assert(pattern.m_str && pattern.m_len);
+
+        /* We don't know how many groups trustlevels are mentioned until we meet the last one.
+           Thus, list of trusts for every group pattern will be stored first.
+           The second pass will substitute every list with corresponding bit set.
+        */
+
+        ssize_t j = 0;
+        for (; j < jarray_size(provided_trust_for_groups); j++)
+        {
+            jvalue_ref jgroup = jarray_get(provided_trust_for_groups, j);
+            raw_buffer trusts = jstring_get_fast(jgroup);
+
+            if (!g_hash_table_contains(provided_trust_level_map, trusts.m_str))
+            {
+                g_hash_table_insert(provided_trust_level_map,
+                                    g_strndup(trusts.m_str, trusts.m_len),
+                                    GINT_TO_POINTER(g_hash_table_size(provided_trust_level_map)));
+            }
+        }
+
+        patterns_provided_groups[2*i] = (gpointer) pattern.m_str;
+        patterns_provided_groups[2*i + 1] = (gpointer) provided_trust_for_groups;
+    }
+
+    /* Calculate size of bit mask, big enough to contain all the groups,
+       and to be contained in an integer count of words
+    */
+    size_t mask_size = (g_hash_table_size(provided_trust_level_map) + sizeof(LSTransportBitmaskWord) - 1)
+                                 / sizeof(LSTransportBitmaskWord); // mask size in count of words
+    /* Iterate over category patterns a second time, substitute list of groups
+       by corresponding bit masks
+    */
+    GSList *provided_trust_level_to_group_map = NULL;
+    for (i = 0; i < jarray_size(jmap); ++i)
+    {
+        const char *pattern = patterns_provided_groups[2*i];
+        jvalue_ref trusts = patterns_provided_groups[2*i + 1];
+
+        LSTransportBitmaskWord *mask = g_malloc0_n(mask_size, sizeof(LSTransportBitmaskWord));
+        ssize_t j = 0;
+        for (; j < jarray_size(trusts); j++)
+        {
+            jvalue_ref jtrust = jarray_get(trusts, j);
+            raw_buffer trust = jstring_get_fast(jtrust);
+            gpointer value = g_hash_table_lookup(provided_trust_level_map, trust.m_str);
+            BitMaskSetBit(mask, GPOINTER_TO_INT(value));
+        }
+
+        provided_trust_level_to_group_map = g_list_prepend(provided_trust_level_to_group_map,
+                                                         LSTransportTrustLevelBitmaskNew(pattern, mask));
+    }
+
+    transport->trust_security_mask_size = mask_size;
+    transport->provided_trust_level_map = provided_trust_level_map;
+    transport->provided_trust_level_to_group_map = provided_trust_level_to_group_map;
+
+    j_release(&jmap);
+
+ // TBD INCOMPLETE
+    // Required groups: Create hashmap [trustLevel: code]
+// Required groups: Create hashmap [trustLevel: code]
+    JSchemaInfo schemaInfo_required;
+    jschema_info_init(&schemaInfo_required, jschema_all(), NULL, NULL);
+    jvalue_ref jmap_required = jdom_parse(j_str_to_buffer(required_map_json, required_map_length), DOMOPT_NOOPT, &schemaInfo_required);
+    if (!jis_array(jmap_required))
+    {
+        LOG_LS_DEBUG("NILESH >>>: %s : Fail to read JSON: %s. Not array\n", __func__, required_map_json);
+        LOG_LS_ERROR(MSGID_LS_INVALID_JSON, 1,
+                     PMLOGKS("JSON", required_map_json),
+                     "Fail to read JSON: %s. Not array\n", required_map_json);
+        j_release(&jmap_required);
+        return false;
+    }
+    GHashTable *required_trust_level_map = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+    // const char *, jvalue_ref, const char *, jvalue_ref
+    gpointer patterns_required_groups[jarray_size(jmap_required) * 2];
+
+    for (i = 0; i < jarray_size(jmap_required); i++)
+    {
+        jvalue_ref record = jarray_get(jmap_required, i);
+        jvalue_ref required_group, required_trust_for_groups;
+        if(!jobject_get_exists(record, J_CSTR_TO_BUF("group"), &required_group) ||
+          (!jobject_get_exists(record, J_CSTR_TO_BUF("required"), &required_trust_for_groups)))
+        {
+            // This simply means that there are no required groups or trust levels
+            // In this scenario we will be returning with ls error. However we cannot do 
+            // that right now as not all services or applications are following this model
+            // hence wee simply return true. with ERR LOG message
+                LOG_LS_ERROR(MSGID_LS_INVALID_JSON, 1,
+                     PMLOGKS("JSON", required_map_json),
+                     "NILESH >>>> Fail to read JSON: requiredGroup or requiredTrustForGroup NOT PRESENT\n", required_map_json);
+            g_hash_table_destroy(required_trust_level_map);
+            return true;
+        }
+
+        raw_buffer pattern = jstring_get_fast(required_group);
+
+        assert(pattern.m_str && pattern.m_len);
+
+        /* We don't know how many groups trustlevels are mentioned until we meet the last one.
+           Thus, list of trusts for every group pattern will be stored first.
+           The second pass will substitute every list with corresponding bit set.
+        */
+
+        ssize_t j = 0;
+        for (; j < jarray_size(required_trust_for_groups); j++)
+        {
+            jvalue_ref jgroup = jarray_get(required_trust_for_groups, j);
+            raw_buffer trusts = jstring_get_fast(jgroup);
+
+            if (!g_hash_table_contains(required_trust_level_map, trusts.m_str))
+            {
+                g_hash_table_insert(required_trust_level_map,
+                                    g_strndup(trusts.m_str, trusts.m_len),
+                                    GINT_TO_POINTER(g_hash_table_size(required_trust_level_map)));
+            }
+        }
+
+        patterns_required_groups[2*i] = (gpointer) pattern.m_str;
+        patterns_required_groups[2*i + 1] = (gpointer) required_trust_for_groups;
+    }
+
+    /* Calculate size of bit mask, big enough to contain all the groups,
+       and to be contained in an integer count of words
+    */
+    // Not rellay needed as both froups and trusta wil have same mask
+    //size_t mask_size = (g_hash_table_size(required_trust_level_map) + sizeof(LSTransportBitmaskWord) - 1)
+    //                             / sizeof(LSTransportBitmaskWord); // mask size in count of words
+    /* Iterate over category patterns a second time, substitute list of groups
+       by corresponding bit masks
+    */
+    GSList *required_trust_level_to_group_map = NULL;
+    for (i = 0; i < jarray_size(jmap); ++i)
+    {
+        const char *pattern = patterns_required_groups[2*i];
+        jvalue_ref trusts = patterns_required_groups[2*i + 1];
+
+        LSTransportBitmaskWord *mask = g_malloc0_n(mask_size, sizeof(LSTransportBitmaskWord));
+        ssize_t j = 0;
+        for (; j < jarray_size(trusts); j++)
+        {
+            jvalue_ref jtrust = jarray_get(trusts, j);
+            raw_buffer trust = jstring_get_fast(jtrust);
+            gpointer value = g_hash_table_lookup(required_trust_level_map, trust.m_str);
+            BitMaskSetBit(mask, GPOINTER_TO_INT(value));
+        }
+
+        required_trust_level_to_group_map = g_list_prepend(required_trust_level_to_group_map,
+                                                         LSTransportTrustLevelBitmaskNew(pattern, mask));
+    }
+
+    transport->required_trust_level_map = required_trust_level_map;
+    transport->required_trust_level_to_group_map = required_trust_level_to_group_map;
+    transport->trust_as_string = g_strdup(trust_as_string);
+
+    j_release(&jmap_required);
+///////////
+    //TBD: Think of moving this Complete function logic  to _LSTransportInitializeGroups 
+    // Need to think how we can really create a map
+  /*  //TBD: Think of moving this Complete function logic  to _LSTransportInitializeGroups */
+    return true;
+}
+
 /**
  * @brief  Initialize provided groups by service
  *
@@ -5398,10 +5761,11 @@ static void _LSTransportSetTransportFlags(_LSTransport *transport, int32_t trans
 bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *map_json, int length)
 {
     LS_ASSERT(transport);
-
+    //DumpToFile("transport_c_LSTransportInitializeSecurityGroups", map_json, transport);//DEBUG
     JSchemaInfo schemaInfo;
     jschema_info_init(&schemaInfo, jschema_all(), NULL, NULL);
-
+    LOG_LS_DEBUG("NILESH >> %s :",__func__);
+    LOG_LS_DEBUG("NILESH >> %s :", map_json);
     jvalue_ref jmap = jdom_parse(j_str_to_buffer(map_json, length), DOMOPT_NOOPT, &schemaInfo);
     if (!jis_array(jmap))
     {
@@ -5435,6 +5799,8 @@ bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *m
     ssize_t i = 0;
     for (; i < jarray_size(jmap); i++)
     {
+        //printf(" category : %d \n", jarray_size(jmap));
+        
         jvalue_ref record = jarray_get(jmap, i);
         jvalue_ref cat, groups;
         jobject_get_exists(record, J_CSTR_TO_BUF("category"), &cat);
@@ -5442,7 +5808,7 @@ bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *m
         raw_buffer pattern = jstring_get_fast(cat);
 
         assert(pattern.m_str && pattern.m_len);
-
+        //printf("[%s] pattern.m_str: %s \n", __func__, pattern.m_str);
         /* We don't know how many groups there are until we meet the last one.
            Thus, list of groups for every category pattern will be stored first.
            The second pass will substitute every list with corresponding bit set.
@@ -5455,14 +5821,16 @@ bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *m
 
             if (!g_hash_table_contains(group_code_map, group.m_str))
             {
+                //printf("[Iteration : i = %d ]group_name: %s, hashtable_size: %d \n",i, group.m_str, g_hash_table_size(group_code_map));
                 g_hash_table_insert(group_code_map,
                                     g_strndup(group.m_str, group.m_len),
                                     GINT_TO_POINTER(g_hash_table_size(group_code_map)));
             }
         }
-
+    
         patterns_groups[2*i] = (gpointer) pattern.m_str;
         patterns_groups[2*i + 1] = (gpointer) groups;
+        //printf("pattern : %s \n", pattern.m_str);
     }
 
     /* Calculate size of bit mask, big enough to contain all the groups,
@@ -5470,7 +5838,9 @@ bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *m
     */
     size_t mask_size = (g_hash_table_size(group_code_map) + sizeof(LSTransportBitmaskWord) - 1)
                      / sizeof(LSTransportBitmaskWord); // mask size in count of words
-
+    
+    //printf("group_code_map size : %d bitmasksize : %d\n", g_hash_table_size(group_code_map),sizeof(LSTransportBitmaskWord));
+  
     /* Iterate over category patterns a second time, substitute list of groups
        by corresponding bit masks
     */
@@ -5484,6 +5854,7 @@ bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *m
         LSTransportBitmaskWord *mask = g_malloc0_n(mask_size, sizeof(LSTransportBitmaskWord));
 
         ssize_t j = 0;
+        //printf("==================================================\n");
         for (; j < jarray_size(groups); j++)
         {
             jvalue_ref jgroup = jarray_get(groups, j);
@@ -5491,8 +5862,9 @@ bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *m
 
             gpointer value = g_hash_table_lookup(group_code_map, group.m_str);
             BitMaskSetBit(mask, GPOINTER_TO_INT(value));
+            //printf("group: %s , value : %d mask: %d \n",  group.m_str, value, *mask);
         }
-
+        //printf("==================================================\n");
         category_groups = g_slist_prepend(category_groups,
                                           LSTransportCategoryBitmaskNew(pattern, mask));
     }
@@ -5538,6 +5910,38 @@ LSTransportCategoryBitmask *LSTransportCategoryBitmaskNew(const char *pattern,
     return v;
 }
 
+/** @brief Compile category pattern and remember bit set of provided ACG
+ *
+ * @param[in] pattern Category/method pattern
+ * @param[in] bitmask provided ACG bit set (moved in)
+ * @return newly allocated instance of the pattern-bitmask tuple
+ */
+LSTransportCategoryBitmask *LSTransportTrustLevelBitmaskNew(const char *pattern,
+                                                          LSTransportBitmaskWord *bitmask)
+{
+    LSTransportTrustLevelGroupBitmask *v = g_slice_new0(LSTransportTrustLevelGroupBitmask);
+
+    // We assume that the pattern describes a category if ends with '/'.
+    // However, the categories are stored without the tailing '/', thus
+    // we have to remove it to prepare a correct pattern.
+    int len = strlen(pattern);
+    if ((v->match_group_only = pattern[len - 1] == '/'))
+    {
+        if (len > 1 && pattern[len - 1] == '/')
+            --len;
+
+        char slashless_pattern[len + 1];
+        memcpy(slashless_pattern, pattern, len);
+        slashless_pattern[len] = 0;
+
+        v->group_pattern = g_pattern_spec_new(slashless_pattern);
+    }
+    else
+        v->group_pattern = g_pattern_spec_new(pattern);
+
+    v->trustLevel_group_bitmask = bitmask;
+    return v;
+}
 /**
  * @brief Free category-bitmask tuple instance
  *
@@ -5552,14 +5956,36 @@ void LSTransportCategoryBitmaskFree(LSTransportCategoryBitmask *v)
     g_slice_free(LSTransportCategoryBitmask, v);
 }
 
+void LSTransportTrustLevelGroupBitmaskFree(LSTransportTrustLevelGroupBitmask *v)
+{
+    if (!v) return;
+    g_free(v->trustLevel_group_bitmask);
+    g_slice_free(LSTransportTrustLevelGroupBitmask, v);
+}
+
 size_t LSTransportGetSecurityMaskSize(_LSTransport *transport)
 {
     return transport->security_mask_size;
 }
 
+size_t LSTransportGetTrustLevelSecurityMaskSize(_LSTransport *transport)
+{
+    return transport->trust_security_mask_size;
+}
+
+const char* LSTransportGetTrustLevelAsString(_LSTransport *transport)
+{
+    return transport->trust_as_string;
+}
+
 GSList *LSTransportGetCategoryGroups(_LSTransport *transport)
 {
     return transport->category_groups;
+}
+
+GSList *LSTransportGetTrustLevelToGroups(_LSTransport *transport)
+{
+    return transport->provided_trust_level_to_group_map;
 }
 
 jvalue_ref
@@ -5573,6 +5999,7 @@ LSTransportGetGroupsFromMask(_LSTransport *transport, LSTransportBitmaskWord *ma
     g_hash_table_iter_init(&iter_groups, transport->group_code_map);
     while (g_hash_table_iter_next(&iter_groups, &group, &bit)) {
         if (BitMaskTestBit(mask, GPOINTER_TO_INT(bit))) {
+            //printf("[%s] group: %s \n", __func__, group);
             jarray_append(groups, j_cstr_to_jval(group));
         }
     }
@@ -5580,6 +6007,137 @@ LSTransportGetGroupsFromMask(_LSTransport *transport, LSTransportBitmaskWord *ma
     return groups;
 }
 
+#ifdef LS_TRACK_MESSAGE
+jvalue_ref
+LSTransportGetMessages(_LSTransport *transport)
+{
+    jvalue_ref messages = jarray_create(NULL);
+    jvalue_ref message;
+    jvalue_ref message_transport;
+    jvalue_ref message_client;
+    GHashTableIter iter_messages;
+    gpointer key;
+    gpointer value;
+    LSMessage *msg;
+    _LSTransportMessage *transport_msg;
+    _LSTransportClient *transport_client;
+
+    if (transport->all_messages == NULL)
+        return messages;
+
+    TRANSPORT_LOCK(&transport->lock_messages);
+    g_hash_table_iter_init(&iter_messages, transport->all_messages);
+    while (g_hash_table_iter_next(&iter_messages, &key, &value)) {
+        msg = (LSMessage*)value;
+
+        message = jobject_create();
+        jobject_put(message, J_CSTR_TO_JVAL("category"), msg->category ? jstring_create(msg->category) : jstring_create("null"));
+        jobject_put(message, J_CSTR_TO_JVAL("method"), msg->method ? jstring_create(msg->method) : jstring_create("null"));
+        jobject_put(message, J_CSTR_TO_JVAL("payload"), msg->payload ? jstring_create(msg->payload) : jstring_create("null"));
+
+        transport_msg = msg->transport_msg;
+        if (transport_msg)
+        {
+            message_transport = jobject_create();
+
+            transport_client = transport_msg->client;
+            if (transport_client)
+            {
+                message_client = jobject_create();
+
+                jobject_put(message_client, J_CSTR_TO_JVAL("fd"), jnumber_create_i32(transport_client->channel.fd));
+                jobject_put(message_client, J_CSTR_TO_JVAL("unique_name"), transport_client->unique_name ?
+                    jstring_create(transport_client->unique_name) : jstring_create("null"));
+                jobject_put(message_client, J_CSTR_TO_JVAL("service_name"), transport_client->service_name ?
+                    jstring_create(transport_client->service_name) : jstring_create("null"));
+
+                jobject_put(message_transport, J_CSTR_TO_JVAL("transport_client"), message_client);
+            }
+
+            jobject_put(message, J_CSTR_TO_JVAL("transport_msg"), message_transport);
+        }
+        jarray_append(messages, message);
+    }
+    TRANSPORT_UNLOCK(&transport->lock_messages);
+
+    return messages;
+}
+
+jvalue_ref
+LSTransportGetConnections(_LSTransport *transport)
+{
+    jvalue_ref connections = jarray_create(NULL);
+    jvalue_ref connection;
+    GHashTableIter iter_connections;
+    gpointer key;
+    gpointer value;
+    _LSTransportClient *client;
+
+    if (transport->all_connections == NULL)
+        return connections;
+
+    TRANSPORT_LOCK(&transport->lock);
+    g_hash_table_iter_init(&iter_connections, transport->all_connections);
+    while (g_hash_table_iter_next(&iter_connections, &key, &value)) {
+        client = (_LSTransportClient*)value;
+
+        connection = jobject_create();
+        jobject_put(connection, J_CSTR_TO_JVAL("fd"), jnumber_create_i32(client->channel.fd));
+        jobject_put(connection, J_CSTR_TO_JVAL("unique_name"), client->unique_name ?
+            jstring_create(client->unique_name) : jstring_create("null"));
+        jobject_put(connection, J_CSTR_TO_JVAL("service_name"), client->service_name ?
+            jstring_create(client->service_name) : jstring_create("null"));
+
+        jarray_append(connections, connection);
+    }
+    TRANSPORT_UNLOCK(&transport->lock);
+
+    return connections;
+}
+
+void LSTransportAddMessage(_LSTransport *transport, LSMessage *message)
+{
+    LS_ASSERT(transport != NULL);
+    LS_ASSERT(message != NULL);
+
+    TRANSPORT_LOCK(&transport->lock_messages);
+    // TODO: key -> fd
+    g_hash_table_insert(transport->all_messages, message, message);
+    TRANSPORT_UNLOCK(&transport->lock_messages);
+}
+
+void LSTransportRemoveMessage(_LSTransport *transport, LSMessage *message)
+{
+    LS_ASSERT(transport != NULL);
+    LS_ASSERT(message != NULL);
+
+    TRANSPORT_LOCK(&transport->lock_messages);
+    // TODO: key -> fd
+    g_hash_table_remove(transport->all_messages, message);
+    TRANSPORT_UNLOCK(&transport->lock_messages);
+}
+#endif
+
+jvalue_ref
+LSTransportGetTrustFromMask(_LSTransport *transport, LSTransportBitmaskWord *mask)
+{
+    jvalue_ref trusts = jarray_create(NULL);
+    GHashTableIter iter_trust;
+    gpointer trust;
+    gpointer bit;
+
+    g_hash_table_iter_init(&iter_trust, transport->provided_trust_level_map);
+    while (g_hash_table_iter_next(&iter_trust, &trust, &bit)) {
+        if (BitMaskTestBit(mask, GPOINTER_TO_INT(bit))) {
+            //printf("[%s] trust: %s \n", __func__, trust);
+            jarray_append(trusts, j_cstr_to_jval(trust));
+        }
+    }
+
+    return trusts;
+}
+
+// TBD : Write function to get trust level and group from mask
 #ifdef SECURITY_COMPATIBILITY
 
 /** @brief Does this transport come from a legacy client?

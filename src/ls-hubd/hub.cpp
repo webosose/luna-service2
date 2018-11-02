@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,6 +52,19 @@
 #include "role.hpp"
 #include "service.hpp"
 #include "hub_service.hpp"
+
+#include <fstream>
+
+#include <iostream>
+#include <utility>
+
+template <typename Arg, typename... Args>
+void DumpToFile(std::ostream& out, Arg&& arg, Args&&... args)
+{
+    out << std::forward<Arg>(arg);
+    using expander = int[];
+    (void)expander{0, (void(out << std::endl << std::endl << std::forward<Args>(args)), 0)...};
+}
 
 #ifdef SECURITY_HACKS_ENABLED
 #include "security_hacks.h"
@@ -847,36 +860,67 @@ _LSHubSendRequestNameReply(_LSTransportClient *client, const char *unique_name, 
     LS_ASSERT(client);
 
     std::string jval_str = "[]";
-    std::string trustLevel = "[]";
-
+    std::string trust_provided_str = "[]";
+    std::string trust_required_str = "[]";
+    std::string trust_as_string;
+    std::string service_name; // Remove later
     if (g_conf_security_enabled)
     {
         LSHubPermission *active_perm = LSHubActivePermissionMapLookup(unique_name);
         if (active_perm)
         {
+            service_name = LSHubPermissionGetServiceName(active_perm);
+            LOG_LS_DEBUG("NILESH >>>>>> %s :###### active permission found for unique_name [%s] service_name[%s]", __func__, unique_name, service_name);
             pbnjson::JValue jval = pbnjson::Array();
             for (const auto &category : LSHubPermissionGetProvided(active_perm))
             {
                 pbnjson::JValue group_json = pbnjson::Array();
-                pbnjson::JValue trust_json = pbnjson::Array();
                 for (const auto &group : category.second)
                 {
                     group_json << pbnjson::JValue(group);
-                    for (const auto &groupMap : LSHubPermissionGetTrust(active_perm))
-                    {
-                        for (const auto &trust : groupMap.second)
-                        {
-                            trust_json << pbnjson::JValue(trust);
-                        }
-                    }
                 }
-
                 jval << (pbnjson::Object()
                          << pbnjson::JValue::KeyValue("category", category.first)
-                         << pbnjson::JValue::KeyValue("groups", group_json)
-                         << pbnjson::JValue::KeyValue("trustLevel", trust_json));
+                         << pbnjson::JValue::KeyValue("groups", group_json));
             }
+            //TBD: Coonsider sending trustlevels in seperate string as jval
+            // Create provided trustlevel json
+            pbnjson::JValue jval_trust_provided = pbnjson::Array();
+            for(const auto &trust_provided : LSHubPermissionGetProvidedTrust(active_perm))
+            {
+                pbnjson::JValue trust_provided_json = pbnjson::Array();
+                for(const auto &trust_level : trust_provided.second)
+                {
+                     trust_provided_json << pbnjson::JValue(trust_level);
+                }
+                jval_trust_provided << (pbnjson::Object()
+                                            << pbnjson::JValue::KeyValue("group", trust_provided.first)
+                                            << pbnjson::JValue::KeyValue("provided", trust_provided_json));
+            }
+
+            // Create required trustlevel json
+            pbnjson::JValue jval_trust_required = pbnjson::Array();
+            for(const auto &trust_required : LSHubPermissionGetRequiredTrust(active_perm))
+            {
+                pbnjson::JValue trust_required_json = pbnjson::Array();
+                for(const auto &trust_level : trust_required.second)
+                {
+                     trust_required_json << pbnjson::JValue(trust_level);
+                }
+                jval_trust_required << (pbnjson::Object()
+                                           << pbnjson::JValue::KeyValue("group", trust_required.first)
+                                           << pbnjson::JValue::KeyValue("required", trust_required_json));
+            }
+
+            // Serialize json
             jval_str = pbnjson::JGenerator::serialize(jval, true);
+            trust_provided_str = pbnjson::JGenerator::serialize(jval_trust_provided, true);
+            trust_required_str = pbnjson::JGenerator::serialize(jval_trust_required, true);
+
+            // TBD :
+            // We also want to send trust level as 1 simple string .
+            // We can remove or keep this later
+            trust_as_string = LSHubPermissionGetRequiredTrustAsString(active_perm);
         }
     }
     else
@@ -884,7 +928,8 @@ _LSHubSendRequestNameReply(_LSTransportClient *client, const char *unique_name, 
         // If security is disabled, all the API belong to the same group "TOTUM" (lat. everything),
         // and every service `requires' that group to function.
         // @cond IGNORE
-        jval_str = R"([{"category":"/*", "groups":["TOTUM"]}])";
+        jval_str = R"([{"category":"/", "groups":["TOTUM"]}])";
+        trust_provided_str = R"([{"group":"/", "provided":["TOTUM"]}])";
         // @endcond
     }
 
@@ -897,6 +942,9 @@ _LSHubSendRequestNameReply(_LSTransportClient *client, const char *unique_name, 
         || !_LSTransportMessageAppendBool(&iter, LSHubClientGetPrivileged(client))
         || !_LSTransportMessageAppendString(&iter, unique_name)
         || !_LSTransportMessageAppendString(&iter, jval_str.c_str())
+        || !_LSTransportMessageAppendString(&iter, trust_provided_str.c_str())
+        || !_LSTransportMessageAppendString(&iter, trust_required_str.c_str())
+        || !_LSTransportMessageAppendString(&iter, trust_as_string.c_str())
         || !_LSTransportMessageAppendInt32(&iter, client_flags)
         || !_LSTransportMessageAppendInvalid(&iter))
     {
@@ -904,6 +952,20 @@ _LSHubSendRequestNameReply(_LSTransportClient *client, const char *unique_name, 
         return;
     }
 
+    if((strstr(trust_provided_str.c_str(), "[]") == NULL) &&
+        (strstr(trust_required_str.c_str(), "[]") == NULL))
+    {
+        std::ofstream file;
+        std::string name = "/tmp/" + std::string("hub_LSHubSendRequestNameReply" + service_name);
+        file.open(name);
+        if(file.is_open())
+        {
+           DumpToFile(file, trust_provided_str, trust_required_str, trust_as_string);
+           file.close();
+        }
+    }
+
+    LOG_LS_DEBUG("NILESH >>>> %s : trust_provided_str.c_str() [ %s ]", __func__, trust_provided_str.c_str());
     LS::Error lserror;
     if (!_LSTransportSendMessage(reply.get(), client, nullptr, lserror.get()))
     {
@@ -1108,6 +1170,81 @@ _LSHubHandleRequestName(_LSTransportMessage *message)
 }
 
 static std::string
+_LSHubGetRequiredTrusts(const _LSTransportClient *client)
+{
+    // TBD: Reply with required trustlevels
+    LS_ASSERT(client != NULL);
+    // Get effective LSHubPermission for client
+    LSHubPermission *active_perm = LSHubActivePermissionMapLookup(client);
+    const char *client_name = _LSTransportClientGetServiceName(client);
+#ifdef SECURITY_HACKS_ENABLED
+    if (_LSIsTrustedService(client_name))
+    {
+        LOG_LS_INFO(MSGID_LS_NOT_AN_ERROR, 0, "Security hacks were applied for: %s", client_name);
+    }
+    else
+#endif
+    if (!active_perm)
+    {
+    LOG_LS_INFO(MSGID_LS_QNAME_ERR, 0,
+            "Failed to find effective trusts for service %s",
+            client_name);
+        return "";
+    }
+
+    // Ensure restricted in devmode agents (like luna-send-pub) can't call private API.
+    const LSHubRole *role = nullptr;
+    if (client->app_id)
+    {
+        // look-up in all roles by app-id
+        role = SecurityData::CurrentSecurityData().roles.Lookup(client->app_id);
+    }
+    else
+    {
+        role = LSHubActiveRoleMapLookup(_LSTransportCredGetPid(_LSTransportClientGetCred(client)));
+    }
+
+    bool is_devmode = !role || LSHubRoleGetType(role) == LSHubRoleTypeDevmode;
+    pbnjson::JValue jval = pbnjson::Array();
+	std::string trust;
+
+#ifdef SECURITY_HACKS_ENABLED
+    if (active_perm)
+    {
+#endif
+    // Client will be having only 1 trust level
+    //for (const auto& trust : LSHubPermissionGetRequiredTrust(active_perm))
+    {
+       trust = LSHubPermissionGetRequiredTrustAsString(active_perm);
+       // if (is_devmode)// &&  !SecurityData::CurrentSecurityData().IsGroupForDevmode(trust))
+       //     continue;
+       // jval << pbnjson::JValue(trust);
+       //std::string trust = _LSTransportClientGetTrust(client);
+
+	   //printf("[%s] trust: %s \n", __func__, trust);
+
+	//	if(trust) 
+	    {
+	        jval << pbnjson::JValue(trust);
+
+			//LOG_LS_DEBUG("%%%%%%R%%%% [%s]cleint Name: %s, client->transport->trust_as_string: %s \n",
+			//	__func__,client_name, _LSTransportClientGetTrust(client));
+		}
+    }
+#ifdef SECURITY_HACKS_ENABLED
+    }
+#endif
+    std::string jval_str = pbnjson::JGenerator::serialize(jval, true);
+    if (!g_conf_security_enabled)
+    {
+        // If security is disabled, all the API belong to the same group "TOTUM" (lat. everything),
+        // and every service `requires' that group to function.
+        jval_str = R"(["TOTUM"])";
+    }
+    return trust;
+}
+
+static std::string
 _LSHubGetRequiredGroups(const _LSTransportClient *client)
 {
     LS_ASSERT(client != NULL);
@@ -1171,6 +1308,15 @@ _LSHubGetRequiredGroups(const _LSTransportClient *client)
     return jval_str;
 }
 
+static std::string
+_LSHubGetRequiredTrustLevelAsString(const _LSTransportClient *client)
+{
+    std::string retVal = _LSTransportClientGetTrustString(client);
+    std::string serviceName = _LSTransportClientGetServiceName(client);
+    std::string appId = _LSTransportClientGetApplicationId(client);
+    //LOG_LS_DEBUG("NILESH >>>>>> %s : retVal [ %s ] , servicename [%s], appId[%s]", __func__, retVal.c_str(), serviceName.c_str(),appId.c_str());
+    return retVal;
+}
 
 static bool
 _LSHubSendQueryNameReplyMessage(_LSTransportClient *client, const _LSTransportClient *source_client,
@@ -1197,10 +1343,19 @@ _LSHubSendQueryNameReplyMessage(_LSTransportClient *client, const _LSTransportCl
         }
 
         std::string groups = source_client ? _LSHubGetRequiredGroups(source_client) : "";
+        std::string trusts = source_client ? _LSHubGetRequiredTrusts(source_client) : "";
+        //TBD: Below line is crashing :(
+        //std::string required_trust_as_string = source_client ? _LSHubGetRequiredTrustLevelAsString(source_client) : std::string("dev");
+
+        LOG_LS_DEBUG("NILESH >>>> %s : trusts : %s", __func__, trusts.c_str());
+        //LOG_LS_DEBUG("NILESH >>>> %s : required_trust_as_string : %s", __func__, required_trust_as_string.c_str());
+        // TBD: We need  to add trust level here the client has
         if (err_code == LS_TRANSPORT_QUERY_NAME_SUCCESS &&
             (!_LSTransportMessageAppendString(&iter, app_id) ||
              !_LSTransportMessageAppendString(&iter, groups.c_str()) ||
              !_LSTransportMessageAppendInt32(&iter, client_permissions) ||
+             !_LSTransportMessageAppendString(&iter, trusts.c_str()) ||
+             !_LSTransportMessageAppendString(&iter, trusts.c_str()) ||
              !_LSTransportMessageAppendInvalid(&iter)))
         {
             _LSErrorSetOOM(lserror);
@@ -1436,7 +1591,7 @@ _LSHubSendServiceWaitListReply(_ClientId *id, bool success, bool is_dynamic, LSE
 void
 DumpHashItem(gpointer key, gpointer value, gpointer user_data)
 {
-    printf("key: \"%s\", value: %p\n", (char*)key, value);
+    //printf("key: \"%s\", value: %p\n", (char*)key, value);
 }
 
 void
@@ -1445,7 +1600,7 @@ DumpHashTable(GHashTable *table)
     LS_ASSERT(table != NULL);
 
     g_hash_table_foreach(table, DumpHashItem, NULL);
-    printf("\n");
+    //printf("\n");
     fflush(stdout);
 }
 
@@ -1465,9 +1620,9 @@ _LSHubHandleNodeUp(_LSTransportMessage *message)
     LSErrorInit(&lserror);
 
 #ifdef DEBUG
-    printf("%s: pending hash table:\n", __func__);
+    //printf("%s: pending hash table:\n", __func__);
     DumpHashTable(pending);
-    printf("%s: available_services hash table:\n", __func__);
+    //printf("%s: available_services hash table:\n", __func__);
     DumpHashTable(available_services);
 #endif
 
@@ -1607,12 +1762,12 @@ _LSHubHandleNodeUp(_LSTransportMessage *message)
     }
 
 #ifdef DEBUG
-    printf("%s: pending hash table:\n", __func__);
+    //printf("%s: pending hash table:\n", __func__);
     DumpHashTable(pending);
-    printf("%s: available_services hash table:\n", __func__);
+    //printf("%s: available_services hash table:\n", __func__);
     DumpHashTable(available_services);
 
-    printf("service is up: \"%s\"\n", id->service_name);
+    //printf("service is up: \"%s\"\n", id->service_name);
 #endif
 }
 
@@ -1764,7 +1919,7 @@ _LSHubHandleQueryName(_LSTransportMessage *message)
     LSErrorInit(&lserror);
 
 #ifdef DEBUG
-    printf("%s: available_services hash table:\n", __func__);
+    //printf("%s: available_services hash table:\n", __func__);
     DumpHashTable(available_services);
 #endif
 
@@ -2892,6 +3047,18 @@ _LSHubHandleDumpHubData(const _LSTransportMessage *message)
 
     {
         auto dump = data.groups.DumpProvidedCsv();
+        send_reply(dump.c_str());
+    }
+
+    // Dump required trust levels
+    {
+        auto dump = data.groups.DumpRequiredTrustLevelCsv();
+        send_reply(dump.c_str());
+    }
+
+    // Dump provided trust levels
+    {
+        auto dump = data.groups.DumpProvidedTrustLevelCsv();
         send_reply(dump.c_str());
     }
 
