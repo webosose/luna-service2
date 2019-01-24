@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -253,36 +253,6 @@ test_LSSubscriptionReply(TestData *fixture, gconstpointer user_data)
 }
 
 static void
-test_LSSubscriptionRespond(TestData *fixture, gconstpointer user_data)
-{
-    LSError error;
-    LSErrorInit(&error);
-
-    LSPalmService psh =
-    {
-        .public_sh = &fixture->sh,
-        .private_sh = &fixture->sh
-    };
-
-    const char *key = "a/b";
-
-    LSSubscriptionAdd(&fixture->sh, key, fixture->message, &error);
-
-    const char *payload = "{ \"key\": \"value\" }";
-
-    g_assert(LSSubscriptionRespond(&psh, key, payload, &error));
-    g_assert_cmpstr(fixture->lsmessagereply_payload, ==, payload);
-    g_assert_cmpint(fixture->lsmessagereply_call_count, ==, 2);
-
-    LSSubscriptionIter *sub_iter = NULL;
-    g_assert(LSSubscriptionAcquire(&fixture->sh, key, &sub_iter, &error));
-    LSMessage *msg = LSSubscriptionNext(sub_iter);
-    LSMessageUnref(msg);
-    LSSubscriptionRemove(sub_iter);
-    LSSubscriptionRelease(sub_iter);
-}
-
-static void
 test_LSSubscriptionProcess(TestData *fixture, gconstpointer user_data)
 {
     LSError error;
@@ -456,7 +426,6 @@ main(int argc, char *argv[])
     LSTEST_ADD("/luna-service2/LSSubscriptionGetSubscribersCount", test_LSSubscriptionGetSubscribersCount);
     LSTEST_ADD("/luna-service2/LSSubscriptionGetJson", test_LSSubscriptionGetJson);
     LSTEST_ADD("/luna-service2/LSSubscriptionReply", test_LSSubscriptionReply);
-    LSTEST_ADD("/luna-service2/LSSubscriptionRespond", test_LSSubscriptionRespond);
     LSTEST_ADD("/luna-service2/CatalogHandleCancel", test_CatalogHandleCancel);
     LSTEST_ADD("/luna-service2/LSSubscriptionProcess", test_LSSubscriptionProcess);
     LSTEST_ADD("/luna-service2/LSSubscriptionPost", test_LSSubscriptionPost);

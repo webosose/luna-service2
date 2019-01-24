@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2018 LG Electronics, Inc.
+// Copyright (c) 2015-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -115,14 +115,14 @@ Environment *env = static_cast<Environment *>(::testing::AddGlobalTestEnvironmen
 TEST(Migration, Migrated)
 {
     auto c = env->_client.callOneReply("luna://com.webos.service.echo_service/test/ping", "{}");
-    EXPECT_TRUE((bool)c.get(300));
+    EXPECT_TRUE((bool)c.get(1000));
     EXPECT_STREQ(env->_client.senderServiceName().c_str(), "com.webos.service.echo_service");
 }
 
 TEST(Migration, PalmMigrated)
 {
     auto c = env->_client.callOneReply("luna://com.palm.echo_service/test/ping", "{}");
-    EXPECT_TRUE((bool)c.get(300));
+    EXPECT_TRUE((bool)c.get(1000));
     EXPECT_STREQ(env->_client.senderServiceName().c_str(), "com.webos.service.echo_service");
 }
 
@@ -130,7 +130,7 @@ TEST(Migration, PalmMigrated)
 //       And Call::get(msTime) does not work as intended. This also should be fixed later.
 TEST(Migration, WebosMigrated)
 {
-    auto c = env->_client.callOneReply("luna://com.webos.echo_service/test/ping", "{}");
-    EXPECT_TRUE((bool)c.get(300));
+    auto c = env->_client.callOneReply("luna://com.webos.service.echo_service/test/ping", "{}");
+    EXPECT_TRUE((bool)c.get(1000));
     EXPECT_STREQ(env->_client.senderServiceName().c_str(), "com.webos.service.echo_service");
 }

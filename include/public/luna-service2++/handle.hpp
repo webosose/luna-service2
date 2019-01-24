@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018 LG Electronics, Inc.
+// Copyright (c) 2014-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ namespace LS {
  */
 class Handle
 {
-    friend Handle registerService(const char *, bool);
+    friend Handle registerService(const char *);
     friend Handle registerApplicationService(const char *, const char *);
 
 public:
@@ -131,22 +131,6 @@ public:
         if (!LSRegister(name, &_handle, error.get()))
             throw error;
     }
-
-    /**
-     * Registers a new anonymous service.
-     *
-     * @param name the service name, which equals to NULL
-     * @deprecated anonymous services are deprecated, you must define a name for you client
-     */
-    Handle(std::nullptr_t name) LS_DEPRECATED_PUBPRIV;
-
-    /**
-     * Registers a new service with the specified name.
-     * @param name the service name
-     * @param public_service true if we need the service to be public
-     * @deprecated Avoid specification of public/private hub
-     */
-    Handle(const char *name, bool public_service) LS_DEPRECATED_PUBPRIV;
 
     /**
      * Registers a new service with a specified name and an application Id.
@@ -564,15 +548,5 @@ Handle registerService(const char *name)
 inline
 Handle registerApplicationService(const char *name, const char *app_id)
 { return { name, app_id }; }
-
-/**
- * @deprecated Avoid specification of unnamed service
- */
-Handle registerService(std::nullptr_t = nullptr) LS_DEPRECATED_PUBPRIV;
-
-/**
- * @deprecated Avoid specification of public/service hub
- */
-Handle registerService(const char *name, bool public_service) LS_DEPRECATED_PUBPRIV;
 
 } //namespace LS;

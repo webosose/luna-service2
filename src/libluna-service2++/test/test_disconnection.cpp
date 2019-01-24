@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018 LG Electronics, Inc.
+// Copyright (c) 2014-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -123,7 +123,7 @@ TEST(TestDiconnection, SubscriptionDisconnectCounter)
             if (!fork())
             {
                 auto context = mk_ptr(g_main_context_new(), g_main_context_unref);
-                LS::Handle client = LS::registerService();
+                LS::Handle client = LS::registerService("test_service_name");
                 client.attachToLoop(context.get());
 
                 LS::Call call;

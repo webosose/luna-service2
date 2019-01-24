@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -155,10 +155,10 @@ void serviceThreadFunc()
     }
 }
 
-void clientThreadFunc()
+void clientThreadFunc( const char* service_name)
 {
     auto context = mk_ptr(g_main_context_new(), g_main_context_unref);
-    LS::Handle client = LS::registerService();
+    LS::Handle client = LS::registerService(service_name);
     client.attachToLoop(context.get());
 
     LS::Call call = client.callMultiReply("luna://com.palm.test_subscription_service/testCalls/subscribeCall",
@@ -198,7 +198,7 @@ TEST(TestSubscriptionPoint, SubscriptionDisconnectTest)
 
     auto context = mk_ptr(g_main_context_new(), g_main_context_unref);
     {
-        LS::Handle client = LS::registerService();
+        LS::Handle client = LS::registerService("service_clientA");
         client.attachToLoop(context.get());
 
         LS::Call call = client.callMultiReply("luna://com.palm.test_subscription_service/testCalls/subscribeCall",
@@ -284,11 +284,11 @@ TEST(TestSubscriptionPoint, SubscriptionTestMultiClientTest)
     std::thread serviceThread{serviceThreadFunc};
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    std::thread client1{clientThreadFunc};
+    std::thread client1{clientThreadFunc, "service_clientAA"};
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    std::thread client2{clientThreadFunc};
+    std::thread client2{clientThreadFunc, "service_clientBB"};
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    std::thread client3{clientThreadFunc};
+    std::thread client3{clientThreadFunc, "service_clientCC"};
 
     client1.join();
     client2.join();
@@ -296,7 +296,7 @@ TEST(TestSubscriptionPoint, SubscriptionTestMultiClientTest)
 
     ASSERT_EQ(uint{3}, g_counter);
     GMainLoop * mainloop = g_main_loop_new(nullptr, FALSE);
-    LS::Handle client = LS::registerService("com.palm.test_subscription_client");
+    LS::Handle client = LS::registerService("com.palm.test_subscription_clientA");
     client.attachToLoop(mainloop);
 
     client.callOneReply("luna://com.palm.test_subscription_service/testCalls/stopCall", "{}");

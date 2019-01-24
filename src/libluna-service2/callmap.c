@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -2148,32 +2148,6 @@ _ServerStatusHelper(LSHandle *sh, LSMessage *message, void *ctx)
 error:
     j_release(&object);
     return true;
-}
-
-/**
- *******************************************************************************
- * @brief Register a callback to be called when the server goes up or
- *        comes down.  Callback may be called in this context if
- *        the server is already up.
- *
- * @param sh          IN  handle to service
- * @param serviceName IN  service name to monitor for connect/disconnect.
- * @param func        IN  function callback
- * @param ctx         IN  user data to be passed to callback
- * @param lserror     OUT set on error
- *
- * @deprecated Use LSRegisterServerStatusEx() instead.
- *
- * @return true on success, otherwise false
- *******************************************************************************
- */
-bool
-LSRegisterServerStatus(LSHandle *sh, const char *serviceName,
-              LSServerStatusFunc func, void *ctx, LSError *lserror)
-{
-    void *cookie = NULL;
-    return LSRegisterServerStatusEx(sh, serviceName, func, ctx,
-                                    &cookie, lserror);
 }
 
 /**

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018 LG Electronics, Inc.
+// Copyright (c) 2014-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ class NewService
 {
 public:
     NewService(GMainLoop *main_loop)
-        : _handle{registerService(SERVICE_NAME.c_str(), false)}
+        : _handle{registerService(SERVICE_NAME.c_str())}
     {
         _handle.attachToLoop(main_loop);
 
@@ -82,7 +82,7 @@ TEST(Groups, VideoCommon)
 
     NewService new_service{main_loop.get()};
 
-    auto client = registerService("com.palm.newclient.new2new.video-common", false);
+    auto client = registerService("com.palm.newclient.new2new.video-common");
     client.attachToLoop(main_loop.get());
 
     EXPECT_TRUE(IsCallAllowed(client, "/common/getInfo"));
@@ -106,7 +106,7 @@ TEST(Groups, VideoAll)
 
     NewService new_service{main_loop.get()};
 
-    auto client = registerService("com.palm.newclient.new2new.video-all", false);
+    auto client = registerService("com.palm.newclient.new2new.video-all");
     client.attachToLoop(main_loop.get());
 
     EXPECT_TRUE(IsCallAllowed(client, "/common/getInfo"));
@@ -130,7 +130,7 @@ TEST(Groups, Audio)
 
     NewService new_service{main_loop.get()};
 
-    auto client = registerService("com.palm.newclient.new2new.audio", false);
+    auto client = registerService("com.palm.newclient.new2new.audio");
     client.attachToLoop(main_loop.get());
 
     EXPECT_FALSE(IsCallAllowed(client, "/common/getInfo"));
@@ -154,7 +154,7 @@ TEST(Groups, Default)
 
     NewService new_service{main_loop.get()};
 
-    auto client = registerService("com.palm.newclient.new2new.default", false);
+    auto client = registerService("com.palm.newclient.new2new.default");
     client.attachToLoop(main_loop.get());
 
     EXPECT_FALSE(IsCallAllowed(client, "/common/getInfo"));

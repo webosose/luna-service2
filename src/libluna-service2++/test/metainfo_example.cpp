@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018 LG Electronics, Inc.
+// Copyright (c) 2014-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -218,7 +218,7 @@ TEST(TestMetaInfo, Validation)
     MainLoopT loop;
 
     TestMetaInfoService service(loop.get());
-    LS::Handle client = LS::registerService();
+    LS::Handle client = LS::registerService("test_service_name1");
     client.attachToLoop(loop.get());
 
     // No validation schema for testCall
@@ -282,7 +282,7 @@ TEST(TestMetaInfo, Introspection)
     MainLoopT loop;
 
     TestMetaInfoService service(loop.get());
-    LS::Handle client = LS::registerService();
+    LS::Handle client = LS::registerService("test_service_name2");
     client.attachToLoop(loop.get());
 
 //! [category introspection]

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018 LG Electronics, Inc.
+// Copyright (c) 2014-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@
 #include "luna-service2++/error.hpp"
 #include "luna-service2++/message.hpp"
 #include "luna-service2++/handle.hpp"
-#include "luna-service2++/palm_service.hpp"
 #include "luna-service2++/call.hpp"
 #include "luna-service2++/subscription.hpp"
 

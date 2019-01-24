@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -137,23 +137,6 @@ LSMessageGetConnection(LSMessage *message)
 {
     if (!message) return NULL;
     return message->sh;
-}
-
-/**
- ********************************************************************************
- * @brief Returns if message is received from public connection to the bus.
- *
- * @param  psh      IN public service
- * @param  message  IN message to check
- *
- * @deprecated Avoid using LSPalmService, use LSHandle instead.
- *
- * @return true on success, otherwise false
- ********************************************************************************/
-bool
-LSMessageIsPublic(LSPalmService *psh, LSMessage *message)
-{
-    return (message->sh == psh->public_sh);
 }
 
 /**

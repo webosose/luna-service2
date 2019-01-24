@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1060,27 +1060,6 @@ error:
 /** @endcond */
 
 /**
- *******************************************************************************
- * @brief Connect to bus by type.
- *
- * @param name       IN  service name
- * @param *ret_sh    OUT pointer to location where handle to service will be stored
- * @param public_bus IN  public/private bus flag
- * @param lserror    OUT set on error
- *
- * @deprecated Avoid specification of public/private hub
- *
- * @return true on success, otherwise false
- ********************************************************************************/
-bool
-LSRegisterPubPriv(const char *name, LSHandle **ret_sh,
-                       bool public_bus,
-                       LSError *lserror)
-{
-    return _LSRegisterCommon(name, NULL, ret_sh, public_bus, LSHANDLE_GET_RETURN_ADDR(), lserror);
-}
-
-/**
  * Return name of luna service handle
  *
  * @param sh In handler
@@ -1135,110 +1114,6 @@ LSRegisterApplicationService(const char *name, const char *app_id, LSHandle **sh
                   LSError *lserror)
 {
     return _LSRegisterCommon(name, app_id, sh, false, LSHANDLE_GET_RETURN_ADDR(), lserror);
-}
-
-/**
- * @deprecated Avoid using LSPalmService, use LSHandle instead.
- */
-bool
-LSUnregisterPalmService(LSPalmService *psh, LSError *lserror)
-{
-    _LSErrorIfFail(psh != NULL, lserror, MSGID_LS_INVALID_HANDLE);
-
-    bool retVal;
-
-    if (psh->public_sh)
-    {
-        retVal = _LSUnregisterCommon(psh->public_sh, true, LSHANDLE_GET_RETURN_ADDR(), lserror );
-        if (!retVal) goto error;
-    }
-
-    if (psh->private_sh)
-    {
-        retVal = _LSUnregisterCommon(psh->private_sh, true, LSHANDLE_GET_RETURN_ADDR(), lserror );
-        if (!retVal) goto error;
-    }
-
-error:
-    g_free(psh);
-    return true;
-}
-
-
-/**
- *******************************************************************************
- * @brief Register a service that may expose public methods on the public bus,
- *        and internal methods on the private bus.
- *
- * @param name                IN  service name
- * @param *ret_public_service OUT pointer to location where handle to service will be stored
- * @param lserror             OUT set on error
- *
- * @deprecated Avoid using LSPalmService, use LSHandle instead.
- *
- * @return true on success, otherwise false
- ********************************************************************************/
-bool
-LSRegisterPalmService(const char *name,
-                  LSPalmService **ret_public_service,
-                  LSError *lserror)
-{
-    _LSErrorIfFailMsg(ret_public_service != NULL, lserror, MSGID_LS_INVALID_HANDLE,
-        -EINVAL, "Invalid parameter ret_public_service to %s", __FUNCTION__);
-
-    bool retVal;
-
-    LSPalmService *psh = g_new0(LSPalmService,1);
-
-    retVal = _LSRegisterCommon(name, NULL, &psh->public_sh, true, LSHANDLE_GET_RETURN_ADDR(), lserror);
-    if (!retVal) goto error;
-
-    retVal = _LSRegisterCommon(name, NULL, &psh->private_sh, false, LSHANDLE_GET_RETURN_ADDR(), lserror);
-    if (!retVal) goto error;
-
-    *ret_public_service = psh;
-    return retVal;
-
-error:
-    (void)LSUnregisterPalmService(psh, NULL);
-    *ret_public_service = NULL;
-    return retVal;
-}
-
-/**
- *******************************************************************************
- * @brief Obtain the private service handle from a public
- *        service.
- *
- * @param psh IN handle to public service
- *
- * @deprecated Avoid using LSPalmService, use LSHandle instead.
- *
- * @retval LSHandle handle to service
- ********************************************************************************/
-LSHandle *
-LSPalmServiceGetPrivateConnection(LSPalmService *psh)
-{
-    if (!psh) return NULL;
-    return psh->private_sh;
-}
-
-/**
- *******************************************************************************
- * @brief Obtain the public service handle from a public
- *        service.
- *
- * @param psh IN handle to public service
- *
- * @deprecated Avoid using LSPalmService, use LSHandle instead.
- *
- * @retval LSHandle handle to service
- ********************************************************************************/
-LSHandle *
-LSPalmServiceGetPublicConnection(LSPalmService *psh)
-{
-    if (!psh) return NULL;
-    return psh->public_sh;
 }
 
 /** @cond INTERNAL */
@@ -1348,42 +1223,6 @@ LSPushRole(LSHandle *sh, const char *role_path, LSError *lserror)
     LSHANDLE_VALIDATE(sh);
 
     return LSTransportPushRole(sh->transport, role_path, sh->is_public_bus, lserror);
-}
-
-/**
- *******************************************************************************
- * @brief Same as LSPushRole(), but for a LSPalmService connection.
- *
- * @param  psh          IN  handle
- * @param  role_path    IN  full path to role file
- * @param  lserror      OUT set on error
- *
- * @deprecated Avoid using LSPalmService, use LSHandle instead.
- *
- * @retval true on success
- * @retval false on failure
- ********************************************************************************/
-bool
-LSPushRolePalmService(LSPalmService *psh, const char *role_path, LSError *lserror)
-{
-    _LSErrorIfFail(psh != NULL, lserror, MSGID_LS_INVALID_HANDLE);
-
-    bool retVal = true;
-
-    if (psh->public_sh)
-    {
-        retVal = LSPushRole(psh->public_sh, role_path, lserror);
-        if (!retVal) goto error;
-    }
-
-    if (psh->private_sh)
-    {
-        retVal = LSPushRole(psh->private_sh, role_path, lserror);
-        if (!retVal) goto error;
-    }
-
-error:
-    return retVal;
 }
 
 /**

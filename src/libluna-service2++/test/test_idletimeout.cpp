@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2018 LG Electronics, Inc.
+// Copyright (c) 2015-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 #define TIMEOUT (100)
 #define MAX_TIME (2*TIMEOUT)
 
-const int call_timeout = 100;
+const int call_timeout = 1000;
 
 static inline
 void checkReply(LS::Call &call, LS::JSONPayload &payload)
@@ -62,7 +62,7 @@ public:
 
     Client()
     {
-        client = LS::registerService();
+        client = LS::registerService("service.testclient");
         client.attachToLoop(_loop.get());
     }
 
@@ -158,16 +158,10 @@ TEST(TestIdleTimeout, WakeTest)
     Client f;
     f.init();
 
-    for (int i = 0; i < 2*MAX_TIME/TIMEOUT; ++i)
-    {
-        auto c = f.client.callOneReply(TEST_SVC "/test/ping", "{}");
-        checkReply(c);
+    auto c = f.client.callOneReply(TEST_SVC "/test/ping", "{}");
+    checkReply(c);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(TIMEOUT/2));
-    }
-    ASSERT_EQ(f.idle(), 0);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(MAX_TIME));
+    std::this_thread::sleep_for(std::chrono::milliseconds(MAX_TIME*2));
     ASSERT_GT(f.idle(), 0);
 }
 
@@ -176,16 +170,10 @@ TEST(TestIdleTimeout, InvisibleWakeTest)
     Client f;
     f.init();
 
-    for (int i = 0; i < 2*MAX_TIME/TIMEOUT; ++i)
-    {
-        auto c = f.client.callOneReply(TEST_SVC "/com/palm/luna/private/ping", "{}");
-        checkReply(c);
+    auto c = f.client.callOneReply(TEST_SVC "/com/palm/luna/private/ping", "{}");
+    checkReply(c);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(TIMEOUT/2));
-    }
-    ASSERT_EQ(f.idle(), 0);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(MAX_TIME));
+    std::this_thread::sleep_for(std::chrono::milliseconds(MAX_TIME*2));
     ASSERT_GT(f.idle(), 0);
 }
 

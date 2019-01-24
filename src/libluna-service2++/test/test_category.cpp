@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018 LG Electronics, Inc.
+// Copyright (c) 2014-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ private:
         ASSERT_NO_THROW({ sh = LS::registerService("com.palm.test"); });
         ASSERT_NO_THROW({ sh.attachToLoop(main_loop); });
 
-        ASSERT_NO_THROW({ sh_client = LS::registerService(); });
+        ASSERT_NO_THROW({ sh_client = LS::registerService("com.palm.client1"); });
         ASSERT_NO_THROW({ sh_client.attachToLoop(main_loop); });
     }
 

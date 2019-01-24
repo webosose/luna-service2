@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1199,40 +1199,6 @@ cleanup:
 }
 
 /**
- ********************************************************************************
- * @brief Post a notification to all subscribers with name 'key'.
- *
- * This is equivalent to:
- * LSSubscriptionReply(public_bus, ...)
- * LSSubscriptionReply(private_bus, ...)
- *
- * @param  psh     IN handle to public service
- * @param  key     IN key
- * @param  payload IN some string, usually following json object semantics
- * @param  lserror OUT set on error
- *
- * @deprecated Avoid using LSPalmService, use LSHandle instead.
- *
- * @return true on success, otherwise false
- ********************************************************************************/
-bool
-LSSubscriptionRespond(LSPalmService *psh, const char *key,
-                      const char *payload, LSError *lserror)
-{
-    LSHandle *public_bus = LSPalmServiceGetPublicConnection(psh);
-    LSHandle *private_bus = LSPalmServiceGetPrivateConnection(psh);
-    bool retVal;
-
-    retVal = LSSubscriptionReply(public_bus, key, payload, lserror);
-    if (!retVal) return retVal;
-
-    retVal = LSSubscriptionReply(private_bus, key, payload, lserror);
-    if (!retVal) return retVal;
-
-    return true;
-}
-
-/**
  *******************************************************************************
  * @brief If message contains subscribe:true, add the message to subscription
  *        list using the default key '/category/method'.
@@ -1367,25 +1333,6 @@ unsigned int LSSubscriptionGetHandleSubscribersCount(LSHandle *sh, const char *k
 
     _CatalogUnlock(catalog);
     return retVal;
-}
-
-/**
- * @brief Returns number of subscribers with name 'key'.
- *
- * @param  psh
- * @param  key
- *
- * @deprecated Avoid using LSPalmService, use LSHandle instead.
- *
- * @retval unsigned int, number of subscribers
- */
-unsigned int LSSubscriptionGetServiceSubscribersCount(LSPalmService *psh, const char *key)
-{
-    LSHandle *public_bus = LSPalmServiceGetPublicConnection(psh);
-    LSHandle *private_bus = LSPalmServiceGetPrivateConnection(psh);
-
-    return LSSubscriptionGetHandleSubscribersCount(public_bus, key) +
-           LSSubscriptionGetHandleSubscribersCount(private_bus, key);
 }
 
 /**

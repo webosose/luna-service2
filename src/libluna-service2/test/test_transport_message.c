@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -647,6 +647,7 @@ test_ServiceNameCompactCopy(TestData *fixture, gconstpointer user_data)
     for (i=0; i < sizeof(service_pairs)/sizeof(service_pairs[0]); ++i)
     {
         char output_buffer[strlen(service_pairs[i].full_name)+1];
+        memset(output_buffer, 0, sizeof(output_buffer));
         g_assert_cmpstr(ServiceNameCompactCopy(service_pairs[i].full_name, output_buffer, sizeof(output_buffer)),
                         ==,
                         service_pairs[i].compact_name);

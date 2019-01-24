@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018 LG Electronics, Inc.
+// Copyright (c) 2014-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,25 +38,6 @@ TEST(TestClient, RegisterService)
     EXPECT_NO_THROW(srv.registerCategory("/test_cat", nullptr, nullptr, nullptr));
 }
 
-TEST(TestClient, RegisterPalmService)
-{
-    const char *service_name = "com.palm.test_client2";
-
-    LS::PalmService srv;
-
-    EXPECT_NO_THROW(srv = LS::registerPalmService(service_name));
-
-    // Both public and private services are registered
-    EXPECT_THROW(LS::registerPalmService(service_name), LS::Error);
-    EXPECT_THROW(LS::registerService(service_name), LS::Error);
-    EXPECT_THROW(LS::registerService(service_name, true), LS::Error);
-
-    EXPECT_STREQ(srv.getPrivateHandle().getName(), service_name);
-    EXPECT_STREQ(srv.getPublicHandle().getName(), service_name);
-
-    EXPECT_NO_THROW(srv.registerCategory("/test_cat", nullptr, nullptr, nullptr));
-}
-
 TEST(TestClient, Mainloop)
 {
     const char *service_name = "com.palm.test_client3";
@@ -71,12 +52,6 @@ TEST(TestClient, Mainloop)
     EXPECT_NO_THROW(srv.attachToLoop(main_loop.get()));
     EXPECT_NO_THROW(srv.setPriority(5));
     EXPECT_NO_THROW(srv.detach());
-
-    LS::PalmService plmsrv = LS::registerPalmService(service_name);
-    EXPECT_NO_THROW(plmsrv.attachToLoop(main_loop.get()));
-    EXPECT_NO_THROW(plmsrv.setPriority(5));
-    EXPECT_NO_THROW(plmsrv.getPrivateHandle().detach());
-    EXPECT_NO_THROW(plmsrv.getPublicHandle().detach());
 }
 
 TEST(TestClient, BHV_7106_CallTimeoutOverlapExplicitContext)

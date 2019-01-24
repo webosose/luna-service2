@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -132,18 +132,6 @@ struct LSHandle {
     /* This  M U S T  be that last thing in the struct for LSHANDLE_POISON to work */
     _LSHandleHistory history;      /**< fields for detecting invalid handles and where they were created and destroyed */
 #endif
-};
-
-/**
- ********************************************************************************
- * @brief A palm service contains a connection to both private/public
- *        buses and may expose API on either bus.
- *
- * @deprecated Use LSHandle instead.
- ********************************************************************************/
-struct LSPalmService {
-    LSHandle *public_sh;
-    LSHandle *private_sh;
 };
 
 /** Category for lunabus watch category signal */

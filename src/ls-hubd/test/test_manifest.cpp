@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2018 LG Electronics, Inc.
+// Copyright (c) 2015-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -98,15 +98,15 @@ void validate(SecurityData &security, const char *id, const char *name,
     pbnjson::JObject obj;
     obj.put("service", name);
     obj.put("executable", id);
-    obj.put("inbound", pbnjson::JArray{"com.webos.in"});
-    obj.put("outbound", pbnjson::JArray{"com.webos.out"});
+    obj.put("inbound", pbnjson::JArray{"com.lge.in","com.palm.in","com.palm.service.in","com.webos.in"});
+    obj.put("outbound", pbnjson::JArray{"com.lge.out","com.palm.out","com.palm.service.out","com.webos.out"});
     obj.put("requires", jreqs);
     obj.put("provides", jprovs);
 
     pbnjson::JDomParser parser;
     ASSERT_TRUE(parser.parse(LSHubPermissionDump(perm), pbnjson::JSchema::AllSchema()));
-
-    EXPECT_EQ(obj, parser.getDom());
+    pbnjson::JValue obj1 = parser.getDom();
+    EXPECT_EQ(obj, obj1);
 }
 
 TEST(TestManifest, TestPublic)

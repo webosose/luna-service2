@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2018 LG Electronics, Inc.
+# Copyright (c) 2014-2019 LG Electronics, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,8 @@ project(luna-service2++)
 set(SOURCES
     call.cpp
     condition_variable.cpp
-    handle.cpp
     json_payload.cpp
     message.cpp
-    palm_service.cpp
     subscription.cpp
     transport.cpp
     )
@@ -36,7 +34,6 @@ set(HEADERS
     ${PUBLIC_INCLUDES}/${PROJECT_NAME}/error.hpp
     ${PUBLIC_INCLUDES}/${PROJECT_NAME}/handle.hpp
     ${PUBLIC_INCLUDES}/${PROJECT_NAME}/message.hpp
-    ${PUBLIC_INCLUDES}/${PROJECT_NAME}/palm_service.hpp
     ${PUBLIC_INCLUDES}/${PROJECT_NAME}/payload.hpp
     ${PUBLIC_INCLUDES}/${PROJECT_NAME}/server_status.hpp
     ${PUBLIC_INCLUDES}/${PROJECT_NAME}/subscription.hpp

@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,18 +22,14 @@
 
 /* Mock variables *************************************************************/
 
-static const int mvar_priority = 8;
+static const int g_priority = 8;
+static _LSTransport* g_trans;
+static GMainContext* g_context;
+static LSHandle g_lsh;
 
-static _LSTransport* mvar_priv_trans;
-static _LSTransport* mvar_publ_trans;
-static GMainContext* mvar_context;
-static LSHandle mvar_priv_sh;
-static LSHandle mvar_publ_sh;
-
-static unsigned int mvar_attach_count = 0;
-static unsigned int mvar_priority_count = 0;
-static unsigned int mvar_public_detached = 0;
-static unsigned int mvar_private_detached = 0;
+static unsigned int g_attach_count = 0;
+static unsigned int g_priority_count = 0;
+static unsigned int g_detached = 0;
 
 /* Test cases *****************************************************************/
 
@@ -43,51 +39,45 @@ test_LSMainAttachDetachPositive(void)
     /* Attach service. */
     LSError error;
     LSErrorInit(&error);
-    LSPalmService service;
+
+    //LSHandle lsh;
     _LSTransport transport = {};
-    mvar_priv_sh.context = NULL;
-    mvar_publ_sh.context = NULL;
-    mvar_priv_trans = &transport;
-    mvar_publ_trans = &transport;
-    mvar_priv_sh.transport = mvar_priv_trans;
-    mvar_publ_sh.transport = mvar_publ_trans;
-    service.public_sh = &mvar_publ_sh;
-    service.private_sh = &mvar_priv_sh;
-    mvar_context = g_main_context_default();
-    GMainLoop* mainloop = g_main_loop_new(mvar_context, false);
-    bool ret = LSGmainAttachPalmService(&service, mainloop, &error);
+
+    g_lsh.context = NULL;
+
+    g_trans = &transport;
+    g_lsh.transport = g_trans;
+
+    g_context = g_main_context_default();
+    g_lsh.context = g_context;
+
+    //memcpy(&lsh, &g_lsh, sizeof(lsh));
+
+    GMainLoop* mainloop = g_main_loop_new(g_context, false);
+
+    bool ret = LSGmainAttach(&g_lsh, mainloop, &error);
     /* case: return value. */
     g_assert(ret);
     /* case: both services attached. */
-    g_assert_cmpint(mvar_attach_count, ==, 1);
+    g_assert_cmpint(g_attach_count, ==, 1);
     /* case: both contexts saved. */
-    g_assert(NULL != mvar_priv_sh.context);
-    g_assert(NULL != mvar_publ_sh.context);
+    g_assert(NULL != g_lsh.context);
 
     /* Change priority. */
-    ret = LSGmainSetPriorityPalmService(&service, mvar_priority, &error);
+    ret = LSGmainSetPriority(&g_lsh, g_priority, &error);
     /* case: return value. */
     g_assert(ret);
     /* case: both service priorities changed. */
-    g_assert_cmpint(mvar_priority_count, ==, 1);
+    g_assert_cmpint(g_priority_count, ==, 1);
 
     /* Detach services. */
-    /* NOTE: LSGmainDetachPalmService seems to be dead code... it is not
-     * declared outside the .c file. Using lower level function instead.
-     */
-    //ret = LSGmainDetachPalmService(&service, &error);
-    ret = LSGmainDetach(service.public_sh, &error);
-    g_assert(ret);
-    ret = LSGmainDetach(service.private_sh, &error);
+    ret = LSGmainDetach(&g_lsh, &error);
     g_assert(ret);
     /* case: both services detached. */
-    g_assert_cmpint(mvar_private_detached, ==, 1);
-    g_assert_cmpint(mvar_public_detached, ==, 1);
+    g_assert_cmpint(g_detached, ==, 1);
 
     /* Cleanup. */
-    g_main_context_unref(mvar_priv_sh.context);
-    g_main_context_unref(mvar_publ_sh.context);
-
+    g_main_context_unref(g_lsh.context);
     g_main_loop_unref(mainloop);
 }
 
@@ -106,13 +96,9 @@ _LSUnregisterCommon(LSHandle *sh,
 {
     if (!flush_and_send_shutdown && call_ret_addr && lserror)
     {
-        if (&mvar_priv_sh == sh)
+        if (&g_lsh == sh)
         {
-            mvar_private_detached++;
-        }
-        else if (&mvar_publ_sh == sh)
-        {
-            mvar_public_detached++;
+            g_detached++;
         }
     }
     return true;
@@ -123,17 +109,11 @@ _LSTransportGmainSetPriority(_LSTransport *transport,
                              int priority,
                              LSError *lserror)
 {
-    if (mvar_priority == priority && lserror)
+    if (g_priority == priority && lserror)
     {
-        if (transport == mvar_priv_trans)
+        if (transport == g_trans)
         {
-            mvar_priv_trans = (_LSTransport*)0x1234;
-            mvar_priority_count++;
-        }
-        else if (transport == mvar_publ_trans)
-        {
-            mvar_publ_trans = (_LSTransport*)0x1234;
-            mvar_priority_count++;
+            g_priority_count++;
         }
     }
     return true;
@@ -143,17 +123,11 @@ void
 _LSTransportGmainAttach(_LSTransport* transport,
                         GMainContext* context)
 {
-    if (mvar_context == context)
+    if (g_context == context)
     {
-        if (transport == mvar_priv_trans)
+        if (transport == g_trans)
         {
-            mvar_priv_trans = (_LSTransport*)0x1234;
-            mvar_attach_count++;
-        }
-        else if (transport == mvar_publ_trans)
-        {
-            mvar_publ_trans = (_LSTransport*)0x1234;
-            mvar_attach_count++;
+            g_attach_count++;
         }
     }
 }

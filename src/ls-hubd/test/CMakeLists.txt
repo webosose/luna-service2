@@ -1,4 +1,4 @@
-# Copyright (c) 2008-2018 LG Electronics, Inc.
+# Copyright (c) 2008-2019 LG Electronics, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,16 +38,10 @@ set(UNIT_TEST_SOURCES
     )
 
 set(INTEGRATION_TEST_SOURCES
-    "nosecurity_allowed_names.cpp"
-    "security_allowed_names.cpp"
     "nosecurity_permissions.cpp"
     "security_permissions.cpp"
-    "nosecurity_push_role.cpp"
-    "security_push_role.cpp"
     "nosecurity_groups.cpp"
     "security_groups.cpp"
-    "security_new2old_client.cpp\;security_new2old_service.cpp"
-    "security_old2new_client.cpp\;security_old2new_service.cpp"
     "security_app_container.cpp"
     "security_allowed_call.cpp"
     "security_signals.cpp"

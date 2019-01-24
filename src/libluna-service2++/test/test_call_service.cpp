@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -364,19 +364,14 @@ int main(int argc, char **argv)
     sact.sa_handler = term_handler;
     (void)sigaction(SIGTERM, &sact, NULL);
 
-    LSPalmService* psh;
+    LSHandle* lsh;
 
-    if (LSRegisterPalmService("com.palm.test_call_service", &psh, &lserror) &&
-        LSPalmServiceRegisterCategory(psh, "/testCalls",
-                                      testMethods, NULL,
-                                      NULL,
-                                      psh,
-                                      &lserror))
+    if (LSRegister("com.palm.test_call_service", &lsh, &lserror) &&
+        LSRegisterCategory(lsh, "/testCalls", testMethods, NULL, NULL, &lserror))
     {
-        LSSubscriptionSetCancelFunction(LSPalmServiceGetPrivateConnection(psh), subscribeCancelHandler, NULL, &lserror);
-        LSSubscriptionSetCancelFunction(LSPalmServiceGetPublicConnection(psh), subscribeCancelHandler, NULL, &lserror);
+        LSSubscriptionSetCancelFunction(lsh, subscribeCancelHandler, NULL, &lserror);
 
-        LSGmainAttachPalmService(psh, g_mainloop, &lserror);
+        LSGmainAttach(lsh, g_mainloop, &lserror);
 
         g_main_loop_run(g_mainloop);
 
@@ -389,7 +384,7 @@ int main(int argc, char **argv)
         LSErrorPrint(&lserror, stderr);
     }
 
-    (void)LSUnregisterPalmService(psh, &lserror);
+    (void)LSUnregister(lsh, &lserror);
 
     if (LSErrorIsSet(&lserror))
     {

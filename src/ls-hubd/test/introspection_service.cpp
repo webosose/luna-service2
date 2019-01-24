@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2018 LG Electronics, Inc.
+// Copyright (c) 2016-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,29 +26,18 @@ bool OnQuit(LSHandle *sh, LSMessage *msg, void *ctx)
     return true;
 }
 
-LSMethod private_methods[] = {
-    { "prv", OnQuit, LUNA_METHOD_FLAGS_NONE },
-    { "both", OnQuit, LUNA_METHOD_FLAGS_NONE },
+LSMethod methods[] = {
     { "quit", OnQuit, LUNA_METHOD_FLAGS_NONE },
-    { nullptr }
-};
-
-LSMethod public_methods[] = {
-    { "pub", OnQuit, LUNA_METHOD_FLAGS_NONE },
-    { "both", OnQuit, LUNA_METHOD_FLAGS_NONE },
     { nullptr }
 };
 
 int main()
 {
-    auto prv = LS::registerService("com.webos.service", false);
-    prv.attachToLoop(main_loop.get());
-    prv.registerCategory("/", private_methods, nullptr, nullptr);
-
-    auto pub = LS::registerService("com.webos.service", true);
-    pub.attachToLoop(main_loop.get());
-    pub.registerCategory("/", public_methods, nullptr, nullptr);
+    auto service = LS::registerService("com.webos.service");
+    service.attachToLoop(main_loop.get());
+    service.registerCategory("/", methods, nullptr, nullptr);
 
     main_loop();
+
     return 0;
 }

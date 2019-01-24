@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -113,21 +113,6 @@ test_LSMessage(TestData *fixture, gconstpointer user_data)
 
     // msg released by unref. Set NULL to prevent double free in test_teardown.
     fixture->msg = NULL;
-}
-
-static void
-test_LSMessageIsPublic(TestData *fixture, gconstpointer user_data)
-{
-    LSPalmService palm_service =
-    {
-        .public_sh = fixture->sh
-    };
-    // public connection
-    g_assert(LSMessageIsPublic(&palm_service, fixture->msg));
-
-    // 'non public' connection
-    palm_service.public_sh = GINT_TO_POINTER(GPOINTER_TO_INT(fixture->sh) + 1);
-    g_assert(!LSMessageIsPublic(&palm_service, fixture->msg));
 }
 
 static void
@@ -410,7 +395,6 @@ main(int argc, char *argv[])
     g_log_set_always_fatal(0);
 
     LSTEST_ADD("/luna-service2/LSMessage", test_LSMessage);
-    LSTEST_ADD("/luna-service2/LSMessageIsPublic", test_LSMessageIsPublic);
     LSTEST_ADD("/luna-service2/LSMessagePrint", test_LSMessagePrint);
     LSTEST_ADD("/luna-service2/LSMessageIsHubErrorMessage", test_LSMessageIsHubErrorMessage);
     LSTEST_ADD("/luna-service2/LSMessageGetMethod", test_LSMessageGetMethod);

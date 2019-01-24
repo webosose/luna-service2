@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -107,32 +107,6 @@ LSGmainAttach(LSHandle *sh, GMainLoop *mainLoop, LSError *lserror)
 }
 
 /**
- * @deprecated Avoid using LSPalmService, use LSHandle instead.
- */
-bool LSGmainContextAttachPalmService(LSPalmService *psh, GMainContext *mainContext, LSError *lserror)
-{
-    _LSErrorIfFail(psh != NULL, lserror, MSGID_LS_INVALID_HANDLE);
-    _LSErrorIfFail(mainContext != NULL, lserror, MSGID_LS_MAINCONTEXT_ERROR);
-
-    bool retVal = LSGmainContextAttach(psh->private_sh, mainContext, lserror);
-    if (retVal)
-        psh->public_sh->context = g_main_context_ref(mainContext);
-
-    return retVal;
-}
-
-/**
- * @deprecated Avoid using LSPalmService, use LSHandle instead.
- */
-bool
-LSGmainAttachPalmService(LSPalmService *psh, GMainLoop *mainLoop, LSError *lserror)
-{
-    _LSErrorIfFail(mainLoop != NULL, lserror, MSGID_LS_MAINLOOP_ERROR);
-    GMainContext *context = g_main_loop_get_context(mainLoop);
-    return LSGmainContextAttachPalmService(psh, context, lserror);
-}
-
-/**
  *******************************************************************************
  * @brief Detach a service from a glib mainloop. You should NEVER use this
  * function unless you are fork()'ing without exec()'ing and know what you are
@@ -161,30 +135,6 @@ LSGmainDetach(LSHandle *sh, LSError *lserror)
 
 /**
  *******************************************************************************
- * @brief @see LSGmainDetach(). This is the equivalent for a "PalmService"
- * handle.
- *
- * @param  psh      IN  PalmService handle
- * @param  lserror  OUT set on error
- *
- * @return true on success, otherwise false
- *******************************************************************************
- */
-bool
-LSGmainDetachPalmService(LSPalmService *psh, LSError *lserror)
-{
-    bool retVal;
-
-    retVal = LSGmainDetach(psh->public_sh, lserror);
-    if (!retVal) return retVal;
-    retVal = LSGmainDetach(psh->private_sh, lserror);
-    if (!retVal) return retVal;
-
-    return retVal;
-}
-
-/**
- *******************************************************************************
  * @brief Sets the priority level on the associated GSources for
  *        the service connection.
  *
@@ -207,28 +157,6 @@ LSGmainSetPriority(LSHandle *sh, int priority, LSError *lserror)
     LSHANDLE_VALIDATE(sh);
 
     return _LSTransportGmainSetPriority(sh->transport, priority, lserror);
-}
-
-/**
- * @deprecated Avoid using LSPalmService, use LSHandle instead.
- */
-bool
-LSGmainSetPriorityPalmService(LSPalmService *psh, int priority, LSError *lserror)
-{
-    bool retVal;
-    _LSErrorIfFail(psh != NULL, lserror, MSGID_LS_INVALID_HANDLE);
-
-    if (psh->public_sh)
-    {
-        retVal = LSGmainSetPriority(psh->public_sh, priority, lserror);
-        if (!retVal) return false;
-    }
-    if (psh->private_sh)
-    {
-        retVal = LSGmainSetPriority(psh->private_sh, priority, lserror);
-        if (!retVal) return false;
-    }
-    return true;
 }
 
 /** @} END OF LunaServiceMainloop */

@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -410,12 +410,6 @@ test_LSRegisterAndUnregister(TestData *fixture, gconstpointer user_data)
     g_assert_cmpstr(LSHandleGetName(sh), ==, "com.name.service");
     g_assert(LSUnregister(sh, &error));
     g_assert(!LSErrorIsSet(&error));
-
-    g_assert(LSRegisterPubPriv("com.name.service", &sh, true, &error));
-    g_assert(NULL != sh);
-    g_assert(!LSErrorIsSet(&error));
-    g_assert(LSUnregister(sh, &error));
-    g_assert(!LSErrorIsSet(&error));
 }
 
 static void
@@ -428,7 +422,7 @@ test_HandleValidate(TestData *fixture, gconstpointer user_data)
         LSErrorInit(&error);
         LSHandle *sh = NULL;
 
-        g_assert(LSRegisterPubPriv("com.name.service", &sh, false, &error));
+        g_assert(LSRegister("com.name.service", &sh, &error));
         g_assert(NULL != sh);
         g_assert(!LSErrorIsSet(&error));
 
@@ -500,26 +494,6 @@ test_LSHandleGetName(TestData *fixture, gconstpointer user_data)
     g_assert_cmpstr(LSHandleGetName(sh), ==, "com.name.service");
 
     LSUnregister(sh, &error);
-}
-
-static void
-test_LSRegisterAndUnregisterPalmService(TestData *fixture, gconstpointer user_data)
-{
-    LSError error;
-    LSErrorInit(&error);
-
-    LSPalmService *psh = NULL;
-
-    g_assert(LSRegisterPalmService("com.name.service", &psh, &error));
-    g_assert(NULL != psh);
-    g_assert(NULL != psh->public_sh);
-    g_assert(LSPalmServiceGetPublicConnection(psh) == psh->public_sh);
-    g_assert(LSPalmServiceGetPrivateConnection(psh) == psh->private_sh);
-    g_assert(NULL != psh->private_sh);
-    g_assert(!LSErrorIsSet(&error));
-
-    g_assert(LSUnregisterPalmService(psh, &error));
-    g_assert(!LSErrorIsSet(&error));
 }
 
 static void
@@ -605,25 +579,6 @@ test_LSRegisterCategoryAppend(TestData *fixture, gconstpointer user_data)
 }
 
 static void
-test_LSPalmServiceRegisterCategory(TestData *fixture, gconstpointer user_data)
-{
-    LSError error;
-    LSErrorInit(&error);
-
-    LSPalmService *psh = NULL;
-    LSRegisterPalmService("com.name.service", &psh, &error);
-
-    LSMethod methods[] =
-    {
-        { "test", GINT_TO_POINTER(1) },
-        { }
-    };
-    g_assert(LSPalmServiceRegisterCategory(psh, "/", methods, methods, NULL, NULL, &error));
-
-    LSUnregisterPalmService(psh, &error);
-}
-
-static void
 test_LSCategorySetData(TestData *fixture, gconstpointer user_data)
 {
     LSError error;
@@ -656,33 +611,6 @@ test_LSPushRole(TestData *fixture, gconstpointer user_data)
     g_assert(LSPushRole(sh, "/path/to/role.json", &error));
 
     LSUnregister(sh, &error);
-}
-
-static void
-test_LSPushRolePalmService(TestData *fixture, gconstpointer user_data)
-{
-    LSError error;
-    LSErrorInit(&error);
-
-    LSPalmService *psh = NULL;
-    LSRegisterPalmService("com.name.service", &psh, &error);
-
-    g_assert(LSPushRolePalmService(psh, "/path/to/role.json", &error));
-
-#if GLIB_CHECK_VERSION(2, 38, 0)
-    // pushing to NULL service should fail
-    if (g_test_subprocess())
-    {
-        g_assert(!LSPushRolePalmService(NULL, "/path/to/role.json", &error));
-        g_assert(LSErrorIsSet(&error));
-        exit(0);
-    }
-
-    g_test_trap_subprocess(NULL, 0, 0);
-    g_test_trap_assert_passed();
-#endif
-
-    g_assert(LSUnregisterPalmService(psh, &error));
 }
 
 static void
@@ -1038,13 +966,10 @@ main(int argc, char *argv[])
     LSTEST_ADD("/luna-service2/LSSetDisconnectHandler", test_LSSetDisconnectHandler);
     LSTEST_ADD("/luna-service2/LSSetDisconnectHandlerNull", test_LSSetDisconnectHandlerNull);
     LSTEST_ADD("/luna-service2/LSHandleGetName", test_LSHandleGetName);
-    LSTEST_ADD("/luna-service2/LSRegisterAndUnregisterPalmService", test_LSRegisterAndUnregisterPalmService);
     LSTEST_ADD("/luna-service2/LSRegisterCategory", test_LSRegisterCategory);
     LSTEST_ADD("/luna-service2/LSRegisterCategoryAppend", test_LSRegisterCategoryAppend);
-    LSTEST_ADD("/luna-service2/LSPalmServiceRegisterCategory", test_LSPalmServiceRegisterCategory);
     LSTEST_ADD("/luna-service2/LSCategorySetData", test_LSCategorySetData);
     LSTEST_ADD("/luna-service2/LSPushRole", test_LSPushRole);
-    LSTEST_ADD("/luna-service2/LSPushRolePalmService", test_LSPushRolePalmService);
     LSTEST_ADD("/luna-service2/serviceDefaultMethods", test_serviceDefaultMethods);
 
     return g_test_run();

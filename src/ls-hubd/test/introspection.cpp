@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2018 LG Electronics, Inc.
+// Copyright (c) 2016-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,10 +34,7 @@ TEST(Introspection, Flat)
     auto reference = pbnjson::JDomParser::fromString(R"(
 {
     "/": {
-        "quit": "METHOD",
-        "prv": "METHOD",
-        "pub": "METHOD",
-        "both": "METHOD"
+        "quit": "METHOD"
     }
 }
     )");
@@ -91,7 +88,7 @@ TEST(Introspection, Description)
     auto result = payload_schema.validate(payload);
     ASSERT_TRUE(!result.isError()) << result.errorString();
 
-    ASSERT_EQ(4, payload["categories"]["/"]["methods"].objectSize());
+    ASSERT_EQ(1, payload["categories"]["/"]["methods"].objectSize());
 
     typedef std::set<std::string> SetT;
 
@@ -103,10 +100,7 @@ TEST(Introspection, Description)
         return ret;
     };
 
-    EXPECT_EQ(SetT({"q", "private"}), create_set(payload["categories"]["/"]["methods"]["quit"]["provides"]));
-    EXPECT_EQ(SetT({"a", "private"}), create_set(payload["categories"]["/"]["methods"]["prv"]["provides"]));
-    EXPECT_EQ(SetT({"b", "private", "public"}), create_set(payload["categories"]["/"]["methods"]["both"]["provides"]));
-    EXPECT_EQ(SetT({"c", "public"}), create_set(payload["categories"]["/"]["methods"]["pub"]["provides"]));
+    EXPECT_EQ(SetT({"q"}), create_set(payload["categories"]["/"]["methods"]["quit"]["provides"]));
 }
 
 TEST(Introspection, Quit)
