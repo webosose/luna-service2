@@ -34,7 +34,8 @@ typedef struct LSError LSError;
 typedef struct LSHubPermission LSHubPermission;
 typedef struct LSTransportClient _LSTransportClient;
 typedef struct _LSHubPatternQueue _LSHubPatternQueue;
-#define DEFAULT_TRUST_LEVEL "dev"
+
+#define DEFAULT_TRUST_LEVEL "untrusted"
 
 /// @cond INTERNAL
 /// @addtogroup LunaServiceHubSecurity
@@ -224,7 +225,7 @@ LSHubPermissionGetRequiredTrustAsString(const LSHubPermission *perm)
     // We can return first groups trust as this is a map of
     // trustlevel from application to its required groups.
     // Hence all required groups will have same trust level
-    LOG_LS_DEBUG("NILESH >>>> %s :get perm level perm->required_trust %s", __func__, perm->required_trust);
+    LOG_LS_DEBUG("%s :get perm level perm->required_trust %s", __func__, perm->required_trust);
     return perm->required_trust;
 }
 
@@ -265,7 +266,7 @@ LSHubPermissionSetTrustString(LSHubPermission *perm, const char* trust_level)
         perm->required_trust = g_strdup(trust_level);
     else
         perm->required_trust = g_strdup(DEFAULT_TRUST_LEVEL);
-    LOG_LS_DEBUG("NILESH >>>> %s :set perm level perm->required_trust %s", __func__, perm->required_trust);
+    LOG_LS_DEBUG("%s :set perm level perm->required_trust %s", __func__, perm->required_trust);
 }
 
 static inline void

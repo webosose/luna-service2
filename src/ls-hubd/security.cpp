@@ -748,7 +748,6 @@ bool
 LSHubIsCallAllowed(const char *service, const char *dest_service,
                    const char *category, const char *method)
 {
-    LOG_LS_DEBUG("NILESH: %s\n", __func__);
     LS_ASSERT(service);
     LS_ASSERT(category);
 
@@ -1203,7 +1202,7 @@ void SecurityData::LoadManifestData(ManifestData &&data)
       for (const auto &item : data.trust_level_provided)
       {
           const std::string service_name_provided = item.first;
-          LOG_LS_DEBUG("NILESH >>>> Found trustmap..service_name : %s", service_name_provided);
+          LOG_LS_DEBUG("Found trustmap..service_name : %s", service_name_provided);
           TrustMap trusts_map;
           for (const auto &map : item.second)
           {
@@ -1222,7 +1221,7 @@ void SecurityData::LoadManifestData(ManifestData &&data)
       for (const auto &item : data.trust_level_required)
       {
           service_name_required = item.first;
-          LOG_LS_DEBUG("NILESH >>>> Found trustmap..groupname : %s", service_name_required);
+          LOG_LS_DEBUG("Found trustmap..groupname : %s", service_name_required);
           TrustMap trusts_map;
           for (const auto &map : item.second)
           {

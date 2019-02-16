@@ -166,7 +166,6 @@ bool
 ParseJSONGetRequiredTrust(const pbnjson::JValue &json, const std::string &path,
                                                          const std::string &prefix, ServiceToTrustMap &trust_level, std::string &trustLevel, LSError *error)
 {
-    LOG_LS_DEBUG("NILESH >>>> START %s: ",__func__);
     //TBD:
     // 1. parse trust level of permission level
     // 2. parse required permission
@@ -210,7 +209,6 @@ ParseJSONGetRequiredTrust(const pbnjson::JValue &json, const std::string &path,
         }
     }
 
-    LOG_LS_DEBUG("NILESH >>>> END %s: ",__func__);
     return true;
 }
 
@@ -597,7 +595,7 @@ namespace {
                 if (lserror)
                 {
                     g_prefix_error(err.pptr(),
-                                   "NILESH: Failed to get contents of json file %s: ", filename);
+                                   "Failed to get contents of json file %s: ", filename);
                     _LSErrorSetFromGError(lserror, MSGID_LSHUB_JSON_READ_ERR, err.release());
                 }
                 return false;
@@ -622,7 +620,7 @@ namespace {
                     (void) jerror_to_string(err, err_msg, sizeof(err_msg)); // render error
                     jerror_free(err); // no more need in jerror
 
-                    _LSErrorSet(lserror, MSGID_LSHUB_JSON_ERR, -1, "NILESH: Failed to parse json: %s", err_msg);
+                    _LSErrorSet(lserror, MSGID_LSHUB_JSON_ERR, -1, "Failed to parse json: %s", err_msg);
                 }
 
                 return status;
@@ -664,11 +662,9 @@ namespace {
 
 static void ParseHandler(CategoryMap &map, const std::string &key, pbnjson::JInput value)
 {
-    LOG_LS_DEBUG("NILESH >>>> %s: START parsing JSON from file: ");
     const char *fixed = g_intern_string(std::string(value.m_str, value.m_len).c_str());
     map[key].push_back(fixed);
-    LOG_LS_DEBUG("NILESH >>>> %s: [ key :%s ] , [value: %s]", __func__, key.c_str(),fixed);
-    LOG_LS_DEBUG("NILESH >>>> %s: FINISH parsing JSON from file:");
+    LOG_LS_DEBUG("%s: [ key :%s ] , [value: %s]", __func__, key.c_str(),fixed);
 }
 
 bool ParseRequiresString(const std::string &data, CategoryMap &requires, LSError *error)
@@ -693,7 +689,6 @@ bool ParseProvidesString(const std::string &data, CategoryMap &provides, LSError
 
 bool ParseProvidesFile(const std::string &path, CategoryMap &provides, LSError *error)
 {
-    LOG_LS_DEBUG("Nilesh: %s\n", __func__);
     LOG_LS_DEBUG("%s: parsing JSON from file: \"%s\"", __func__, path.c_str());
 
     JParseKeyedStrArrays parser(std::bind(&ParseHandler, std::ref(provides), _1, _2), error);
@@ -702,28 +697,13 @@ bool ParseProvidesFile(const std::string &path, CategoryMap &provides, LSError *
 
 static void ParseGroupsHandler(TrustMap &map, const std::string &key, pbnjson::JInput value)
 {
-    LOG_LS_DEBUG("NILESH >>>> %s: START parsing JSON from file: ");
-
-    /*bool is_trust_level = json[ACCESS_KEY].isString();
-
-    if (!is_trust_level)
-    {
-        _LSErrorSet(error, MSGID_LSHUB_GROUP_FILE_ERR, -1, "No trust level present in group file (%s)",
-                    path.c_str());
-    }
-
-    std::string trustLevel = json[ACCESS_KEY].asString();*/
-
     const char *fixed = g_intern_string(std::string(value.m_str, value.m_len).c_str());
-   LOG_LS_DEBUG("NILESH >>>> %s: [ key :%s ] , [value: %s]", __func__, key.c_str(),fixed);
+    LOG_LS_DEBUG("%s: [ key :%s ] , [value: %s]", __func__, key.c_str(),fixed);
     map[key].push_back(fixed);
-   LOG_LS_DEBUG("NILESH >>>> %s: FINISH parsing JSON from file:");
-    //map[trustLevel].push_back(fixed);
 }
 
 bool ParseGroupsString(const std::string &data, ServiceToTrustMap &trust_level, LSError *error)
 {
-    LOG_LS_DEBUG("Nilesh: %s\n", __func__);
     //JParseKeyedStrArrays parser(std::bind(&ParseGroupsHandler, std::ref(trust_level), _1, _2), error);
     //return parser.parse(data, groups_schema);
     pbnjson::JValue json(data);
@@ -732,7 +712,7 @@ bool ParseGroupsString(const std::string &data, ServiceToTrustMap &trust_level, 
 
 bool ParseGroupsFile(const std::string &path, ServiceToTrustMap &trust_level, LSError *error)
 {
-    LOG_LS_DEBUG("NILESH >>> %s: parsing JSON from file: \"%s\"", __func__, path.c_str());
+    LOG_LS_DEBUG("%s: parsing JSON from file: \"%s\"", __func__, path.c_str());
     auto json = pbnjson::JDomParser::fromFile(path.c_str());
     if (!json)
     {
@@ -774,7 +754,7 @@ void ParseServicetoTrustMap(pbnjson::JValue &object, ServiceToTrustMap &trust_le
     }
     else
     {
-        LOG_LS_DEBUG("NILESH >>>>> %s : ERRRRRR Cannot remove ALLOWED_NAMES_KEY !!", __func__);
+        LOG_LS_DEBUG("%s : ERRRRRR Cannot remove ALLOWED_NAMES_KEY !!", __func__);
     }
 }
 
@@ -782,7 +762,6 @@ bool
 ParseJSONGetRequiredPermissions(const pbnjson::JValue &json, const std::string &trust,
                                                          ServiceToTrustMap &trust_level, LSError *error)
 {
-    LOG_LS_DEBUG("NILESH >>>> %s: START", __func__);
     pbnjson::JValue required_permisson = json[REQUIRED_PERMISSIONS_KEY];
     pbnjson::JValue service_names = json[ALLOWED_NAMES_KEY];
 
@@ -808,7 +787,6 @@ ParseJSONGetRequiredPermissions(const pbnjson::JValue &json, const std::string &
         trust_level[service] = (trusts);
     }
 
-    LOG_LS_DEBUG("NILESH >>>> %s: END", __func__);
 }
 
 void DumpTrustMapToFile(std::string filename, ServiceToTrustMap &trust_level, std::string title)
@@ -835,14 +813,12 @@ void DumpTrustMapToFile(std::string filename, ServiceToTrustMap &trust_level, st
 
 void DumpTrustMap(const TrustMap &trust_level, std::string &dump)
 {
-    LOG_LS_DEBUG("NILESH >>>>>>>>>>>> %s : DUMPING COMPLETE TRUST MAP", __func__);
     for(const auto& e : trust_level)
     {
         dump += "Group: " + e.first + " ";
         for(auto &str : e.second)
         {    dump += std::string(str); dump += " "; }
     }
-    LOG_LS_DEBUG("NILESH >>>>>>>>>> %s : DUMPING COMPLETE TRUST MAP - END", __func__);
 }
 
 /** @endcond INTERNAL */

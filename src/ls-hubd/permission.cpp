@@ -278,7 +278,6 @@ LSHubPermissionFree(LSHubPermission *perm)
 
 std::string LSHubPermissionDump(const LSHubPermission *perm)
 {
-    LOG_LS_DEBUG("NILESH >>>> START %s :", __func__);
     std::string dump;
     dump = dump + "{";
     dump = dump + "\"service\": " + "\"" + perm->service_name + "\"";
@@ -291,7 +290,6 @@ std::string LSHubPermissionDump(const LSHubPermission *perm)
     dump = dump + ",\"requiredtrustLevels\":" + LSHubPermissionRequiredTrustLevelsToString(perm);
     //dump = dump + ", \"access\": " + perm->
     dump = dump + "}";
-    LOG_LS_DEBUG("NILESH >>>> end %s :", __func__);
     return dump;
 }
 
@@ -344,14 +342,9 @@ LSHubPermissionAddRequired(LSHubPermission *perm, const char *group_name)
 bool
 LSHubPermissionAddProvided(LSHubPermission *perm, const char *category_name, const char *group_name)
 {
-	LOG_LS_DEBUG("NILESH: %s\n", __func__);
     LS_ASSERT(perm != nullptr);
-
-    //const char* trust_level;
-
     LOG_LS_DEBUG("%s: add provided group: \"%s\" to category \"%s\"", __func__, group_name, category_name);
     perm->provides[category_name].push_back(g_intern_string(group_name));
-    //perm->trustLevel[group_name].push_back(g_intern_string(trust_level));
     return true;
 }
 
@@ -365,10 +358,9 @@ bool
 LSHubPermissionAddProvidedTrust(LSHubPermission *perm, const char *group_name, const char *trust_level)
 {
     LS_ASSERT(perm != nullptr);
-	
-    LOG_LS_DEBUG("NILESH >>>> %s: add trust level: \"%s\" to provided group \"%s\"", __func__, trust_level, group_name);
+    LOG_LS_DEBUG("%s: add trust level: \"%s\" to provided group \"%s\"", __func__, trust_level, group_name);
     perm->trust_level_provided[group_name].push_back(g_intern_string(trust_level));
-	LOG_LS_DEBUG("NILESH: Trust Level: %s\n", trust_level);
+    LOG_LS_DEBUG("Trust Level: %s\n", trust_level);
     return true;
 }
 
@@ -376,10 +368,10 @@ bool
 LSHubPermissionAddRequiredTrust(LSHubPermission *perm, const char *group_name, const char *trust_level)
 {
     LS_ASSERT(perm != nullptr);
-	
-    LOG_LS_DEBUG("NILESH >>>>%s: add trust level: \"%s\" to provided group \"%s\"", __func__, trust_level, group_name);
+
+    LOG_LS_DEBUG("%s: add trust level: \"%s\" to provided group \"%s\"", __func__, trust_level, group_name);
     perm->trust_level_required[group_name].push_back(g_intern_string(trust_level));
-	LOG_LS_DEBUG("NILESH: Trust Level: %s\n", trust_level);
+    LOG_LS_DEBUG("Trust Level: %s\n", trust_level);
     return true;
 }
 

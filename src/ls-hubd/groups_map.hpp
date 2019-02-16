@@ -30,7 +30,7 @@
 
 #define PUBLIC_SECGROUP_NAME    "public"
 #define PRIVATE_SECGROUP_NAME   "private"
-#define DEFAULT_TRUST_LEVEL   "dev"
+#define DEFAULT_TRUST_LEVEL   	"untrusted"
 
 #endif //SECURITY_COMPATIBILITY
 

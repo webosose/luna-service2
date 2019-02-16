@@ -870,7 +870,7 @@ _LSHubSendRequestNameReply(_LSTransportClient *client, const char *unique_name, 
         if (active_perm)
         {
             service_name = LSHubPermissionGetServiceName(active_perm);
-            LOG_LS_DEBUG("NILESH >>>>>> %s :###### active permission found for unique_name [%s] service_name[%s]", __func__, unique_name, service_name);
+            LOG_LS_DEBUG("%s :###### active permission found for unique_name [%s] service_name[%s]", __func__, unique_name, service_name);
             pbnjson::JValue jval = pbnjson::Array();
             for (const auto &category : LSHubPermissionGetProvided(active_perm))
             {
@@ -965,7 +965,7 @@ _LSHubSendRequestNameReply(_LSTransportClient *client, const char *unique_name, 
         }
     }
 
-    LOG_LS_DEBUG("NILESH >>>> %s : trust_provided_str.c_str() [ %s ]", __func__, trust_provided_str.c_str());
+    LOG_LS_DEBUG("%s : trust_provided_str.c_str() [ %s ]", __func__, trust_provided_str.c_str());
     LS::Error lserror;
     if (!_LSTransportSendMessage(reply.get(), client, nullptr, lserror.get()))
     {
@@ -1206,7 +1206,7 @@ _LSHubGetRequiredTrusts(const _LSTransportClient *client)
 
     bool is_devmode = !role || LSHubRoleGetType(role) == LSHubRoleTypeDevmode;
     pbnjson::JValue jval = pbnjson::Array();
-	std::string trust;
+    std::string trust;
 
 #ifdef SECURITY_HACKS_ENABLED
     if (active_perm)
@@ -1216,20 +1216,10 @@ _LSHubGetRequiredTrusts(const _LSTransportClient *client)
     //for (const auto& trust : LSHubPermissionGetRequiredTrust(active_perm))
     {
        trust = LSHubPermissionGetRequiredTrustAsString(active_perm);
-       // if (is_devmode)// &&  !SecurityData::CurrentSecurityData().IsGroupForDevmode(trust))
-       //     continue;
-       // jval << pbnjson::JValue(trust);
-       //std::string trust = _LSTransportClientGetTrust(client);
-
-	   //printf("[%s] trust: %s \n", __func__, trust);
-
-	//	if(trust) 
-	    {
-	        jval << pbnjson::JValue(trust);
-
-			//LOG_LS_DEBUG("%%%%%%R%%%% [%s]cleint Name: %s, client->transport->trust_as_string: %s \n",
-			//	__func__,client_name, _LSTransportClientGetTrust(client));
-		}
+       LOG_LS_DEBUG("[%s] trust: %s \n", __func__, trust);
+       {
+           jval << pbnjson::JValue(trust);
+       }
     }
 #ifdef SECURITY_HACKS_ENABLED
     }
@@ -1314,7 +1304,6 @@ _LSHubGetRequiredTrustLevelAsString(const _LSTransportClient *client)
     std::string retVal = _LSTransportClientGetTrustString(client);
     std::string serviceName = _LSTransportClientGetServiceName(client);
     std::string appId = _LSTransportClientGetApplicationId(client);
-    //LOG_LS_DEBUG("NILESH >>>>>> %s : retVal [ %s ] , servicename [%s], appId[%s]", __func__, retVal.c_str(), serviceName.c_str(),appId.c_str());
     return retVal;
 }
 
@@ -1347,8 +1336,8 @@ _LSHubSendQueryNameReplyMessage(_LSTransportClient *client, const _LSTransportCl
         //TBD: Below line is crashing :(
         //std::string required_trust_as_string = source_client ? _LSHubGetRequiredTrustLevelAsString(source_client) : std::string("dev");
 
-        LOG_LS_DEBUG("NILESH >>>> %s : trusts : %s", __func__, trusts.c_str());
-        //LOG_LS_DEBUG("NILESH >>>> %s : required_trust_as_string : %s", __func__, required_trust_as_string.c_str());
+        LOG_LS_DEBUG("%s : trusts : %s", __func__, trusts.c_str());
+        //LOG_LS_DEBUG("%s : required_trust_as_string : %s", __func__, required_trust_as_string.c_str());
         // TBD: We need  to add trust level here the client has
         if (err_code == LS_TRANSPORT_QUERY_NAME_SUCCESS &&
             (!_LSTransportMessageAppendString(&iter, app_id) ||

@@ -1886,7 +1886,7 @@ _LSTransportRequestName(const char *requested_name,
     char *trust_level_string = NULL;
     int32_t transport_flags = _LSTransportFlagNoFlags;
 
-    LOG_LS_DEBUG("NILESH >>> %s: requested_name: %s, app_id: %s, client: %p\n", __func__, requested_name, app_id, client);
+    LOG_LS_DEBUG("%s: requested_name: %s, app_id: %s, client: %p\n", __func__, requested_name, app_id, client);
 
     _LSTransportMessage *message = _LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE);
     _LSTransportMessageSetType(message, _LSTransportMessageTypeRequestName);
@@ -2302,8 +2302,8 @@ _LSTransportQueryNameReplyGetTrustlevels(_LSTransportMessage *message)
 
     if (_LSTransportMessageGetString(&iter, &ret))
     {
-		//printf("[%s] ret: %s \n", __func__, ret?ret:"not supported");
-		return ret;
+        LOG_LS_DEBUG("[%s] ret: %s \n", __func__, ret?ret:"not supported");
+        return ret;
     }
     return NULL;
 }
@@ -2335,8 +2335,8 @@ _LSTransportQueryNameReplyGetTrustlevelString(_LSTransportMessage *message)
 
     if (_LSTransportMessageGetString(&iter, &ret))
     {
-		//printf("[%s] ret: %s \n",__func__,ret);
-		return ret;
+        LOG_LS_DEBUG("[%s] ret: %s \n",__func__,ret);
+        return ret;
     }
     return NULL;
 }
@@ -2547,7 +2547,6 @@ _LSTransportHandleQueryNameFailure(_LSTransportMessage *message, long err_code, 
 void
 _LSTransportHandleQueryNameReply(_LSTransportMessage *message)
 {
-    //printf("NILESH >>>>> %s\n", __func__);
 
     LSError lserror;
     LSErrorInit(&lserror);
@@ -5520,8 +5519,8 @@ bool _LSTransportInitializeTrustLevel(_LSTransport *transport, const char * prov
                         , int provided_map_length,  const char * required_map_json, int required_map_length
                         , const char * trust_as_string, int trust_string_length)
 {
-    LOG_LS_DEBUG("NILESH >>>: %s : provided_map_json [ %s ]\n", __func__, provided_map_json);
-    LOG_LS_DEBUG("NILESH >>>: %s : required_map_json [ %s ]\n", __func__, required_map_json);
+    LOG_LS_DEBUG("%s : provided_map_json [ %s ]\n", __func__, provided_map_json);
+    LOG_LS_DEBUG("%s : required_map_json [ %s ]\n", __func__, required_map_json);
     LS_ASSERT(transport);
     if ((required_map_json && strlen(required_map_json) > 0)
          && (provided_map_json && strlen(provided_map_json) > 0))
@@ -5537,7 +5536,7 @@ bool _LSTransportInitializeTrustLevel(_LSTransport *transport, const char * prov
     jvalue_ref jmap = jdom_parse(j_str_to_buffer(provided_map_json, provided_map_length), DOMOPT_NOOPT, &schemaInfo);
     if (!jis_array(jmap))
     {
-        LOG_LS_DEBUG("NILESH >>>: %s : Fail to read JSON: %s. Not array\n", __func__, provided_map_json);
+        LOG_LS_DEBUG("%s : Fail to read JSON: %s. Not array\n", __func__, provided_map_json);
         LOG_LS_ERROR(MSGID_LS_INVALID_JSON, 1,
                      PMLOGKS("JSON", provided_map_json),
                      "Fail to read JSON: %s. Not array\n", provided_map_json);
@@ -5576,7 +5575,7 @@ bool _LSTransportInitializeTrustLevel(_LSTransport *transport, const char * prov
             // hence wee simply return true. with ERR LOG message
                 LOG_LS_ERROR(MSGID_LS_INVALID_JSON, 1,
                      PMLOGKS("JSON", provided_map_json),
-                     "NILESH >>>> Fail to read JSON: providedGroup or providedTrustForGroup NOT PRESENT\n", provided_map_json);
+                     "Fail to read JSON: providedGroup or providedTrustForGroup NOT PRESENT\n", provided_map_json);
             g_hash_table_destroy(provided_trust_level_map);
             return true;
         }
@@ -5642,108 +5641,6 @@ bool _LSTransportInitializeTrustLevel(_LSTransport *transport, const char * prov
 
     j_release(&jmap);
 
- // TBD INCOMPLETE
-    // Required groups: Create hashmap [trustLevel: code]
-// Required groups: Create hashmap [trustLevel: code]
-    JSchemaInfo schemaInfo_required;
-    jschema_info_init(&schemaInfo_required, jschema_all(), NULL, NULL);
-    jvalue_ref jmap_required = jdom_parse(j_str_to_buffer(required_map_json, required_map_length), DOMOPT_NOOPT, &schemaInfo_required);
-    if (!jis_array(jmap_required))
-    {
-        LOG_LS_DEBUG("NILESH >>>: %s : Fail to read JSON: %s. Not array\n", __func__, required_map_json);
-        LOG_LS_ERROR(MSGID_LS_INVALID_JSON, 1,
-                     PMLOGKS("JSON", required_map_json),
-                     "Fail to read JSON: %s. Not array\n", required_map_json);
-        j_release(&jmap_required);
-        return false;
-    }
-    GHashTable *required_trust_level_map = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
-    // const char *, jvalue_ref, const char *, jvalue_ref
-    gpointer patterns_required_groups[jarray_size(jmap_required) * 2];
-
-    for (i = 0; i < jarray_size(jmap_required); i++)
-    {
-        jvalue_ref record = jarray_get(jmap_required, i);
-        jvalue_ref required_group, required_trust_for_groups;
-        if(!jobject_get_exists(record, J_CSTR_TO_BUF("group"), &required_group) ||
-          (!jobject_get_exists(record, J_CSTR_TO_BUF("required"), &required_trust_for_groups)))
-        {
-            // This simply means that there are no required groups or trust levels
-            // In this scenario we will be returning with ls error. However we cannot do 
-            // that right now as not all services or applications are following this model
-            // hence wee simply return true. with ERR LOG message
-                LOG_LS_ERROR(MSGID_LS_INVALID_JSON, 1,
-                     PMLOGKS("JSON", required_map_json),
-                     "NILESH >>>> Fail to read JSON: requiredGroup or requiredTrustForGroup NOT PRESENT\n", required_map_json);
-            g_hash_table_destroy(required_trust_level_map);
-            return true;
-        }
-
-        raw_buffer pattern = jstring_get_fast(required_group);
-
-        assert(pattern.m_str && pattern.m_len);
-
-        /* We don't know how many groups trustlevels are mentioned until we meet the last one.
-           Thus, list of trusts for every group pattern will be stored first.
-           The second pass will substitute every list with corresponding bit set.
-        */
-
-        ssize_t j = 0;
-        for (; j < jarray_size(required_trust_for_groups); j++)
-        {
-            jvalue_ref jgroup = jarray_get(required_trust_for_groups, j);
-            raw_buffer trusts = jstring_get_fast(jgroup);
-
-            if (!g_hash_table_contains(required_trust_level_map, trusts.m_str))
-            {
-                g_hash_table_insert(required_trust_level_map,
-                                    g_strndup(trusts.m_str, trusts.m_len),
-                                    GINT_TO_POINTER(g_hash_table_size(required_trust_level_map)));
-            }
-        }
-
-        patterns_required_groups[2*i] = (gpointer) pattern.m_str;
-        patterns_required_groups[2*i + 1] = (gpointer) required_trust_for_groups;
-    }
-
-    /* Calculate size of bit mask, big enough to contain all the groups,
-       and to be contained in an integer count of words
-    */
-    // Not rellay needed as both froups and trusta wil have same mask
-    //size_t mask_size = (g_hash_table_size(required_trust_level_map) + sizeof(LSTransportBitmaskWord) - 1)
-    //                             / sizeof(LSTransportBitmaskWord); // mask size in count of words
-    /* Iterate over category patterns a second time, substitute list of groups
-       by corresponding bit masks
-    */
-    GSList *required_trust_level_to_group_map = NULL;
-    for (i = 0; i < jarray_size(jmap); ++i)
-    {
-        const char *pattern = patterns_required_groups[2*i];
-        jvalue_ref trusts = patterns_required_groups[2*i + 1];
-
-        LSTransportBitmaskWord *mask = g_malloc0_n(mask_size, sizeof(LSTransportBitmaskWord));
-        ssize_t j = 0;
-        for (; j < jarray_size(trusts); j++)
-        {
-            jvalue_ref jtrust = jarray_get(trusts, j);
-            raw_buffer trust = jstring_get_fast(jtrust);
-            gpointer value = g_hash_table_lookup(required_trust_level_map, trust.m_str);
-            BitMaskSetBit(mask, GPOINTER_TO_INT(value));
-        }
-
-        required_trust_level_to_group_map = g_list_prepend(required_trust_level_to_group_map,
-                                                         LSTransportTrustLevelBitmaskNew(pattern, mask));
-    }
-
-    transport->required_trust_level_map = required_trust_level_map;
-    transport->required_trust_level_to_group_map = required_trust_level_to_group_map;
-    transport->trust_as_string = g_strdup(trust_as_string);
-
-    j_release(&jmap_required);
-///////////
-    //TBD: Think of moving this Complete function logic  to _LSTransportInitializeGroups 
-    // Need to think how we can really create a map
-  /*  //TBD: Think of moving this Complete function logic  to _LSTransportInitializeGroups */
     return true;
 }
 
@@ -5761,11 +5658,8 @@ bool _LSTransportInitializeTrustLevel(_LSTransport *transport, const char * prov
 bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *map_json, int length)
 {
     LS_ASSERT(transport);
-    //DumpToFile("transport_c_LSTransportInitializeSecurityGroups", map_json, transport);//DEBUG
     JSchemaInfo schemaInfo;
     jschema_info_init(&schemaInfo, jschema_all(), NULL, NULL);
-    LOG_LS_DEBUG("NILESH >> %s :",__func__);
-    LOG_LS_DEBUG("NILESH >> %s :", map_json);
     jvalue_ref jmap = jdom_parse(j_str_to_buffer(map_json, length), DOMOPT_NOOPT, &schemaInfo);
     if (!jis_array(jmap))
     {
@@ -5799,8 +5693,7 @@ bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *m
     ssize_t i = 0;
     for (; i < jarray_size(jmap); i++)
     {
-        //printf(" category : %d \n", jarray_size(jmap));
-        
+
         jvalue_ref record = jarray_get(jmap, i);
         jvalue_ref cat, groups;
         jobject_get_exists(record, J_CSTR_TO_BUF("category"), &cat);
@@ -5808,7 +5701,6 @@ bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *m
         raw_buffer pattern = jstring_get_fast(cat);
 
         assert(pattern.m_str && pattern.m_len);
-        //printf("[%s] pattern.m_str: %s \n", __func__, pattern.m_str);
         /* We don't know how many groups there are until we meet the last one.
            Thus, list of groups for every category pattern will be stored first.
            The second pass will substitute every list with corresponding bit set.
@@ -5821,16 +5713,14 @@ bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *m
 
             if (!g_hash_table_contains(group_code_map, group.m_str))
             {
-                //printf("[Iteration : i = %d ]group_name: %s, hashtable_size: %d \n",i, group.m_str, g_hash_table_size(group_code_map));
                 g_hash_table_insert(group_code_map,
                                     g_strndup(group.m_str, group.m_len),
                                     GINT_TO_POINTER(g_hash_table_size(group_code_map)));
             }
         }
-    
+
         patterns_groups[2*i] = (gpointer) pattern.m_str;
         patterns_groups[2*i + 1] = (gpointer) groups;
-        //printf("pattern : %s \n", pattern.m_str);
     }
 
     /* Calculate size of bit mask, big enough to contain all the groups,
@@ -5838,9 +5728,7 @@ bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *m
     */
     size_t mask_size = (g_hash_table_size(group_code_map) + sizeof(LSTransportBitmaskWord) - 1)
                      / sizeof(LSTransportBitmaskWord); // mask size in count of words
-    
-    //printf("group_code_map size : %d bitmasksize : %d\n", g_hash_table_size(group_code_map),sizeof(LSTransportBitmaskWord));
-  
+
     /* Iterate over category patterns a second time, substitute list of groups
        by corresponding bit masks
     */
@@ -5854,7 +5742,6 @@ bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *m
         LSTransportBitmaskWord *mask = g_malloc0_n(mask_size, sizeof(LSTransportBitmaskWord));
 
         ssize_t j = 0;
-        //printf("==================================================\n");
         for (; j < jarray_size(groups); j++)
         {
             jvalue_ref jgroup = jarray_get(groups, j);
@@ -5864,7 +5751,6 @@ bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *m
             BitMaskSetBit(mask, GPOINTER_TO_INT(value));
             //printf("group: %s , value : %d mask: %d \n",  group.m_str, value, *mask);
         }
-        //printf("==================================================\n");
         category_groups = g_slist_prepend(category_groups,
                                           LSTransportCategoryBitmaskNew(pattern, mask));
     }
@@ -5999,7 +5885,6 @@ LSTransportGetGroupsFromMask(_LSTransport *transport, LSTransportBitmaskWord *ma
     g_hash_table_iter_init(&iter_groups, transport->group_code_map);
     while (g_hash_table_iter_next(&iter_groups, &group, &bit)) {
         if (BitMaskTestBit(mask, GPOINTER_TO_INT(bit))) {
-            //printf("[%s] group: %s \n", __func__, group);
             jarray_append(groups, j_cstr_to_jval(group));
         }
     }
@@ -6129,7 +6014,6 @@ LSTransportGetTrustFromMask(_LSTransport *transport, LSTransportBitmaskWord *mas
     g_hash_table_iter_init(&iter_trust, transport->provided_trust_level_map);
     while (g_hash_table_iter_next(&iter_trust, &trust, &bit)) {
         if (BitMaskTestBit(mask, GPOINTER_TO_INT(bit))) {
-            //printf("[%s] trust: %s \n", __func__, trust);
             jarray_append(trusts, j_cstr_to_jval(trust));
         }
     }

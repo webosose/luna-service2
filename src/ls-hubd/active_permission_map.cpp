@@ -149,7 +149,6 @@ bool
 LSHubActivePermissionMapClientAdd(const _LSTransportClient *client, const char *service_name,
                                   const char *active_service_id, LSError *lserror)
 {
-    LOG_LS_DEBUG("NILESH: %s\n", __func__);
     LS_ASSERT(nullptr != active_service_id);
     const char *lookup_service = service_name;
     // Map anonymous services to empty service name
@@ -198,7 +197,7 @@ LSHubActivePermissionMapClientAdd(const _LSTransportClient *client, const char *
         }
         active_perm->perm_flags = perm->perm_flags;
         std::string perm_dump = LSHubPermissionDump(perm);
-        LOG_LS_DEBUG("NILESH >>>>> %s: perm_dump [%s]", __func__, perm_dump.c_str());
+        LOG_LS_DEBUG("%s: perm_dump [%s]", __func__, perm_dump.c_str());
     }
     else
     {
@@ -227,11 +226,11 @@ LSHubActivePermissionMapClientAdd(const _LSTransportClient *client, const char *
     std::string trust = groups.GetRequiredTrustAsString(lookup_service);
     if (trust.empty())
     {
-        LOG_LS_DEBUG("NILESH >>>>> %s: ERRRR !! TRUST IS EMPTY",__func__);
+        LOG_LS_DEBUG("%s: ERRRR !! TRUST IS EMPTY",__func__);
     }
     else
     {
-        LOG_LS_DEBUG("NILESH >>>>> %s: SET TRUST to [%s]",__func__, trust.c_str());
+        LOG_LS_DEBUG("%s: SET TRUST to [%s]",__func__, trust.c_str());
         LSHubPermissionSetTrustString(active_perm.get(), trust.c_str());
     }
 
@@ -252,7 +251,7 @@ LSHubActivePermissionMapClientAdd(const _LSTransportClient *client, const char *
     }
     std::string act_perm_dump = LSHubPermissionDump(active_perm.get());
     DumpToFileActivePerm("act_perm_LSHubActivePermissionMapClientAdd", act_perm_dump.c_str());
-    LOG_LS_DEBUG("NILESH >>>>> %s: act_perm_dump [%s]", __func__, act_perm_dump.c_str());
+    LOG_LS_DEBUG("%s: act_perm_dump [%s]", __func__, act_perm_dump.c_str());
     return LSHubActivePermissionMapAddRef(active_perm.get(), active_service_id);
 }
 

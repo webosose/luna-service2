@@ -40,7 +40,7 @@ void DumpToFileTransportClient(const char* filename, const char* dump, _LSTransp
     // open file for writing 
     fp = fopen (full_path, "w"); 
     if (fp == NULL) 
-    { 
+    {
         //fprintf(stderr, "\nError opend file\n"); 
         return;
     }
@@ -389,10 +389,10 @@ _LSTransportClientGetTrust(const _LSTransportClient *client)
 {
     LS_ASSERT(client != NULL);
 
-	if(client->transport->trust_as_string)
-		//printf("[%s] trust: %s \n", __func__, client->transport->trust_as_string);
+    if(client->transport->trust_as_string)
+        LOG_LS_DEBUG("[%s] trust: %s \n", __func__, client->transport->trust_as_string);
 
-	return client->transport->trust_as_string;
+    return client->transport->trust_as_string;
 }
 
 
@@ -462,13 +462,9 @@ _LSTransportClientInitializeSecurityGroups(_LSTransportClient *client, const cha
 {
     LS_ASSERT(client);
     LS_ASSERT(groups_json);
-    //printf("NILESH >> %s : groups_json [%s]\n", __func__, groups_json);
     JSchemaInfo schemaInfo;
     jschema_info_init(&schemaInfo, jschema_all(), NULL, NULL);
 
-	//printf("[%s] client service name : %s, client trasport service name : %s group: %s \n",
-		//__func__,client->service_name, client->transport->service_name, groups_json);
-	
     jvalue_ref jgroups = jdom_parse(j_str_to_buffer(groups_json, strlen(groups_json)), DOMOPT_NOOPT, &schemaInfo);
     if (!jis_array(jgroups))
     {
@@ -493,8 +489,6 @@ _LSTransportClientInitializeSecurityGroups(_LSTransportClient *client, const cha
         gpointer value = NULL;
         if (g_hash_table_lookup_extended(group_code_map, group, NULL, &value)) {
             BitMaskSetBit(mask, GPOINTER_TO_INT(value));
-            		//printf("[client->transport->service_name: %s],[client->service_name: %s], Group: %s, valu: %d , mask: %d \n", 
-                //client->transport->service_name,client->service_name, group, value, *mask);
         }
     }
 
@@ -514,23 +508,16 @@ _LSTransportClientInitializeSecurityGroups(_LSTransportClient *client, const cha
  * @retval true on success
  */
 bool _LSTransportClientInitializeTrustLevel(_LSTransportClient *client, const char *trust_level) {
-    LOG_LS_DEBUG("NILESH >>>>>>>>> %s : ", __func__);
     // Now all the services will not have required groups mentioned
     // hence we follow thru onlyf iff groups are mentioned
     if (!trust_level && strlen(trust_level) == 0)
         return true;
 
-    //DumpToFileTransportClient("transport_client_c_LSTransportClientInitializeTrustLevel", trust_level, client);
+    LOG_LS_DEBUG("[%s] client service name : %s, client trasport service name : %s trsut_level: %s \n",
+             __func__, client->service_name, client->transport->service_name, trust_level);
 
-	//printf("[%s] client service name : %s, client trasport service name : %s trsut_level: %s \n",
-	//	__func__, client->service_name, client->transport->service_name, trust_level);
-	
     LS_ASSERT(client);
     LS_ASSERT(trust_level);
-    //TBD: Here we have to get the trust level information
-    // Need to check how
-    //NEED TO COMPLETE THIS
-    
     client->trust_level_string = g_strdup(trust_level);
     return true;
 }

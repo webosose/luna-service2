@@ -30,7 +30,7 @@ namespace {
         auto schema = pbnjson::JSchema::fromFile(path.c_str());
         if (!schema)
         {
-            LOG_LS_DEBUG("NILESH: Failed to load schema %s from file %s. No validation will be done", id, path.c_str());
+            LOG_LS_DEBUG("Failed to load schema %s from file %s. No validation will be done", id, path.c_str());
             return pbnjson::JSchema::AllSchema();
         }
         else

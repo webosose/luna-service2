@@ -158,10 +158,7 @@ void BitMaskSetBit(LSTransportBitmaskWord *mask, int bit)
     const int bits = sizeof(LSTransportBitmaskWord) * 8;
     int nword = bit / bits;
     int nbit = bit % bits;
-    //printf("[%s] bit: %d, bits: %d, nword: %d, nbit: %d \n", __func__, bit, bits, nword, nbit);
-    //printf("[%s]mask[nword] : %d, mask: %d  \n",__func__, mask[nword],*mask);
     mask[nword] |= ((LSTransportBitmaskWord)1 << nbit);
-    //printf("[%s]mask : %d \n",__func__, *mask);
 }
 
 /**

@@ -80,7 +80,7 @@ LSHubServicePermissionsFree(LSHubServicePermissions *perms)
 void
 LSHubServicePermissionsAddPermissionRef(LSHubServicePermissions *perms, LSHubPermission *perm)
 {
-    LOG_LS_DEBUG("NILESH >>> %s: attempting to add permission %p to permission map...\n", __func__, perm);
+    LOG_LS_DEBUG("%s: attempting to add permission %p to permission map...\n", __func__, perm);
     /* Check if permission for service_name and exe_path exists
      * if yes - set error (permissions differ) or print debug (permissions match), use LSHubPermissionIsEqual
      * if no - prepend passed LSHubPermission into list
@@ -117,8 +117,8 @@ LSHubServicePermissionsAddPermissionRef(LSHubServicePermissions *perms, LSHubPer
 
         std::string perm_str = LSHubPermissionDump(perm);
         std::string found_perm_str = LSHubPermissionDump(found_perm);
-        LOG_LS_DEBUG("NILESH >>>> %s : perm_str [ %s ]", __func__, perm_str.c_str());
-        LOG_LS_DEBUG("NILESH >>>> %s : found_perm_str [ %s ]", __func__, found_perm_str.c_str());
+        LOG_LS_DEBUG("%s : perm_str [ %s ]", __func__, perm_str.c_str());
+        LOG_LS_DEBUG("%s : found_perm_str [ %s ]", __func__, found_perm_str.c_str());
         if ((found_perm->perm_flags == PRIVATE_BUS_ROLE && perm->perm_flags == PUBLIC_BUS_ROLE) ||
             (found_perm->perm_flags == PUBLIC_BUS_ROLE && perm->perm_flags == PRIVATE_BUS_ROLE))
         {
