@@ -69,7 +69,8 @@ TEST(TestManifest, TestInternal)
 
 static inline
 void validate(SecurityData &security, const char *id, const char *name,
-              const pbnjson::JArray &jreqs, const pbnjson::JObject &jprovs)
+              const pbnjson::JArray &jreqs, const pbnjson::JObject &jprovs,
+              const pbnjson::JObject &jtrustprovs, const pbnjson::JObject &jtrustreqs)
 {
     Groups reqs;
     for (const auto &item : jreqs.items())
@@ -89,11 +90,36 @@ void validate(SecurityData &security, const char *id, const char *name,
     }
     EXPECT_EQ(provs, security.groups.GetProvided(name));
 
+    TrustMap reqTrustMap;
+    for (const auto &child : jtrustreqs.children())
+    {
+        auto cat = child.first.asString();
+        for (const auto &item : child.second.items())
+        {
+            reqTrustMap[cat].push_back(g_intern_string(item.asString().c_str()));
+        }
+    }
+    EXPECT_EQ(reqTrustMap, security.groups.GetRequiredTrust(name));
+
+    TrustMap  provideTrustMap;
+    for (const auto &child : jtrustprovs.children())
+    {
+        auto cat = child.first.asString();
+        for (const auto &item : child.second.items())
+        {
+            provideTrustMap[cat].push_back(g_intern_string(item.asString().c_str()));
+        }
+    }
+    EXPECT_EQ(provideTrustMap, security.groups.GetProvidedTrust(name));
+
     auto perm = security.permissions.Lookup(name, id);
     ASSERT_TRUE(perm);
 
     LSHubPermissionSetRequired(perm, reqs);
     LSHubPermissionSetProvided(perm, provs);
+
+    LSHubPermissionSetProvidedTrust(perm,provideTrustMap);
+    LSHubPermissionSetRequiredTrust(perm,reqTrustMap);
 
     pbnjson::JObject obj;
     obj.put("service", name);
@@ -102,6 +128,8 @@ void validate(SecurityData &security, const char *id, const char *name,
     obj.put("outbound", pbnjson::JArray{"com.lge.out","com.palm.out","com.palm.service.out","com.webos.out"});
     obj.put("requires", jreqs);
     obj.put("provides", jprovs);
+    obj.put("providedtrustLevels", jtrustprovs);
+    obj.put("requiredtrustLevels", jtrustreqs);
 
     pbnjson::JDomParser parser;
     ASSERT_TRUE(parser.parse(LSHubPermissionDump(perm), pbnjson::JSchema::AllSchema()));
@@ -121,7 +149,8 @@ TEST(TestManifest, TestPublic)
         ASSERT_TRUE(role);
         EXPECT_EQ(LSHubRoleAllowedNamesDump(role), R"("com.webos.app.any")");
 
-        validate(security, id.c_str(), "com.webos.app.any", pbnjson::JArray{"a", "b"}, pbnjson::JObject{});
+        validate(security, id.c_str(), "com.webos.app.any", pbnjson::JArray{"a", "b"},
+                 pbnjson::JObject{},pbnjson::JObject{},pbnjson::JObject{});
     }
 }
 
@@ -139,7 +168,8 @@ TEST(TestManifest, TestPublicOverlapped)
         EXPECT_EQ(LSHubRoleAllowedNamesDump(role), R"("com.webos.service.test.a")");
 
         validate(security, id.c_str(), "com.webos.service.test.a",
-                 pbnjson::JArray{"a"}, pbnjson::JObject{{"/a", pbnjson::JArray{"a"}}});
+                pbnjson::JArray{"a"}, pbnjson::JObject{{"/a",pbnjson::JArray{"a"}}},
+                    pbnjson::JObject{},pbnjson::JObject{});
     }
 
     EXPECT_TRUE(security.AddManifest(v2, manifests, nullptr));
@@ -149,9 +179,11 @@ TEST(TestManifest, TestPublicOverlapped)
         EXPECT_EQ(LSHubRoleAllowedNamesDump(role), R"("com.webos.service.test.a", "com.webos.service.test.b")");
 
         validate(security, id.c_str(), "com.webos.service.test.a",
-                 pbnjson::JArray{"a", "b"}, pbnjson::JObject{{"/a", pbnjson::JArray{"a"}}});
+                 pbnjson::JArray{"a", "b"}, pbnjson::JObject{{"/a", pbnjson::JArray{"a"}}},
+                     pbnjson::JObject{},pbnjson::JObject{});
         validate(security, id.c_str(), "com.webos.service.test.b",
-                 pbnjson::JArray{"b"}, pbnjson::JObject{{"/b", pbnjson::JArray{"b"}}});
+                 pbnjson::JArray{"b"}, pbnjson::JObject{{"/b", pbnjson::JArray{"b"}}},
+                     pbnjson::JObject{},pbnjson::JObject{});
     }
 
      security.RemoveManifest(v2);
@@ -161,7 +193,8 @@ TEST(TestManifest, TestPublicOverlapped)
          EXPECT_EQ(LSHubRoleAllowedNamesDump(role), R"("com.webos.service.test.a")");
 
          validate(security, id.c_str(), "com.webos.service.test.a",
-                  pbnjson::JArray{"a"}, pbnjson::JObject{{"/a", pbnjson::JArray{"a"}}});
+                  pbnjson::JArray{"a"}, pbnjson::JObject{{"/a", pbnjson::JArray{"a"}}},
+                      pbnjson::JObject{},pbnjson::JObject{});
      }
 }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018 LG Electronics, Inc.
+// Copyright (c) 2014-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -198,6 +198,9 @@ test_LSHubPermissionIsEqual(TestData *fixture, gconstpointer user_data)
     obj.put("outbound", pbnjson::JArray{"*", "com.palm.b", "com.palm.c*"});
     obj.put("requires", pbnjson::JArray{"group"});
     obj.put("provides", pbnjson::JObject{{"category", pbnjson::JArray{"group"}}});
+
+    obj.put("requiredtrustLevels", pbnjson::JObject{});
+    obj.put("providedtrustLevels", pbnjson::JObject{});
 
     pbnjson::JDomParser parser;
     parser.parse(LSHubPermissionDump(a), pbnjson::JSchema::AllSchema());

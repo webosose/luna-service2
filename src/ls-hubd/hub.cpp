@@ -928,8 +928,9 @@ _LSHubSendRequestNameReply(_LSTransportClient *client, const char *unique_name, 
         // If security is disabled, all the API belong to the same group "TOTUM" (lat. everything),
         // and every service `requires' that group to function.
         // @cond IGNORE
-        jval_str = R"([{"category":"/", "groups":["TOTUM"]}])";
-        trust_provided_str = R"([{"group":"/", "provided":["TOTUM"]}])";
+        jval_str = R"([{"category":"/*", "groups":["TOTUM"]}])";
+        // Untile every service migrates to enhanced ACG, we should not enable this
+        // trust_provided_str = R"([{"group":"/*", "provided":["TOTUM"]}])";
         // @endcond
     }
 
@@ -1580,7 +1581,7 @@ _LSHubSendServiceWaitListReply(_ClientId *id, bool success, bool is_dynamic, LSE
 void
 DumpHashItem(gpointer key, gpointer value, gpointer user_data)
 {
-    //printf("key: \"%s\", value: %p\n", (char*)key, value);
+    printf("key: \"%s\", value: %p\n", (char*)key, value);
 }
 
 void
@@ -1589,7 +1590,7 @@ DumpHashTable(GHashTable *table)
     LS_ASSERT(table != NULL);
 
     g_hash_table_foreach(table, DumpHashItem, NULL);
-    //printf("\n");
+    printf("\n");
     fflush(stdout);
 }
 

@@ -310,7 +310,7 @@ api_v2()
 
 	group_definitions()
 	{
-		dst=${conf_root}${webos_sysbus_groupsdir}
+		dst=${conf_root}${webos_sysbus_apipermissionsdir}
 		mkdir -p $dst
 
 		local filename="groups.json"
@@ -466,7 +466,6 @@ install_files()
 	mkdir -p "${conf_root}${webos_sysbus_permissionsdir}"
 	mkdir -p "${conf_root}${webos_sysbus_apipermissionsdir}"
 	mkdir -p "${conf_root}${webos_sysbus_manifestsdir}"
-	mkdir -p "${conf_root}${webos_sysbus_groupsdir}"
 
 	get_full_exe_path()
 	{
@@ -501,8 +500,7 @@ install_manifest()
 	    "roleFilesPrv": [$(find ${conf_root}${webos_sysbus_prvrolesdir} -type f -name '*.json' | dquote_zstream)],
 	    "serviceFiles": [$(find ${conf_root}${webos_sysbus_servicesdir} ${conf_root}${webos_sysbus_pubservicesdir} ${conf_root}${webos_sysbus_prvservicesdir} -type f  -name '*.service' | dquote_zstream)],
 	    "apiPermissionFiles": [$(find ${conf_root}/${webos_sysbus_apipermissionsdir} -type f -name '*.json' | dquote_zstream)],
-	    "clientPermissionFiles": [$(find ${conf_root}/${webos_sysbus_permissionsdir} -type f -name '*.json' | dquote_zstream)],
-		"groupsFiles": [$(find ${conf_root}/${webos_sysbus_groupsdir} -type f -name '*.json' | dquote_zstream)]
+	    "clientPermissionFiles": [$(find ${conf_root}/${webos_sysbus_permissionsdir} -type f -name '*.json' | dquote_zstream)]
 	}
 	END
 }
@@ -560,7 +558,6 @@ main ()
 	webos_sysbus_containersdir='@WEBOS_INSTALL_SYSBUS_CONTAINERSDIR@'
 	webos_sysbus_permissionsdir='@WEBOS_INSTALL_SYSBUS_PERMISSIONSDIR@'
 	webos_sysbus_apipermissionsdir='@WEBOS_INSTALL_SYSBUS_APIPERMISSIONSDIR@'
-	webos_sysbus_groupsdir='@WEBOS_INSTALL_SYSBUS_GROUPSDIR@'
 
 	webos_sysbus_manifestsdir='@WEBOS_INSTALL_SYSBUS_MANIFESTSDIR@'
 	webos_sysbus_devdatadir='@WEBOS_INSTALL_SYSBUS_DEVDATADIR@'

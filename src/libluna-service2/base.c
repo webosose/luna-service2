@@ -599,9 +599,6 @@ LSCategoryMethodCall(LSHandle *sh, LSCategoryTable *category,
                 else
                 {
                     eResult = LSMessageHandlerResultHandled;
-                    LOG_LS_DEBUG("[%s] Tust level matched [Provided : %s] [required : %s] \n",
-                                __func__, providedTrustLevel,
-                                client->trust_level_string);
                     break;
                 }
                 LOG_LS_DEBUG("LSCategoryMethodCall [ %s]", providedTrustLevel);

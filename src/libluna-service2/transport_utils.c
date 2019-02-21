@@ -45,7 +45,7 @@ strlen_safe(const char *str)
 void
 DumpHashItem(gpointer key, gpointer value, gpointer user_data)
 {
-    //printf("key: %s, value: %p\n", (char*)key, value);
+    printf("key: %s, value: %p\n", (char*)key, value);
 }
 
 void
@@ -54,7 +54,7 @@ DumpHashTable(GHashTable *table)
     LS_ASSERT(table != NULL);
 
     g_hash_table_foreach(table, DumpHashItem, NULL);
-    //printf("\n");
+    printf("\n");
 }
 
 /**
