@@ -1312,9 +1312,11 @@ _send_match(LSHandle        *sh,
 
     method = _json_get_string(object, "method");
 
-    LSMessageToken token;
-    retVal = LSTransportRegisterSignal(sh->transport, category, method, sh->is_public_bus, &token, lserror);
-    if (!retVal) goto done;
+    LSMessageToken token = LSMESSAGE_TOKEN_INVALID;
+    if (category) {
+        retVal = LSTransportRegisterSignal(sh->transport, category, method, sh->is_public_bus, &token, lserror);
+        if (!retVal) goto done;
+    }
 
     char *key = NULL;
     if (category && method)
