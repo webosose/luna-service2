@@ -83,13 +83,13 @@ bool ParseRequiresFile(const std::string &path, CategoryMap &requires, LSError *
 bool ParseProvidesString(const std::string &data, CategoryMap &provides, LSError *lserror);
 bool ParseProvidesFile(const std::string &path, CategoryMap &provides, LSError *lserror);
 
-bool ParseGroupsString(const std::string &data, ServiceToTrustMap &trust_level, LSError *error);
+void ParseGroupsString(const std::string &data, ServiceToTrustMap &trust_level, LSError *error);
 bool ParseGroupsFile(const std::string &path, ServiceToTrustMap &trust_level, LSError *error);
 
 bool 
 ParseJSONGetRequiredTrust(const pbnjson::JValue &json, const std::string &path,
                        const std::string &prefix, ServiceToTrustMap &trust_level, LSError *error);
-bool
+void
 ParseJSONGetRequiredPermissions(const pbnjson::JValue &json, const std::string &trust,
                                                          ServiceToTrustMap &trust_level, LSError *error);
 

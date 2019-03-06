@@ -1202,7 +1202,7 @@ void SecurityData::LoadManifestData(ManifestData &&data)
       for (const auto &item : data.trust_level_provided)
       {
           const std::string service_name_provided = item.first;
-          LOG_LS_DEBUG("Found trustmap..service_name : %s", service_name_provided);
+          LOG_LS_DEBUG("Found trustmap..service_name : %s", service_name_provided.c_str());
           TrustMap trusts_map;
           for (const auto &map : item.second)
           {
@@ -1221,7 +1221,7 @@ void SecurityData::LoadManifestData(ManifestData &&data)
       for (const auto &item : data.trust_level_required)
       {
           service_name_required = item.first;
-          LOG_LS_DEBUG("Found trustmap..groupname : %s", service_name_required);
+          LOG_LS_DEBUG("Found trustmap..groupname : %s", service_name_required.c_str());
           TrustMap trusts_map;
           for (const auto &map : item.second)
           {

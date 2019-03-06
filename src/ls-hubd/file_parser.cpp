@@ -162,9 +162,9 @@ ParseJSONGetRole(const pbnjson::JValue &json, const std::string &path, const std
     return std::move(role);
 }
 
-bool 
+bool
 ParseJSONGetRequiredTrust(const pbnjson::JValue &json, const std::string &path,
-                                                         const std::string &prefix, ServiceToTrustMap &trust_level, std::string &trustLevel, LSError *error)
+    const std::string &prefix, ServiceToTrustMap &trust_level, std::string &trustLevel, LSError *error)
 {
     //TBD:
     // 1. parse trust level of permission level
@@ -702,7 +702,7 @@ static void ParseGroupsHandler(TrustMap &map, const std::string &key, pbnjson::J
     map[key].push_back(fixed);
 }
 
-bool ParseGroupsString(const std::string &data, ServiceToTrustMap &trust_level, LSError *error)
+void ParseGroupsString(const std::string &data, ServiceToTrustMap &trust_level, LSError *error)
 {
     //JParseKeyedStrArrays parser(std::bind(&ParseGroupsHandler, std::ref(trust_level), _1, _2), error);
     //return parser.parse(data, groups_schema);
@@ -758,7 +758,7 @@ void ParseServicetoTrustMap(pbnjson::JValue &object, ServiceToTrustMap &trust_le
     }
 }
 
-bool
+void
 ParseJSONGetRequiredPermissions(const pbnjson::JValue &json, const std::string &trust,
                                                          ServiceToTrustMap &trust_level, LSError *error)
 {
@@ -786,7 +786,6 @@ ParseJSONGetRequiredPermissions(const pbnjson::JValue &json, const std::string &
         std::string service = service_name.asString();
         trust_level[service] = (trusts);
     }
-
 }
 
 void DumpTrustMapToFile(std::string filename, ServiceToTrustMap &trust_level, std::string title)

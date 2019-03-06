@@ -132,7 +132,15 @@ struct LSHubPermission {
     TrustMap trust_level_required;          // < Map of groups to their required trust level
     TrustMap trust_level_provided;          // < Map of groups to their provided trust level
 
-    LSHubPermission() { required_trust = nullptr; }
+    LSHubPermission() :
+        ref(0),
+        service_name(NULL),
+        exe_path(NULL),
+        inbound(NULL),
+        outbound(NULL),
+        perm_flags(0),
+        required_trust(nullptr)
+    { }
 };
 
 typedef std::unique_ptr<LSHubPermission, bool(*)(LSHubPermission*)> PermissionPtr;

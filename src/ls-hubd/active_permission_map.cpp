@@ -30,9 +30,10 @@
 void DumpToFileActivePerm(const char* filename, const char* dump)
 {
     if (!filename) return;
+
     char full_path[256] = {0};
-    strcpy(full_path, "/tmp/");
-    strcat(full_path, filename);
+    strncpy(full_path, "/tmp/", sizeof(full_path));
+    strncat(full_path, filename, sizeof(full_path));
     FILE *fp;
     // open file for writing 
     fp = fopen (full_path, "w");
@@ -41,7 +42,7 @@ void DumpToFileActivePerm(const char* filename, const char* dump)
         //fprintf(stderr, "\nError opend file\n");
         return;
     }
-    fprintf (fp, dump);
+    fprintf (fp, "%s", dump);
     fclose(fp);
 }
 

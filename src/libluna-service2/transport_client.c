@@ -23,17 +23,27 @@
 #include "transport_utils.h"
 #include "log.h"
 //#include "transport_client.h"
+
 void DumpToFileTransportClient(const char* filename, const char* dump, _LSTransportClient *client)
 {
     if (!filename) return;
+
     char full_path[256] = {0};
-    strcpy(full_path, "/tmp/");
-    strcat(full_path, filename);
-    const char* file_name = _LSTransportClientGetServiceName(client);
-    if (file_name && strlen(file_name) > 0)
+    strncpy(full_path, "/tmp/", sizeof(full_path));
+    strncat(full_path, filename, sizeof(full_path));
+
+    const char* service_name = _LSTransportClientGetServiceName(client);
+    if (!service_name)
+        return;
+
+    if (strlen(service_name) > 0)
     {
-        strcat(full_path, "_");
-        strcat(full_path, file_name);
+        strncat(full_path, "_", sizeof(full_path));
+        strncat(full_path, service_name, sizeof(full_path));
+    }
+    else
+    {
+        return;
     }
 
     FILE *fp;
@@ -44,11 +54,13 @@ void DumpToFileTransportClient(const char* filename, const char* dump, _LSTransp
         //fprintf(stderr, "\nError opend file\n"); 
         return;
     }
-    fprintf(fp, file_name);
+
+    fprintf(fp, "%s", service_name);
     fprintf(fp, "\n");
-    fprintf (fp, dump);
+    fprintf (fp, "%s", dump);
     fclose(fp);
 }
+
 /**
  * @cond INTERNAL
  * @defgroup LunaServiceTransportClient Transport client
@@ -510,7 +522,10 @@ _LSTransportClientInitializeSecurityGroups(_LSTransportClient *client, const cha
 bool _LSTransportClientInitializeTrustLevel(_LSTransportClient *client, const char *trust_level) {
     // Now all the services will not have required groups mentioned
     // hence we follow thru onlyf iff groups are mentioned
-    if (!trust_level && strlen(trust_level) == 0)
+    if (!trust_level)
+        return true;
+
+    if (strlen(trust_level) == 0)
         return true;
 
     LOG_LS_DEBUG("[%s] client service name : %s, client trasport service name : %s trsut_level: %s \n",

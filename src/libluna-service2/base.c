@@ -47,7 +47,7 @@
 #include <pmtrace_ls2.h>
 
 #define ENHANCED_ACG
-#define DEFAULT_TRUST_LEVEL    "untrusted"
+#define DEFAULT_TRUST_LEVEL "untrusted"
 
 /** @cond INTERNAL */
 
@@ -55,7 +55,10 @@
 void _LSHandleMessageFailure(_LSTransportMessage *message, _LSTransportMessageFailureType failure_type, void *context);
 void _LSDisconnectHandler(_LSTransportClient *client, _LSTransportDisconnectType type, void *context);
 bool _LSHandleReply(LSHandle *sh, _LSTransportMessage *transport_msg);
-
+#ifdef ENHANCED_ACG
+static LSMessageHandlerResult _LSCheckProvidedTrustedGroups(LSHandle *sh,
+    _LSTransportClient *client, LSMethodEntry *method);
+#endif
 /** @endcond */
 
 /**
@@ -490,11 +493,6 @@ LSCategoryMethodCall(LSHandle *sh, LSCategoryTable *category,
                      _LSTransportClient *client, LSMessage *message)
 {
     const char *method_name = LSMessageGetMethod(message);
-    jvalue_ref providedGroupTrustLevel, providedGroupsRef;
-    char* providedTrustLevel = NULL;
-    char* providedGroup = NULL;
-    bool trustLevelFound = false;
-    LSMessageHandlerResult eResult = LSMessageHandlerResultHandled;
 
     /* find the method in the tableHandlers->methods hash */
     LSMethodEntry *method = g_hash_table_lookup(category->methods, method_name);
@@ -533,80 +531,7 @@ LSCategoryMethodCall(LSHandle *sh, LSCategoryTable *category,
                   LSTransportGetSecurityMaskSize(sh->transport));
 
 #ifdef ENHANCED_ACG
-
-    /* Compare the trust level */
-
-    GSList *list = LSTransportGetTrustLevelToGroups(sh->transport);
-    if (list)
-    {
-        LOG_LS_INFO(MSGID_LS_NOT_AN_ERROR, 0,"Enhanced ACG \n");
-        // prepare full methods name for pattern matching
-        //char *full_name = g_build_path("/", category_path, m->name, NULL);
-        const LSTransportTrustLevelGroupBitmask *TrustLevel_bitmask = NULL;
-
-        /* Get the provided groups and get the mask */
-        providedGroupsRef = LSTransportGetGroupsFromMask(sh->transport, method->security_provided_groups);
-
-        for (ssize_t i = 0; i != jarray_size(providedGroupsRef); ++i)
-        {
-            jvalue_ref jgroup = jarray_get(providedGroupsRef, i);
-            raw_buffer provided_raw = jstring_get_fast(jgroup);
-            providedGroup = g_strndup(provided_raw.m_str, provided_raw.m_len);
-            list = LSTransportGetTrustLevelToGroups(sh->transport);
-
-            for (; list; list = g_slist_next(list))
-            {
-                TrustLevel_bitmask = (const LSTransportTrustLevelGroupBitmask *) list->data;
-
-                /* Default groups like all are added by default which do not have trust level */
-                /* Ignore such groups while checking for trust level */
-
-                LOG_LS_DEBUG("[%s] providedGroup: %s \n", __func__, providedGroup);
-
-                if (g_pattern_match_string(TrustLevel_bitmask->group_pattern, providedGroup))
-                {
-                    if(TrustLevel_bitmask->trustLevel_group_bitmask)
-                    {
-                        LOG_LS_INFO(MSGID_LS_NOT_AN_ERROR, 0, "[%s] found group bit mask : %d \n", __func__,*TrustLevel_bitmask->trustLevel_group_bitmask);
-                        providedGroupTrustLevel = LSTransportGetTrustFromMask(sh->transport, TrustLevel_bitmask->trustLevel_group_bitmask);
-                        trustLevelFound = true;
-                        break;
-                    }
-                }
-            }
-            /* Assumption is that only the group bit of the method is set */
-            if(trustLevelFound)
-                break;
-        }
-
-        /* Get required group's trust level */
-        if(providedGroupTrustLevel)
-        {
-            for (ssize_t i = 0; i != jarray_size(providedGroupTrustLevel); ++i)
-            {
-                jvalue_ref jgroup = jarray_get(providedGroupTrustLevel, i);
-                raw_buffer provided_raw = jstring_get_fast(jgroup);
-                providedTrustLevel = g_strndup(provided_raw.m_str, provided_raw.m_len);
-
-                if (!_LSSecurityCheckTrustLevel(providedTrustLevel,
-                                                client->trust_level_string))
-                {
-                    eResult = LSMessageHandlerResultPermissionDenied;
-                    LOG_LS_DEBUG("[%s] Tust Not matched [Provided : %s] [required : %s] \n",
-                                 __func__, providedTrustLevel,
-                                 client->trust_level_string);
-                }
-                else
-                {
-                    eResult = LSMessageHandlerResultHandled;
-                    break;
-                }
-                LOG_LS_DEBUG("LSCategoryMethodCall [ %s]", providedTrustLevel);
-            }
-        }
-    }
-
-    if (eResult == LSMessageHandlerResultPermissionDenied)
+    if (_LSCheckProvidedTrustedGroups(sh, client, method) == LSMessageHandlerResultPermissionDenied)
     {
         LOG_LS_WARNING(MSGID_LS_REQUIRES_TRUST, 3,
                        PMLOGKS("SERVICE", sender ? sender : "(null)"),
@@ -615,7 +540,6 @@ LSCategoryMethodCall(LSHandle *sh, LSCategoryTable *category,
                       "Service security groups don't allow method call as trust level does not match");
         return LSMessageHandlerResultPermissionDenied;
     }
-
 #endif
 
     char* receiver = g_strdup(sh->name ? sh->name : "(null)");
@@ -690,6 +614,106 @@ LSCategoryMethodCall(LSHandle *sh, LSCategoryTable *category,
 
     return LSMessageHandlerResultHandled;
 }
+
+#ifdef ENHANCED_ACG
+LSMessageHandlerResult _LSCheckProvidedTrustedGroups(LSHandle *sh,
+    _LSTransportClient *client, LSMethodEntry *method)
+{
+    LSMessageHandlerResult eResult = LSMessageHandlerResultHandled;
+
+    /* Compare the trust level */
+    GSList *list = LSTransportGetTrustLevelToGroups(sh->transport);
+    if (list)
+    {
+        bool trustLevelFound = false;
+        jvalue_ref providedGroupTrustLevel = NULL;
+        jvalue_ref providedGroupsRef = NULL;
+
+        LOG_LS_INFO(MSGID_LS_NOT_AN_ERROR, 0,"Enhanced ACG \n");
+        // prepare full methods name for pattern matching
+        //char *full_name = g_build_path("/", category_path, m->name, NULL);
+        const LSTransportTrustLevelGroupBitmask *TrustLevel_bitmask = NULL;
+
+        /* Get the provided groups and get the mask */
+        providedGroupsRef = LSTransportGetGroupsFromMask(sh->transport, method->security_provided_groups);
+        if (providedGroupsRef)
+        {
+            char* providedGroup = NULL;
+            for (ssize_t i = 0; i != jarray_size(providedGroupsRef); ++i)
+            {
+                jvalue_ref jgroup = jarray_get(providedGroupsRef, i);
+                raw_buffer provided_raw = jstring_get_fast(jgroup);
+                providedGroup = g_strndup(provided_raw.m_str, provided_raw.m_len);
+                list = LSTransportGetTrustLevelToGroups(sh->transport);
+
+                for (; list; list = g_slist_next(list))
+                {
+                    TrustLevel_bitmask = (const LSTransportTrustLevelGroupBitmask *) list->data;
+
+                    /* Default groups like all are added by default which do not have trust level */
+                    /* Ignore such groups while checking for trust level */
+                    LOG_LS_DEBUG("[%s] providedGroup: %s \n", __func__, providedGroup);
+
+                    if (g_pattern_match_string(TrustLevel_bitmask->group_pattern, providedGroup))
+                    {
+                        if(TrustLevel_bitmask->trustLevel_group_bitmask)
+                        {
+                            LOG_LS_INFO(MSGID_LS_NOT_AN_ERROR, 0, "[%s] found group bit mask : %d \n", __func__,
+                                               *TrustLevel_bitmask->trustLevel_group_bitmask);
+                            providedGroupTrustLevel = LSTransportGetTrustFromMask(sh->transport,
+                                                          TrustLevel_bitmask->trustLevel_group_bitmask);
+                            trustLevelFound = true;
+                            break;
+                        }
+                    }
+                }
+                g_free(providedGroup);
+                providedGroup = NULL;
+
+                /* Assumption is that only the group bit of the method is set */
+                if(trustLevelFound)
+                    break;
+            }
+            j_release(&providedGroupsRef);
+        }
+
+        /* Get required group's trust level */
+        if(providedGroupTrustLevel)
+        {
+            char* providedTrustLevel = NULL;
+            for (ssize_t i = 0; i != jarray_size(providedGroupTrustLevel); ++i)
+            {
+                jvalue_ref jgroup = jarray_get(providedGroupTrustLevel, i);
+                raw_buffer provided_raw = jstring_get_fast(jgroup);
+                providedTrustLevel = g_strndup(provided_raw.m_str, provided_raw.m_len);
+
+                if (!_LSSecurityCheckTrustLevel(providedTrustLevel,
+                                                client->trust_level_string))
+                {
+                    eResult = LSMessageHandlerResultPermissionDenied;
+                    LOG_LS_DEBUG("[%s] Tust Not matched [Provided : %s] [required : %s] \n",
+                                 __func__, providedTrustLevel,
+                                 client->trust_level_string);
+                }
+                else
+                {
+                    eResult = LSMessageHandlerResultHandled;
+                }
+                LOG_LS_DEBUG("LSCategoryMethodCall [ %s]", providedTrustLevel);
+
+                g_free(providedTrustLevel);
+                providedTrustLevel = NULL;
+
+                if (LSMessageHandlerResultHandled == eResult)
+                    break;
+            }
+            j_release(&providedGroupTrustLevel);
+        }
+    }
+
+    return eResult;
+}
+#endif
 
 static LSMessageHandlerResult
 _LSHandleMethodCall(LSHandle *sh, _LSTransportMessage *transport_msg)

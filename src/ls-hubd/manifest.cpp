@@ -191,7 +191,7 @@ bool ManifestData::ProcessManifest(const pbnjson::JValue &manifest, const std::s
         std::string file_name(BuildFilename(prefix, f.asString()));
         for (const auto &e : trust_level_provided)
         {
-            LOG_LS_DEBUG("%s : for service [%s]", __func__, e.first);
+            LOG_LS_DEBUG("%s : for service [%s]", __func__, e.first.c_str());
             data.trust_level_provided[e.first] = (e.second);
         }
         LOG_LS_DEBUG("Completed Parsing %s \n", f.asString().c_str());
@@ -255,9 +255,9 @@ void ExternalManifestData::LoadFromMemory()
 
         //TBD: Fill trust map for required trust
         // Make sure that require map is filled properly while parsing role file
-         for (const auto &e : required_trust_level)
+        for (const auto &e : required_trust_level)
         {
-            LOG_LS_DEBUG("%s : for [%s]", __func__, e.first);
+            LOG_LS_DEBUG("%s : for [%s]", __func__, e.first.c_str());
             trust_level_required[e.first] = (e.second);
         }
     }
@@ -348,12 +348,10 @@ void ExternalManifestData::LoadFromMemory()
         std::string data = external_manifests_data[fn];
 
         ServiceToTrustMap provided_trust_level;
-        if (ParseGroupsString(data, provided_trust_level, nullptr))
+        ParseGroupsString(data, provided_trust_level, nullptr);
+        for (const auto &e : provided_trust_level)
         {
-            for (const auto &e : provided_trust_level)
-            {
-                trust_level_provided[e.first] = (e.second);
-            }
+            trust_level_provided[e.first] = (e.second);
         }
     }
 }

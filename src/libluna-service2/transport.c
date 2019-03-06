@@ -56,20 +56,42 @@ typedef struct _LSTransportMessageFailureItem
 void DumpToFile(const char* filename, const char* dump, _LSTransport *transport)
 {
     if (!filename) return;
+
     if(strstr(dump, "[]") != NULL) return;
+
     char full_path[1024] = {0};
     char title[1024] = {0};
 
-    strcpy(full_path, "/tmp/");
-    strcat(full_path, filename);
-    strcat(full_path, "_");
+    strncpy(full_path, "/tmp/", sizeof(full_path));
+    strncat(full_path, filename, sizeof(full_path));
+    strncat(full_path, "_", sizeof(full_path));
 
     if (transport->service_name && strlen(transport->service_name) > 0)
-    { strcpy(title, "ServiceName: "); strcat(title, transport->service_name); strcat(title, "\n"); strcat(full_path, transport->service_name); strcat(full_path, "_");}
+    {
+        strncpy(title, "ServiceName: ", sizeof(title));
+        strncat(title, transport->service_name, sizeof(title));
+        strncat(title, "\n", sizeof(title));
+        strncat(full_path, transport->service_name, sizeof(full_path));
+        strncat(full_path, "_", sizeof(full_path));
+    }
+
     if (transport->app_id && strlen(transport->app_id) > 0)
-    { strcat(title, "AppID: "); strcat(title, transport->app_id); strcat(title, "\n"); strcat(full_path, transport->app_id); strcat(full_path, "_");}
+    {
+        strncat(title, "AppID: ", sizeof(title));
+        strncat(title, transport->app_id, sizeof(title));
+        strncat(title, "\n", sizeof(title));
+        strncat(full_path, transport->app_id, sizeof(full_path));
+        strncat(full_path, "_", sizeof(full_path));
+    }
+
     if (transport->unique_name && strlen(transport->unique_name) > 0)
-    { strcat(title, "UniqueName: "); strcat(title, transport->unique_name); strcat(title, "\n"); strcat(full_path, transport->unique_name); strcat(full_path, "_");}
+    {
+        strncat(title, "UniqueName: ", sizeof(title));
+        strncat(title, transport->unique_name, sizeof(title));
+        strncat(title, "\n", sizeof(title));
+        strncat(full_path, transport->unique_name, sizeof(full_path));
+        strncat(full_path, "_", sizeof(full_path));
+    }
 
     FILE *fp;
     // open file for writing 
@@ -79,10 +101,13 @@ void DumpToFile(const char* filename, const char* dump, _LSTransport *transport)
         //fprintf(stderr, "\nError opend file\n"); 
         return;
     }
-    fprintf(fp, title); fprintf(fp, "\n");
-    fprintf (fp, dump); fprintf(fp, "\n");
+    fprintf(fp, "%s", title);
+    fprintf(fp, "\n");
+    fprintf (fp, "%s", dump);
+    fprintf(fp, "\n");
     fclose(fp);
 }
+
 bool _LSTransportProcessIncomingMessages(_LSTransportClient *client, LSError *lserror);
 
 

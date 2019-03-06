@@ -870,7 +870,9 @@ _LSHubSendRequestNameReply(_LSTransportClient *client, const char *unique_name, 
         if (active_perm)
         {
             service_name = LSHubPermissionGetServiceName(active_perm);
-            LOG_LS_DEBUG("%s :###### active permission found for unique_name [%s] service_name[%s]", __func__, unique_name, service_name);
+            LOG_LS_DEBUG("%s :###### active permission found for unique_name [%s] service_name[%s]",
+                __func__, unique_name, service_name.c_str());
+
             pbnjson::JValue jval = pbnjson::Array();
             for (const auto &category : LSHubPermissionGetProvided(active_perm))
             {
@@ -1217,7 +1219,7 @@ _LSHubGetRequiredTrusts(const _LSTransportClient *client)
     //for (const auto& trust : LSHubPermissionGetRequiredTrust(active_perm))
     {
        trust = LSHubPermissionGetRequiredTrustAsString(active_perm);
-       LOG_LS_DEBUG("[%s] trust: %s \n", __func__, trust);
+       LOG_LS_DEBUG("[%s] trust: %s \n", __func__, trust.c_str());
        {
            jval << pbnjson::JValue(trust);
        }

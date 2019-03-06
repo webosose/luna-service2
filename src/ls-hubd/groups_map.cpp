@@ -158,11 +158,10 @@ void GroupsMap::AddRequiredTrustLevelAsString(const char *service_name, const st
         LOG_LS_DEBUG("ERRR %s : service_name [ %s ] not found in trie tree",__func__, service_name);
     } else {
         LOG_LS_DEBUG("%s : FOUND : service_name [ %s ]",__func__, service_name);
-        node->trustLevel = trustLevel;        
+        node->trustLevel = trustLevel;
         LOG_LS_DEBUG("%s : FOUND : service_name [ %s ], required trustLevel [%s]",__func__, service_name, trustLevel.c_str());
     }
 }
-
 
 void GroupsMap::RemoveRequiredTrustLevel(const char *service_name,
                                                      const char *group,
@@ -231,7 +230,7 @@ void GroupsMap::RemoveProvided(const char *service_name, const char *category_na
         auto &container = !(*key) ? data.provided_terminal : data.provided_pattern;
         container[category_pattern].erase(group);
         if (container[category_pattern].empty()) container.erase(category_pattern);
-        //TBD: Here Do we have to remove required trust levels, or keep removal seperate? Food fot thought 
+        //TBD: Here Do we have to remove required trust levels, or keep removal seperate? Food fot thought
     };
 
     _groups->Remove(service_name, action);
@@ -267,7 +266,7 @@ void GroupsMap::RemoveRequired(const char *service_name, const char *group_name)
     {
         auto &container = !(*key) ? data.required_terminal : data.required_pattern;
         container.erase(group);
-        //TBD: Here Do we have to remove required trust levels, or keep removal seperate? Food fot thought 
+        //TBD: Here Do we have to remove required trust levels, or keep removal seperate? Food fot thought
     };
 
     _groups->Remove(service_name, action);
@@ -457,9 +456,11 @@ std::string GroupsMap::DumpProvidedCsv() const
 std::string  GroupsMap::DumpRequiredTrustLevelCsv() const
 {
     std::ostringstream oss;
+    // parameter prefix is needed for Visit(action) template function
     auto action = [&oss](const std::string &prefix, const Data &data)
     {
-        auto dump_trust = [&oss](const std::string &prefix, const TrustMap &trustLevels)
+        (void)prefix;
+        auto dump_trust = [&oss](const TrustMap &trustLevels)
         {
             for(auto &entry : trustLevels)
             {
@@ -480,21 +481,22 @@ std::string  GroupsMap::DumpRequiredTrustLevelCsv() const
         }
         else
         {
-            dump_trust(prefix, data.trust_level_required);
+            dump_trust(data.trust_level_required);
         }
     };
     _groups->Visit(action);
 
     return oss.str();
-
 }
 
 std::string  GroupsMap::DumpProvidedTrustLevelCsv() const
 {
     std::ostringstream oss;
+    // parameter prefix is needed for Visit(action) template function
     auto action = [&oss](const std::string &prefix, const Data &data)
     {
-        auto dump_trust = [&oss](const std::string &prefix, const TrustMap &trustLevels)
+        (void)prefix;
+        auto dump_trust = [&oss](const TrustMap &trustLevels)
         {
             for(auto &entry : trustLevels)
             {
@@ -515,43 +517,43 @@ std::string  GroupsMap::DumpProvidedTrustLevelCsv() const
         }
         else
         {
-            dump_trust(prefix, data.trust_level_provided);
+            dump_trust(data.trust_level_provided);
         }
     };
     _groups->Visit(action);
 
     return oss.str();
-
 }
+
 std::string  GroupsMap::DumpRequiredTrustLevelCsv(const char* service, const  TrustMap &required) const
 {
     std::ostringstream oss;
 
-        auto dump_trust = [&oss](const std::string &service, const TrustMap &trustLevels)
+    auto dump_trust = [&oss](const std::string& service_name, const TrustMap &trustLevels)
+    {
+        oss << "Service Name: " << service_name;
+        oss << std::endl;
+        for(auto &entry : trustLevels)
         {
-            oss << "Service Name: " << std::string(service);
-            oss << std::endl;
-            for(auto &entry : trustLevels)
+            for(const char *group : entry.second)
             {
-                for(const char *group : entry.second)
-                {
-                    // Tag
-                    oss << "Required Group," << entry.first;
-                    // Sorted list of trust levels
-                    oss << ',' << group;
-                    oss << std::endl;
-                }
+                // Tag
+                oss << "Required Group," << entry.first;
+                // Sorted list of trust levels
+                oss << ',' << group;
+                oss << std::endl;
             }
-        };
+        }
+    };
 
-        if(required.empty())
-        {
-            oss << __func__ << " : ERR!No Trust level info in tree for [ " << service << " ] !!!! " << std::endl;
-        }
-        else
-        {
-            dump_trust(std::string(service), required);
-        }
+    if(required.empty())
+    {
+        oss << __func__ << " : ERR!No Trust level info in tree for [ " << service << " ] !!!! " << std::endl;
+    }
+    else
+    {
+        dump_trust(std::string(service), required);
+    }
 
     return oss.str();
 }
@@ -560,31 +562,31 @@ std::string  GroupsMap::DumpProvidedTrustLevelCsv(const char* service, const  Tr
 {
     std::ostringstream oss;
 
-        auto dump_trust = [&oss](const std::string &service, const TrustMap &trustLevels)
+    auto dump_trust = [&oss](const std::string &service_name, const TrustMap &trustLevels)
+    {
+        oss << "Service Name: " << service_name;
+        oss << std::endl;
+        for(auto &entry : trustLevels)
         {
-            oss << "Service Name: " << std::string(service);
-            oss << std::endl;
-            for(auto &entry : trustLevels)
+            for(const char *group : entry.second)
             {
-                for(const char *group : entry.second)
-                {
-                    // Tag
-                    oss << "Provided Group," << entry.first;
-                    // Sorted list of trust levels
-                    oss << ',' << group;
-                    oss << std::endl;
-                }
+                // Tag
+                oss << "Provided Group," << entry.first;
+                // Sorted list of trust levels
+                oss << ',' << group;
+                oss << std::endl;
             }
-        };
+        }
+    };
 
-        if(provided.empty())
-        {
-            oss << __func__ << " : ERR!No Trust level info in tree for [ " << service << " ] !!!! " << std::endl;
-        }
-        else
-        {
-            dump_trust(std::string(service), provided);
-        }
+    if(provided.empty())
+    {
+        oss << __func__ << " : ERR!No Trust level info in tree for [ " << service << " ] !!!! " << std::endl;
+    }
+    else
+    {
+        dump_trust(std::string(service), provided);
+    }
 
     return oss.str();
 }
