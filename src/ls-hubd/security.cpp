@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2019 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -435,7 +435,11 @@ LSHubIsClientAllowedToRequestName(const _LSTransportClient *client, const char *
             client_flags |= _LSTransportFlagPublicBus;
         return true;
     }
-
+    if (LSHubRoleIsPrivileged(role, NO_BUS_ROLE))
+    {
+        LOG_LS_INFO(MSGID_LS_NOT_AN_ERROR, 0, "LSHubRoleIsPrivileged hacks was applyed for: %s", service_name);
+        return true;
+    }
     LOG_LS_ERROR(MSGID_LSHUB_NO_PERMISSION_FOR_NAME, 3,
                  PMLOGKS("APP_ID", service_name),
                  PMLOGKS("ROLE_ID", role ? role->id.c_str() : "null"),
