@@ -35,7 +35,7 @@ typedef struct LSHubPermission LSHubPermission;
 typedef struct LSTransportClient _LSTransportClient;
 typedef struct _LSHubPatternQueue _LSHubPatternQueue;
 
-#define DEFAULT_TRUST_LEVEL "untrusted"
+#define DEFAULT_TRUST_LEVEL "dev"
 
 /// @cond INTERNAL
 /// @addtogroup LunaServiceHubSecurity

@@ -47,7 +47,7 @@
 #include <pmtrace_ls2.h>
 
 #define ENHANCED_ACG
-#define DEFAULT_TRUST_LEVEL "untrusted"
+#define DEFAULT_TRUST_LEVEL "dev"
 
 /** @cond INTERNAL */
 
