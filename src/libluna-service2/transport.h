@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -189,6 +189,9 @@ void LSTransportTrustLevelGroupBitmaskFree(LSTransportTrustLevelGroupBitmask *v)
 size_t LSTransportGetSecurityMaskSize(_LSTransport *transport);
 GSList *LSTransportGetCategoryGroups(_LSTransport *transport);
 jvalue_ref LSTransportGetGroupsFromMask(_LSTransport *transport, LSTransportBitmaskWord *mask);
+
+jvalue_ref LSTransportGetTrustFromMask(_LSTransport *transport, LSTransportBitmaskWord *mask);
+GSList *LSTransportGetTrustLevelToGroups(_LSTransport *transport);
 
 #ifdef LS_TRACK_MESSAGE
 jvalue_ref LSTransportGetConnections(_LSTransport *transport);
