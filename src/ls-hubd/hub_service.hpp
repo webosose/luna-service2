@@ -17,6 +17,7 @@
 #ifndef _HUB_SERVICE_HPP_
 #define _HUB_SERVICE_HPP_
 
+#include <string>
 #include <set>
 #include <memory>
 #include <unordered_map>

@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <utility>
+#include <string>
 
 #include <glib.h>
 
