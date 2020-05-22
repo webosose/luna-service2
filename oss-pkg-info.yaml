@@ -1,0 +1,4 @@
+Open Source Software Package:
+- name: webOSOSE
+  source: https://github.com/webosose
+  license: Apache-2.0
