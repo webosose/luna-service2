@@ -662,7 +662,40 @@ LSMessageHandlerResult _LSCheckProvidedTrustedGroups(LSHandle *sh,
                                                *TrustLevel_bitmask->trustLevel_group_bitmask);
                             providedGroupTrustLevel = LSTransportGetTrustFromMask(sh->transport,
                                                           TrustLevel_bitmask->trustLevel_group_bitmask);
-                            trustLevelFound = true;
+														  													  
+							/* Get required group's trust level */
+							if(providedGroupTrustLevel)
+							{
+								char* providedTrustLevel = NULL;
+								for (ssize_t i = 0; i != jarray_size(providedGroupTrustLevel); ++i)
+								{
+									jvalue_ref jgroup = jarray_get(providedGroupTrustLevel, i);
+									raw_buffer provided_raw = jstring_get_fast(jgroup);
+									providedTrustLevel = g_strndup(provided_raw.m_str, provided_raw.m_len);
+
+									if (!_LSSecurityCheckTrustLevel(providedTrustLevel,
+																	client->trust_level_string))
+									{
+										eResult = LSMessageHandlerResultPermissionDenied;
+										LOG_LS_DEBUG("[%s] Tust Not matched [Provided : %s] [required : %s] \n",
+													 __func__, providedTrustLevel,
+													 client->trust_level_string);
+									}
+									else
+									{
+										eResult = LSMessageHandlerResultHandled;
+										trustLevelFound = true;
+									}
+									LOG_LS_DEBUG("LSCategoryMethodCall [ %s]", providedTrustLevel);
+
+									g_free(providedTrustLevel);
+									providedTrustLevel = NULL;
+
+									if (LSMessageHandlerResultHandled == eResult)
+										break;
+								}
+								j_release(&providedGroupTrustLevel);
+							}                            
                             break;
                         }
                     }
@@ -675,39 +708,6 @@ LSMessageHandlerResult _LSCheckProvidedTrustedGroups(LSHandle *sh,
                     break;
             }
             j_release(&providedGroupsRef);
-        }
-
-        /* Get required group's trust level */
-        if(providedGroupTrustLevel)
-        {
-            char* providedTrustLevel = NULL;
-            for (ssize_t i = 0; i != jarray_size(providedGroupTrustLevel); ++i)
-            {
-                jvalue_ref jgroup = jarray_get(providedGroupTrustLevel, i);
-                raw_buffer provided_raw = jstring_get_fast(jgroup);
-                providedTrustLevel = g_strndup(provided_raw.m_str, provided_raw.m_len);
-
-                if (!_LSSecurityCheckTrustLevel(providedTrustLevel,
-                                                client->trust_level_string))
-                {
-                    eResult = LSMessageHandlerResultPermissionDenied;
-                    LOG_LS_DEBUG("[%s] Tust Not matched [Provided : %s] [required : %s] \n",
-                                 __func__, providedTrustLevel,
-                                 client->trust_level_string);
-                }
-                else
-                {
-                    eResult = LSMessageHandlerResultHandled;
-                }
-                LOG_LS_DEBUG("LSCategoryMethodCall [ %s]", providedTrustLevel);
-
-                g_free(providedTrustLevel);
-                providedTrustLevel = NULL;
-
-                if (LSMessageHandlerResultHandled == eResult)
-                    break;
-            }
-            j_release(&providedGroupTrustLevel);
         }
     }
 
