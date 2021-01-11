@@ -5575,12 +5575,6 @@ bool _LSTransportInitializeTrustLevel(_LSTransport *transport, const char * prov
     if(transport->provided_trust_level_to_group_map)
         g_slist_free_full(transport->provided_trust_level_to_group_map, (GDestroyNotify) LSTransportTrustLevelGroupBitmaskFree);
 
-    // Dispose old required groups trust level
-    if(transport->required_trust_level_map)
-        g_hash_table_destroy(transport->required_trust_level_map);
-    if(transport->required_trust_level_to_group_map)
-        g_slist_free_full(transport->required_trust_level_to_group_map, (GDestroyNotify) LSTransportTrustLevelGroupBitmaskFree);
-
    // Provided groups: Create hashmap [trustLevel: code]
     GHashTable *provided_trust_level_map = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
     // const char *, jvalue_ref, const char *, jvalue_ref
@@ -5656,7 +5650,7 @@ bool _LSTransportInitializeTrustLevel(_LSTransport *transport, const char * prov
             BitMaskSetBit(mask, GPOINTER_TO_INT(value));
         }
 
-        provided_trust_level_to_group_map = g_list_prepend(provided_trust_level_to_group_map,
+        provided_trust_level_to_group_map = g_slist_prepend(provided_trust_level_to_group_map,
                                                          LSTransportTrustLevelBitmaskNew(pattern, mask));
     }
 

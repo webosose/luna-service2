@@ -89,13 +89,10 @@ struct LSTransport {
     size_t                  security_mask_size; /*<< count of LSTransportBitmaskWord (each bit represent one security group) */
 
     GHashTable              *provided_trust_level_map;    /*<< trust level : bit number */
-    GList                    *provided_trust_level_to_group_map;/* << List of LSTRansportTrustlevelBitmask */
+    GSList                  *provided_trust_level_to_group_map;/* << List of LSTRansportTrustlevelBitmask */
 
-    GHashTable              *required_trust_level_map;    /*<< trust level : bit number */
-    GList                   *required_trust_level_to_group_map;/* << List of LSTRansportTrustlevelBitmask */
-
-    size_t                      trust_security_mask_size; /*<< count of LSTransportBitmaskWord (each bit represent one security group) */
-    char                        *trust_as_string; /* << trust level as string */
+    size_t                  trust_security_mask_size; /*<< count of LSTransportBitmaskWord (each bit represent one security group) */
+    char                    *trust_as_string; /* << trust level as string */
 
     bool                    privileged;         /*<< true if we are a privileged service */
 
