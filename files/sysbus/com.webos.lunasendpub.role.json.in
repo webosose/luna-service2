@@ -1,6 +1,7 @@
 {
     "exeName":"@WEBOS_INSTALL_BINDIR@/luna-send-pub",
     "type": "devmode",
+    "trustLevel": "dev",
     "allowedNames": ["*"],
     "permissions": [
         {

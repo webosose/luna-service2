@@ -1,7 +1,0 @@
-{
-  "com.webos.*": ["signals.all"],
-  "com.palm.*":  ["signals.all"],
-  "com.lge.*":   ["signals.all"],
-  "*":           ["signals.all.subscribe"],
-  "*":           ["signals.register"]
-}

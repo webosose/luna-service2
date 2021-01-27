@@ -2,11 +2,11 @@
   "all": [
     "*/*"
   ],
-  "luna.internal.public": [
+  "service.communication": [
     "*/com/palm/luna/private/ping",
     "*/com/palm/luna/private/cancel"
   ],
-  "luna.internal": [
+  "service.monitor": [
     "*/com/palm/luna/private/*"
   ]
 }

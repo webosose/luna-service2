@@ -1,5 +1,5 @@
 {
-  "*": ["luna.internal.public"],
-  "com.webos.monitor*": ["luna.internal"],
+  "*": ["service.communication", "servicebus.communication", "servicebus.signal"],
+  "com.webos.monitor*": ["service.monitor"],
   "com.webos.lunasend-*": ["all"]
 }

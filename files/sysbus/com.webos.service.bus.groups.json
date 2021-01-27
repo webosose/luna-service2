@@ -1,0 +1,8 @@
+{
+  "allowedNames":["com.webos.service.bus"],
+
+  "servicebus.configuration": ["oem"],
+  "servicebus.management": ["oem"],
+  "servicebus.communication": ["dev"],
+  "servicebus.signal": ["oem"]
+}

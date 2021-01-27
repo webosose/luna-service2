@@ -1,6 +1,7 @@
 {
     "exeName":"@WEBOS_INSTALL_BINDIR@/luna-send",
     "type": "privileged",
+    "trustLevel": "oem",
     "allowedNames": ["*"],
     "permissions": [
         {

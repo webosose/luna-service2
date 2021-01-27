@@ -1,4 +1,7 @@
 {
-    "luna.internal.public": ["part", "dev"],
-    "luna.internal": ["part", "oem"]
+    "allowedNames": ["*"],
+
+    "all": ["oem"],
+    "service.communication": ["dev"],
+    "service.monitor": ["oem"]
 }

@@ -1,6 +1,7 @@
 {
     "exeName":"@WEBOS_INSTALL_SBINDIR@/ls-monitor",
     "type": "regular",
+    "trustLevel": "oem",
     "allowedNames": ["com.webos.monitor*"],
     "permissions": [
         {

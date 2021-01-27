@@ -1,5 +1,0 @@
-{
-  "signals.all": ["oem", "dev", "part"],
-  "signals.all.subscribe": ["oem", "dev", "part"],
-  "signals.register": ["oem", "dev", "part"]
-}
