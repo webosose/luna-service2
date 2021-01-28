@@ -4,7 +4,7 @@
     "com.webos.service.bus/removeManifestsDir",
     "com.webos.service.bus/addOneManifest",
     "com.webos.service.bus/removeOneManifest",
-    "com.webos.service.bus/signal/updateOneManifest"
+    "com.webos.service.bus/updateOneManifest"
   ],
   "servicebus.management": [
     "com.webos.service.bus/lockService",
