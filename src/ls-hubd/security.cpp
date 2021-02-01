@@ -1231,9 +1231,8 @@ void SecurityData::LoadManifestData(ManifestData &&data)
               }
           }
           groups.AddRequiredTrustLevel(service_name_required.c_str(), trusts_map);
-
-      }
 	  groups.AddRequiredTrustLevelAsString(service_name_required.c_str(), data.trustLevel);
+      }
     }
     //TBD: Check here if we need to add trust inormation
 }
