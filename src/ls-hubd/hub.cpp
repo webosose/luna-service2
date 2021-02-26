@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2019 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1056,7 +1056,10 @@ _LSHubHandleRequestName(_LSTransportMessage *message)
     _LSTransportMessageIterInit(message, &iter);
 
     int32_t protocol_version = 0;
-     _LSTransportMessageGetInt32(&iter, &protocol_version);
+    if (!_LSTransportMessageGetInt32(&iter, &protocol_version))
+    {
+        LOG_LS_ERROR(MSGID_LS_MSG_ERR, 0, "FIXME!");
+    }
 
     if (protocol_version != LS_TRANSPORT_PROTOCOL_VERSION)
     {
@@ -1969,7 +1972,7 @@ _LSHubHandleQueryName(_LSTransportMessage *message)
     }
 
     // Continue with the substituted name.
-    bool service_is_dynamic = service ? service->is_dynamic : false;
+    bool service_is_dynamic = service->is_dynamic;
 
     _ClientId *id = static_cast<_ClientId *>(g_hash_table_lookup(available_services, destination_service_name.c_str()));
     _LSTransportClient *dest_client = id ? id->client : nullptr;

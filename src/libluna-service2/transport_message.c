@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -2407,7 +2407,7 @@ _LSTransportMessageAppendString(_LSTransportMessageIter *iter, const char *str)
         str_len = strlen(str) + 1;
     }
 
-    _LSTransportMessageArgString arg;
+    _LSTransportMessageArgString arg = {};
 
     /* We're mixing strings and 32-bit ints, so we add padding to account for
      * 32-bit ints. If we add new types, we need to make this larger (or do

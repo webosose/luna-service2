@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2019 LG Electronics, Inc.
+// Copyright (c) 2014-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -393,7 +393,7 @@ std::string GroupsMap::DumpRequiredCsv() const
 
     auto action = [&oss](const std::string &prefix, const Data &data)
     {
-        auto dump_required = [&oss](const std::string &prefix, const char *wildcard, const Groups &groups)
+        auto dump_required = [&oss, &prefix](const char *wildcard, const Groups &groups)
         {
             for (const char *group : groups)
             {
@@ -404,10 +404,10 @@ std::string GroupsMap::DumpRequiredCsv() const
         };
 
         if (!data.required_pattern.empty())
-            dump_required(prefix, "*", data.required_pattern);
+            dump_required("*", data.required_pattern);
 
         if (!data.required_terminal.empty())
-            dump_required(prefix, "", data.required_terminal);
+            dump_required("", data.required_terminal);
     };
 
     _groups->Visit(action);
@@ -424,7 +424,7 @@ std::string GroupsMap::DumpProvidedCsv() const
 
     auto action = [&oss](const std::string &prefix, const Data &data)
     {
-        auto dump_provided = [&oss](const std::string &prefix, const char *wildcard, const CategoryMap &categories)
+        auto dump_provided = [&oss, &prefix](const char *wildcard, const CategoryMap &categories)
         {
             for (auto &entry : categories)
             {
@@ -442,10 +442,10 @@ std::string GroupsMap::DumpProvidedCsv() const
         };
 
         if (!data.provided_pattern.empty())
-            dump_provided(prefix, "*", data.provided_pattern);
+            dump_provided("*", data.provided_pattern);
 
         if (!data.provided_terminal.empty())
-            dump_provided(prefix, "", data.provided_terminal);
+            dump_provided("", data.provided_terminal);
     };
 
     _groups->Visit(action);

@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -910,7 +910,11 @@ _LSTransportListenLocal(const char *unique_name, mode_t mode, int *fd, LSError *
         goto error;
     }
 
-    chmod(unique_name, mode);
+    if(chmod(unique_name, mode) < 0)
+    {
+        LOG_LS_ERROR(MSGID_LS_SOCK_ERROR, 0, "chmod error");
+        goto error;
+    }
 
     if (listen(tmp_fd, LISTEN_BACKLOG) < 0)
     {
@@ -1548,6 +1552,7 @@ _LSTransportRecvMessageBlocking(_LSTransportClient *client, _LSTransportMessageT
     _LSTransportMessage *message = NULL;
     _LSTransportHeader header;
     bool old_block_state = false;
+    bool msg_type_match = false;
 
     /* If there is a send watch for this client, temporarily remove it so that
      * the two won't conflict if the mainloop is running in one thread and this
@@ -1577,7 +1582,7 @@ _LSTransportRecvMessageBlocking(_LSTransportClient *client, _LSTransportMessageT
     LS_ASSERT(bytes_recvd == sizeof(header));
 
     int i;
-    bool msg_type_match = false;
+
     for (i = 0; i < num_types; i++)
     {
         if (header.type == types[i])
@@ -1588,6 +1593,8 @@ _LSTransportRecvMessageBlocking(_LSTransportClient *client, _LSTransportMessageT
     }
 
     LS_ASSERT(msg_type_match == true);
+
+    LS_ASSERT(header.len <= (G_MAXSIZE - sizeof(_LSTransportMessageRaw)));
 
     message = _LSTransportMessageNewRef(header.len);
 
@@ -1987,6 +1994,7 @@ _LSTransportRequestName(const char *requested_name,
             LS_ASSERT(NULL);
 
         _LSTransportSetTransportFlags(client->transport, transport_flags);
+        LS_ASSERT(security_json != NULL);
         _LSTransportInitializeSecurityGroups(client->transport, security_json, strlen(security_json));
 
         if (trust_provided_map_json && trust_required_map_json && trust_level_string)
@@ -2057,6 +2065,8 @@ _LSTransportQueryName(_LSTransportClient *hub, _LSTransportMessage *trigger_mess
 
     /* allocate query message */
     _LSTransportMessage *message = _LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE);
+    if (!message) goto error;
+
     message->raw->header.is_public_bus = trigger_message->raw->header.is_public_bus;
     _LSTransportMessageSetType(message, _LSTransportMessageTypeQueryName);
 
@@ -2875,6 +2885,8 @@ _LSTransportAppendCategory(_LSTransport *transport, bool is_public_bus, const ch
     LOG_LS_DEBUG("%s: transport: %p, service_name: %s\n", __func__, transport, transport->service_name);
 
     _LSTransportMessage *message = _LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE);
+    if (!message) goto error;
+
     message->raw->header.is_public_bus = is_public_bus;
     _LSTransportMessageSetType(message, _LSTransportMessageTypeAppendCategory);
 
@@ -3741,7 +3753,7 @@ _LSTransportHandleClientInfo(_LSTransportMessage *message)
             client->unique_name = g_strdup(unique_name);
     }
     else
-        LS_ASSERT(!strcmp(client->unique_name, unique_name));
+        LS_ASSERT(unique_name  && !(strcmp(client->unique_name, unique_name)));
 
     LOG_LS_DEBUG("%s: client: %p, service_name: %s, unique_name: %s\n", __func__, client, client->service_name, client->unique_name);
 }
@@ -3859,6 +3871,7 @@ _LSTransportMessageClientInfoNewRef(const char *service_name, const char *unique
     _LSTransportMessageIter iter;
 
     _LSTransportMessage *message = _LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE);
+    if (!message) goto error;
 
     _LSTransportMessageSetType(message, _LSTransportMessageTypeClientInfo);
 
@@ -4192,6 +4205,8 @@ LSTransportCancelMethodCall(_LSTransport *transport, const char *service_name, L
     int payload_len = strlen(payload) + 1;
 
     message = _LSTransportMessageNewRef(category_len + method_len + payload_len);
+    if (!message) goto error;
+
     message->raw->header.is_public_bus = is_public_bus;
     _LSTransportMessageSetType(message, _LSTransportMessageTypeCancelMethodCall);
 
@@ -4215,6 +4230,11 @@ LSTransportCancelMethodCall(_LSTransport *transport, const char *service_name, L
     g_free(payload);
     if (message) _LSTransportMessageUnref(message);
     return ret;
+
+error:
+    g_free(payload);
+    if (message) _LSTransportMessageUnref(message);
+    return false;
 }
 
 /**
@@ -4299,6 +4319,8 @@ LSTransportSendQueryServiceCategory(_LSTransport *transport,
     bool ret = false;
 
     _LSTransportMessage *message = _LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE);
+    if (!message) goto error;
+
     message->raw->header.is_public_bus = is_public_bus;
     _LSTransportMessageSetType(message, _LSTransportMessageTypeQueryServiceCategory);
     _LSTransportMessageIterInit(message, &iter);
@@ -5458,6 +5480,8 @@ _LSTransportSendMessagePushRole(_LSTransportClient *hub, const char *role_path, 
     bool ret = false;
 
     _LSTransportMessage *message = _LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE);
+    if (!message) goto error;
+
     message->raw->header.is_public_bus = is_public_bus;
     _LSTransportMessageSetType(message, _LSTransportMessageTypePushRole);
 
@@ -5715,8 +5739,8 @@ bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *m
 
         jvalue_ref record = jarray_get(jmap, i);
         jvalue_ref cat, groups;
-        jobject_get_exists(record, J_CSTR_TO_BUF("category"), &cat);
-        jobject_get_exists(record, J_CSTR_TO_BUF("groups"), &groups);
+        (void) jobject_get_exists(record, J_CSTR_TO_BUF("category"), &cat);
+        (void) jobject_get_exists(record, J_CSTR_TO_BUF("groups"), &groups);
         raw_buffer pattern = jstring_get_fast(cat);
 
         assert(pattern.m_str && pattern.m_len);

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2019 LG Electronics, Inc.
+// Copyright (c) 2014-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -210,7 +210,7 @@ static jschema_ref prepare_schema(jvalue_ref schema_value, jvalue_ref defs, LSEr
     LS_ASSERT(orig_defs == NULL || mixed_defs != NULL);
 
     /* mix defs into original schema */
-    jvalue_ref mixed_schema_value;
+    jvalue_ref mixed_schema_value = NULL;
     if (mixed_defs != NULL)
     {
         mixed_schema_value = jvalue_shallow(schema_value);

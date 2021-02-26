@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -482,12 +482,12 @@ _LSMonitorMethodListMessageHandler(_LSTransportMessage *message, void *)
         jobject_iter_init(&cat_iterator, jobject_get(params, J_CSTR_TO_BUF("categories")));
         while (jobject_iter_next(&cat_iterator, &category))
         {
-            fprintf(stdout, "%*s\%s:\n", 2, "", jvalue_tostring_simple(category.key));
+            fprintf(stdout, "%2s %s:\n", "", jvalue_tostring_simple(category.key));
 
             jobject_iter_init(&meth_iterator, jobject_get(category.value, J_CSTR_TO_BUF("methods")));
             while (jobject_iter_next(&meth_iterator, &method))
             {
-                fprintf(stdout, "%*s\%s: %s\n", 6, "", jvalue_tostring_simple(method.key), jvalue_tostring_simple(method.value));
+                fprintf(stdout, "%6s %s: %s\n", "", jvalue_tostring_simple(method.key), jvalue_tostring_simple(method.value));
             }
         }
     }

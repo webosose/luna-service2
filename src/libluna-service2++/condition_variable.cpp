@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2018 LG Electronics, Inc.
+// Copyright (c) 2017-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,19 +19,19 @@
 #define NSEC_PER_MSEC 1000000L
 namespace LS {
 
-        condition_variable::condition_variable()
+        condition_variable::condition_variable() : ts()
         {
-            pthread_mutex_init(&internal_mutex,NULL);
-            pthread_condattr_init( &attr);
-            pthread_condattr_setclock( &attr, CLOCK_MONOTONIC);
-            pthread_cond_init( &cond, &attr);
+            (void) pthread_mutex_init(&internal_mutex,NULL);
+            (void) pthread_condattr_init( &attr);
+            (void) pthread_condattr_setclock( &attr, CLOCK_MONOTONIC);
+            (void) pthread_cond_init( &cond, &attr);
         }
 
         condition_variable::~condition_variable()
         {
-            pthread_mutex_destroy(&internal_mutex);
-            pthread_cond_destroy(&cond);
-            pthread_condattr_destroy(&attr);
+            (void) pthread_mutex_destroy(&internal_mutex);
+            (void) pthread_cond_destroy(&cond);
+            (void) pthread_condattr_destroy(&attr);
         }
 
         void condition_variable::conditional_wait(std::unique_lock<std::mutex>& lock)

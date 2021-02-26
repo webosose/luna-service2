@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2019 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -497,6 +497,9 @@ _CatalogAdd(_Catalog *catalog, const char *key,
                              g_strdup(key), list);
     }
 
+    _SubList *client_list = NULL;
+    _Subscription *subs = NULL;
+
     const char* client_name = LSMessageGetSender(message);
     if (!client_name)
     {
@@ -504,7 +507,7 @@ _CatalogAdd(_Catalog *catalog, const char *key,
         goto cleanup;
     }
 
-    _SubList *client_list =
+    client_list =
         g_hash_table_lookup(catalog->client_subscriptions, client_name);
     if (!client_list)
     {
@@ -513,7 +516,7 @@ _CatalogAdd(_Catalog *catalog, const char *key,
                              g_strdup(client_name), client_list);
     }
 
-    _Subscription *subs = g_hash_table_lookup(catalog->token_map, token);
+    subs = g_hash_table_lookup(catalog->token_map, token);
     if (!subs)
     {
         subs = _SubscriptionNew(catalog->sh, message);

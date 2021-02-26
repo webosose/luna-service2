@@ -1,4 +1,4 @@
-// Copyright (c) 2010-2018 LG Electronics, Inc.
+// Copyright (c) 2010-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -191,6 +191,7 @@ _LSTransportPidToExe(pid_t pid, LSError *lserror)
     char *exe = NULL;
     char *proc_exe_path = g_strdup_printf("/proc/%d/exe", pid);
     char *proc_root_path = g_strdup_printf("/proc/%d/root",pid);
+    int rootlen = -1;
 
     exe =  g_file_read_link(proc_exe_path, &error);
 
@@ -207,7 +208,7 @@ _LSTransportPidToExe(pid_t pid, LSError *lserror)
         goto cleanup;
     }
 
-    int rootlen = strlen(root);
+    rootlen = strlen(root);
     if ((rootlen > 1) && (strncmp(exe, root, rootlen) == 0))
     {
         /* /proc/<pid>/root is not a link to "/" so subtract

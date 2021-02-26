@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2019 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1150,6 +1150,8 @@ _LSRegisterCommon(const char *name, const char *app_id, LSHandle **ret_sh,
     }
 
     LSHandle *sh = g_new0(LSHandle, 1);
+    if (!sh) goto error;
+
     sh->is_public_bus = public_bus;
 
     /* For backward compatibility, convert empty string to NULL */

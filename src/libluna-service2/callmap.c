@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2019 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1295,6 +1295,9 @@ _send_match(LSHandle        *sh,
     bool retVal = true;
     char *category = NULL;
     char *method = NULL;
+    char *key = NULL;
+    _Call *call = NULL;
+    LSMessageToken token = LSMESSAGE_TOKEN_INVALID;
 
     jvalue_ref object = jdom_create(j_cstr_to_buffer(payload), jschema_all(), NULL);
     if (jis_null(object))
@@ -1312,13 +1315,11 @@ _send_match(LSHandle        *sh,
 
     method = _json_get_string(object, "method");
 
-    LSMessageToken token = LSMESSAGE_TOKEN_INVALID;
     if (category) {
         retVal = LSTransportRegisterSignal(sh->transport, category, method, sh->is_public_bus, &token, lserror);
         if (!retVal) goto done;
     }
 
-    char *key = NULL;
     if (category && method)
     {
         key = g_strdup_printf("%s/%s", category, method);
@@ -1328,7 +1329,8 @@ _send_match(LSHandle        *sh,
         key = g_strdup_printf("%s", category);
     }
 
-    _Call *call = _CallNew(sh, CALL_TYPE_SIGNAL, luri->serviceName, callback, ctx, token, method);
+    call = _CallNew(sh, CALL_TYPE_SIGNAL, luri->serviceName, callback, ctx, token, method);
+
     call->signal_category = category;
     call->signal_method = method;
     call->match_key = key;
@@ -2077,30 +2079,35 @@ LSCallCancel(LSHandle *sh, LSMessageToken token, LSError *lserror)
 
     switch (call->type)
     {
-    case CALL_TYPE_METHOD_CALL:
-        LS_ASSERT(pthread_mutex_lock(&regex_lock) == 0);
-        int failure = regexec(GetLunabusServiceNameRegex(), call->serviceName, 0, NULL, 0);
-        LS_ASSERT(pthread_mutex_unlock(&regex_lock) == 0);
-        if (!failure)
+        case CALL_TYPE_METHOD_CALL:
         {
-             // No need to inform ls-hubd about cancellation of com.webos.service.bus methods
-             retVal = true;
+            LS_ASSERT(pthread_mutex_lock(&regex_lock) == 0);
+            int failure = regexec(GetLunabusServiceNameRegex(), call->serviceName, 0, NULL, 0);
+            LS_ASSERT(pthread_mutex_unlock(&regex_lock) == 0);
+            if (!failure)
+            {
+                // No need to inform ls-hubd about cancellation of com.webos.service.bus methods
+                retVal = true;
+            }
+            else
+            {
+                retVal = _cancel_method_call(sh, call, lserror);
+            }
+            break;
         }
-        else
+        case CALL_TYPE_SIGNAL:
         {
-             retVal = _cancel_method_call(sh, call, lserror);
+            retVal = _cancel_signal(sh, call, lserror);
+            break;
         }
-        break;
-    case CALL_TYPE_SIGNAL:
-        retVal = _cancel_signal(sh, call, lserror);
-        break;
-    case CALL_TYPE_SIGNAL_SERVER_STATUS:
-
-        /* Multiple registrations for the same service are ref-counted on the hub
-         * side, so if "registerServerStatus" is called on the same service
-         * twice, this will need to be called twice before the watch is truly destroyed */
-        retVal = _service_watch_disable(sh, call);
-        break;
+        case CALL_TYPE_SIGNAL_SERVER_STATUS:
+        {
+            /* Multiple registrations for the same service are ref-counted on the hub
+            * side, so if "registerServerStatus" is called on the same service
+            * twice, this will need to be called twice before the watch is truly destroyed */
+            retVal = _service_watch_disable(sh, call);
+            break;
+        }
     }
 
     _CallRemove(callmap, call);
