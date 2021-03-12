@@ -15,6 +15,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <glib.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -1594,7 +1595,7 @@ _LSTransportRecvMessageBlocking(_LSTransportClient *client, _LSTransportMessageT
 
     LS_ASSERT(msg_type_match == true);
 
-    LS_ASSERT(header.len <= (G_MAXSIZE - sizeof(_LSTransportMessageRaw)));
+    LS_ASSERT(header.len < (ULONG_MAX - sizeof(_LSTransportMessageRaw)));
 
     message = _LSTransportMessageNewRef(header.len);
 
