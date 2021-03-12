@@ -62,35 +62,35 @@ void DumpToFile(const char* filename, const char* dump, _LSTransport *transport)
     char full_path[1024] = {0};
     char title[1024] = {0};
 
-    strncpy(full_path, "/tmp/", sizeof(full_path));
-    strncat(full_path, filename, sizeof(full_path));
-    strncat(full_path, "_", sizeof(full_path));
+    strncpy(full_path, "/tmp/", sizeof(full_path) - 1);
+    strncat(full_path, filename, sizeof(full_path) - strlen(full_path) - 1);
+    strncat(full_path, "_", sizeof(full_path) - strlen(full_path) - 1);
 
     if (transport->service_name && strlen(transport->service_name) > 0)
     {
-        strncpy(title, "ServiceName: ", sizeof(title));
-        strncat(title, transport->service_name, sizeof(title));
-        strncat(title, "\n", sizeof(title));
-        strncat(full_path, transport->service_name, sizeof(full_path));
-        strncat(full_path, "_", sizeof(full_path));
+        strncpy(title, "ServiceName: ", sizeof(title) - strlen(title) - 1);
+        strncat(title, transport->service_name, sizeof(title) - strlen(title) - 1);
+        strncat(title, "\n", sizeof(title) - strlen(title) - 1);
+        strncat(full_path, transport->service_name, sizeof(full_path) - strlen(full_path) - 1);
+        strncat(full_path, "_", sizeof(full_path) - strlen(full_path) - 1);
     }
 
     if (transport->app_id && strlen(transport->app_id) > 0)
     {
-        strncat(title, "AppID: ", sizeof(title));
-        strncat(title, transport->app_id, sizeof(title));
-        strncat(title, "\n", sizeof(title));
-        strncat(full_path, transport->app_id, sizeof(full_path));
-        strncat(full_path, "_", sizeof(full_path));
+        strncat(title, "AppID: ", sizeof(title) - strlen(title) - 1);
+        strncat(title, transport->app_id, sizeof(title) - strlen(title) - 1);
+        strncat(title, "\n", sizeof(title) - strlen(title) - 1);
+        strncat(full_path, transport->app_id, sizeof(full_path)- strlen(full_path) - 1);
+        strncat(full_path, "_", sizeof(full_path)- strlen(full_path) - 1);
     }
 
     if (transport->unique_name && strlen(transport->unique_name) > 0)
     {
-        strncat(title, "UniqueName: ", sizeof(title));
-        strncat(title, transport->unique_name, sizeof(title));
-        strncat(title, "\n", sizeof(title));
-        strncat(full_path, transport->unique_name, sizeof(full_path));
-        strncat(full_path, "_", sizeof(full_path));
+        strncat(title, "UniqueName: ", sizeof(title) - strlen(title) - 1);
+        strncat(title, transport->unique_name, sizeof(title) - strlen(title) - 1);
+        strncat(title, "\n", sizeof(title) - strlen(title) - 1);
+        strncat(full_path, transport->unique_name, sizeof(full_path) - strlen(full_path) - 1);
+        strncat(full_path, "_", sizeof(full_path)- strlen(full_path) - 1);
     }
 
     FILE *fp;

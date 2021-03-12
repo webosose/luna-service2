@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2019 LG Electronics, Inc.
+// Copyright (c) 2014-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,8 +32,8 @@ void DumpToFileActivePerm(const char* filename, const char* dump)
     if (!filename) return;
 
     char full_path[256] = {0};
-    strncpy(full_path, "/tmp/", sizeof(full_path));
-    strncat(full_path, filename, sizeof(full_path));
+    strncpy(full_path, "/tmp/", sizeof(full_path) - 1);
+    strncat(full_path, filename, sizeof(full_path) - strlen(full_path) - 1);
     FILE *fp;
     // open file for writing 
     fp = fopen (full_path, "w");
