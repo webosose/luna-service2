@@ -4204,6 +4204,8 @@ LSTransportCancelMethodCall(_LSTransport *transport, const char *service_name, L
     int category_len = strlen(category) + 1;
     int method_len = strlen(method) + 1;
     int payload_len = strlen(payload) + 1;
+    _LSTransportClient *client = NULL;
+    char *message_body = NULL;
 
     message = _LSTransportMessageNewRef(category_len + method_len + payload_len);
     if (!message) goto error;
@@ -4211,7 +4213,7 @@ LSTransportCancelMethodCall(_LSTransport *transport, const char *service_name, L
     message->raw->header.is_public_bus = is_public_bus;
     _LSTransportMessageSetType(message, _LSTransportMessageTypeCancelMethodCall);
 
-    char *message_body = _LSTransportMessageGetBody(message);
+    message_body = _LSTransportMessageGetBody(message);
 
     memcpy(message_body, category, category_len);
     message_body += category_len;
@@ -4220,7 +4222,7 @@ LSTransportCancelMethodCall(_LSTransport *transport, const char *service_name, L
     memcpy(message_body, payload, payload_len);
 
     TRANSPORT_LOCK(&transport->lock);
-    _LSTransportClient *client = g_hash_table_lookup(transport->clients, service_name);
+    client = g_hash_table_lookup(transport->clients, service_name);
     TRANSPORT_UNLOCK(&transport->lock);
 
     if (client)
@@ -4234,7 +4236,6 @@ LSTransportCancelMethodCall(_LSTransport *transport, const char *service_name, L
 
 error:
     g_free(payload);
-    if (message) _LSTransportMessageUnref(message);
     return false;
 }
 
@@ -5619,7 +5620,7 @@ bool _LSTransportInitializeTrustLevel(_LSTransport *transport, const char * prov
             // hence wee simply return true. with ERR LOG message
                 LOG_LS_ERROR(MSGID_LS_INVALID_JSON, 1,
                      PMLOGKS("JSON", provided_map_json),
-                     "Fail to read JSON: providedGroup or providedTrustForGroup NOT PRESENT\n", provided_map_json);
+                     "Fail to read JSON: providedGroup or providedTrustForGroup NOT PRESENT : %s\n", provided_map_json);
             g_hash_table_destroy(provided_trust_level_map);
             return true;
         }

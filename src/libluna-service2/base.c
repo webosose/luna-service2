@@ -1140,6 +1140,7 @@ _LSRegisterCommon(const char *name, const char *app_id, LSHandle **ret_sh,
     pthread_once(&state.key_once, _LSInit);
 
     _LSTransport *existingTransport = NULL;
+    _LSTransport *new_transport = NULL;
 
     bool is_name_not_empty = name && *name;
     if (is_name_not_empty)
@@ -1164,7 +1165,6 @@ _LSRegisterCommon(const char *name, const char *app_id, LSHandle **ret_sh,
 
     LSHANDLE_SET_VALID(sh, call_ret_addr);
 
-    _LSTransport *new_transport = NULL;
     if (existingTransport)
     {
         if (name && *name && existingTransport->back_sh[public_bus])

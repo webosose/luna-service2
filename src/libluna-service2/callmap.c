@@ -570,7 +570,10 @@ _LSMessageSetFromError(_LSTransportMessage *transport_msg, _Call *call, LSMessag
     /* Escape the string */
     if (!reply->payload)
     {
+        if (!error_text) goto error;
+
         char *escaped = g_strescape(error_text, NULL);
+
         if (!escaped) goto error;
 
         reply->payloadAllocated = g_strdup_printf(
