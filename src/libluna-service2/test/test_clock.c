@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ test_ClockGetTime(void)
     /* Check if the values are sane. */
 
     g_assert_cmpint(time.tv_sec, >, 0); /* seconds - TYPE_T (long int) */
-    g_assert(time.tv_nsec > 0); /* nanoseconds - long int */
+    g_assert_true(time.tv_nsec > 0); /* nanoseconds - long int */
 
     /* The value should always be less than one second. */
     int nsecToSec = time.tv_sec / NSEC_PER_SEC;
@@ -60,8 +60,8 @@ test_ClockTimeIsGreater_validate_values(long a_sec, long long a_nsec, long b_sec
     b.tv_sec = b_sec;
     b.tv_nsec = b_nsec;
 
-    g_assert(ClockTimeIsGreater(&a, &b) == expected_a_b);
-    g_assert(ClockTimeIsGreater(&b, &a) == expected_b_a);
+    g_assert_true(ClockTimeIsGreater(&a, &b) == expected_a_b);
+    g_assert_true(ClockTimeIsGreater(&b, &a) == expected_b_a);
 }
 
 /* bool ClockTimeIsGreater(struct timespec *a, struct timespec *b) */
@@ -150,8 +150,8 @@ static void
 test_ClockDiff_validate(struct timespec diff, struct timespec a, struct timespec b, bool negative_result)
 {
     struct timespec resulttime;
-    g_assert(ClockDiff(&resulttime, &a, &b) == negative_result);
-    g_assert(timespec_equal(&resulttime, &diff));
+    g_assert_true(ClockDiff(&resulttime, &a, &b) == negative_result);
+    g_assert_true(timespec_equal(&resulttime, &diff));
 }
 
 static void
@@ -173,7 +173,7 @@ test_ClockAccum_validate(struct timespec diff, struct timespec a, struct timespe
     /* a will contain the total sum a+b */
     ClockAccum(&a, &b);
 
-    g_assert(timespec_equal(&diff, &a));
+    g_assert_true(timespec_equal(&diff, &a));
 }
 
 /* void test_ClockAccum(struct timespec *sum, struct timespec *b) */
@@ -204,7 +204,7 @@ test_ClockAccumMs_validate(long sec, long nsec, int ms)
 
     long long total_result_nsec = (ts.tv_sec * NSEC_PER_SEC) + ts.tv_nsec;
 
-    g_assert(total_result_nsec == reference_nsec);
+    g_assert_true(total_result_nsec == reference_nsec);
 }
 
 /* void ClockAccumMs (struct timespec *sum, int duration_ms) */
@@ -222,10 +222,13 @@ test_ClockAccumMs(void)
     test_ClockAccumMs_validate(0, LONG_MIN, 0);
     test_ClockAccumMs_validate(0, 0, INT_MIN);
     test_ClockAccumMs_validate(LONG_MAX, NSEC_PER_SEC, 0);
-    test_ClockAccumMs_validate(LONG_MAX, NSEC_PER_SEC, INT_MAX);
-    test_ClockAccumMs_validate(LONG_MAX, NSEC_PER_SEC, INT_MIN);
-    test_ClockAccumMs_validate(LONG_MIN, 0, INT_MIN);
-    test_ClockAccumMs_validate(LONG_MIN, -NSEC_PER_SEC, INT_MIN);
+    if(sizeof(long) > sizeof(int)) //disable following test cases on 32bit arch
+    {
+        test_ClockAccumMs_validate(LONG_MAX, NSEC_PER_SEC, INT_MAX);
+        test_ClockAccumMs_validate(LONG_MAX, NSEC_PER_SEC, INT_MIN);
+        test_ClockAccumMs_validate(LONG_MIN, 0, INT_MIN);
+        test_ClockAccumMs_validate(LONG_MIN, -NSEC_PER_SEC, INT_MIN);
+    }
 }
 
 static void
@@ -236,12 +239,12 @@ test_ClockGetMs_validate(long sec, long nsec)
     ts.tv_nsec = nsec;
     long long reference = ((sec * NSEC_PER_SEC) + nsec) / NSEC_PER_MSEC;
 
-    long milliseconds = ClockGetMs(&ts);
+    long long milliseconds = ClockGetMs(&ts);
 
-    g_assert(milliseconds == reference);
+    g_assert_true(milliseconds == reference);
 }
 
-/* long ClockGetMs(struct timespec *ts) */
+/* long long ClockGetMs(struct timespec *ts) */
 static void
 test_ClockGetMs(void)
 {
@@ -268,8 +271,8 @@ test_ClockClear_validate(long sec, long nsec)
 
     ClockClear(&a);
 
-    g_assert(a.tv_sec == 0);
-    g_assert(a.tv_nsec == 0);
+    g_assert_true(a.tv_sec == 0);
+    g_assert_true(a.tv_nsec == 0);
 }
 
 /* void ClockClear(struct timespec *a) */

@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2019 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -107,14 +107,14 @@ test_CatalogNewAndFree(void)
 {
     LSHandle sh = {0};
     _Catalog *c = _CatalogNew(&sh);
-    g_assert(NULL != c);
+    g_assert_true(NULL != c);
     _CatalogFree(c);
 }
 
 static void
 test_LSSubscriptionSetCancelFunction(TestData *fixture, gconstpointer user_data)
 {
-    g_assert(LSSubscriptionSetCancelFunction(&fixture->sh, GINT_TO_POINTER(1), GINT_TO_POINTER(2), NULL));
+    g_assert_true(LSSubscriptionSetCancelFunction(&fixture->sh, GINT_TO_POINTER(1), GINT_TO_POINTER(2), NULL));
 }
 
 static void
@@ -125,17 +125,17 @@ test_LSSubscriptionAddAndRemove(TestData *fixture, gconstpointer user_data)
 
     const char *key = "a/b";
 
-    g_assert(LSSubscriptionAdd(&fixture->sh, key, fixture->message, &error));
+    g_assert_true(LSSubscriptionAdd(&fixture->sh, key, fixture->message, &error));
 
     LSSubscriptionIter *sub_iter = NULL;
-    g_assert(LSSubscriptionAcquire(&fixture->sh, key, &sub_iter, &error));
-    g_assert(LSSubscriptionHasNext(sub_iter));
+    g_assert_true(LSSubscriptionAcquire(&fixture->sh, key, &sub_iter, &error));
+    g_assert_true(LSSubscriptionHasNext(sub_iter));
 
     LSMessage *msg = LSSubscriptionNext(sub_iter);
     g_assert_cmpint(fixture->message_ref_count, ==, 3);
-    g_assert(msg == fixture->message);
+    g_assert_true(msg == fixture->message);
     LSMessageUnref(msg);
-    g_assert(!LSSubscriptionHasNext(sub_iter));
+    g_assert_true(!LSSubscriptionHasNext(sub_iter));
 
     LSSubscriptionRemove(sub_iter);
     g_assert_cmpint(fixture->message_ref_count, ==, 1);
@@ -153,7 +153,7 @@ test_LSSubscriptionGetSubscribersCount(TestData *fixture, gconstpointer user_dat
 
     g_assert_cmpuint(LSSubscriptionGetHandleSubscribersCount(&fixture->sh, key), ==, 0);
 
-    g_assert(LSSubscriptionAdd(&fixture->sh, key, fixture->message, &error));
+    g_assert_true(LSSubscriptionAdd(&fixture->sh, key, fixture->message, &error));
 
     g_assert_cmpuint(LSSubscriptionGetHandleSubscribersCount(&fixture->sh, key), ==, 1);
 
@@ -179,8 +179,8 @@ test_CatalogHandleCancel(TestData *fixture, gconstpointer user_data)
         LSErrorInit(&error);
         fixture->message_payload = bad_payloads[i];
 
-        g_assert(!_CatalogHandleCancel(fixture->catalog, fixture->message, &error));
-        g_assert(LSErrorIsSet(&error));
+        g_assert_true(!_CatalogHandleCancel(fixture->catalog, fixture->message, &error));
+        g_assert_true(LSErrorIsSet(&error));
         g_assert_cmpstr(error.message, ==, "Invalid json");
         g_assert_cmpint(error.error_code, ==, -EINVAL);
         LSErrorFree(&error);
@@ -190,8 +190,8 @@ test_CatalogHandleCancel(TestData *fixture, gconstpointer user_data)
     LSErrorInit(&error);
     fixture->message_payload = "{\"token\":1}";
 
-    g_assert(_CatalogHandleCancel(fixture->catalog, fixture->message, &error));
-    g_assert(!LSErrorIsSet(&error));
+    g_assert_true(_CatalogHandleCancel(fixture->catalog, fixture->message, &error));
+    g_assert_true(!LSErrorIsSet(&error));
 }
 
 static void
@@ -206,26 +206,28 @@ test_LSSubscriptionGetJson(TestData *fixture, gconstpointer user_data)
 
     LSSubscriptionAdd(&fixture->sh, key, fixture->message, &error);
 
-    g_assert(_LSSubscriptionGetJson(&fixture->sh, &result, &error));
+    g_assert_true(_LSSubscriptionGetJson(&fixture->sh, &result, &error));
 
     LSSubscriptionIter *sub_iter = NULL;
-    g_assert(LSSubscriptionAcquire(&fixture->sh, key, &sub_iter, &error));
+    g_assert_true(LSSubscriptionAcquire(&fixture->sh, key, &sub_iter, &error));
     LSMessage *msg = LSSubscriptionNext(sub_iter);
     LSMessageUnref(msg);
     LSSubscriptionRemove(sub_iter);
     LSSubscriptionRelease(sub_iter);
 
-    const char *result_json = jvalue_tostring_simple(result);
-    const char *expected_json =
+    const char *expected_reply =
             "{\"returnValue\":true," \
             "\"subscriptions\":[{\"key\":\"a/b\"," \
             "\"subscribers\":[{\"service_name\":\"com.name.server\",\"unique_name\":\"com.name.server.unique\",\"subscription_message\":\"\"}]" \
             "}]" \
             "}";
+    JSchemaInfo schemaInfo;
+    jschema_info_init(&schemaInfo, jschema_all(), NULL, NULL);
+    jvalue_ref expected_json = jdom_parse(j_cstr_to_buffer(expected_reply), DOMOPT_NOOPT, &schemaInfo);
 
-    g_assert_cmpstr(result_json, ==, expected_json);
+    g_assert_true(jvalue_equal(result, expected_json));
 
-    j_release(&result);
+    j_release(&expected_json);
 }
 
 static void
@@ -240,12 +242,12 @@ test_LSSubscriptionReply(TestData *fixture, gconstpointer user_data)
 
     const char *payload = "{ \"key\": \"value\" }";
 
-    g_assert(LSSubscriptionReply(&fixture->sh, key, payload, &error));
+    g_assert_true(LSSubscriptionReply(&fixture->sh, key, payload, &error));
     g_assert_cmpstr(fixture->lsmessagereply_payload, ==, payload);
     g_assert_cmpint(fixture->lsmessagereply_call_count, ==, 1);
 
     LSSubscriptionIter *sub_iter = NULL;
-    g_assert(LSSubscriptionAcquire(&fixture->sh, key, &sub_iter, &error));
+    g_assert_true(LSSubscriptionAcquire(&fixture->sh, key, &sub_iter, &error));
     LSMessage *msg = LSSubscriptionNext(sub_iter);
     LSMessageUnref(msg);
     LSSubscriptionRemove(sub_iter);
@@ -263,36 +265,36 @@ test_LSSubscriptionProcess(TestData *fixture, gconstpointer user_data)
     // dont subscribe
     fixture->message_payload = "{}";
 
-    g_assert(LSSubscriptionProcess(&fixture->sh, fixture->message, &subscribed, &error));
-    g_assert(!subscribed);
+    g_assert_true(LSSubscriptionProcess(&fixture->sh, fixture->message, &subscribed, &error));
+    g_assert_true(!subscribed);
     g_assert_cmpint(fixture->lscall_call_count, ==, 0);
 
     // dont subscribe
     fixture->message_payload = "{\"subscribe\": null}";
 
-    g_assert(LSSubscriptionProcess(&fixture->sh, fixture->message, &subscribed, &error));
-    g_assert(!subscribed);
+    g_assert_true(LSSubscriptionProcess(&fixture->sh, fixture->message, &subscribed, &error));
+    g_assert_true(!subscribed);
     g_assert_cmpint(fixture->lscall_call_count, ==, 0);
 
     // dont subscribe
     fixture->message_payload = "{\"subscribe\": 1}";
 
-    g_assert(LSSubscriptionProcess(&fixture->sh, fixture->message, &subscribed, &error));
-    g_assert(!subscribed);
+    g_assert_true(LSSubscriptionProcess(&fixture->sh, fixture->message, &subscribed, &error));
+    g_assert_true(!subscribed);
     g_assert_cmpint(fixture->lscall_call_count, ==, 0);
 
     // dont subscribe
     fixture->message_payload = "{\"subscribe\": false}";
 
-    g_assert(LSSubscriptionProcess(&fixture->sh, fixture->message, &subscribed, &error));
-    g_assert(!subscribed);
+    g_assert_true(LSSubscriptionProcess(&fixture->sh, fixture->message, &subscribed, &error));
+    g_assert_true(!subscribed);
     g_assert_cmpint(fixture->lscall_call_count, ==, 0);
 
     // subscribe
     fixture->message_payload = "{\"subscribe\": true}";
 
-    g_assert(LSSubscriptionProcess(&fixture->sh, fixture->message, &subscribed, &error));
-    g_assert(subscribed);
+    g_assert_true(LSSubscriptionProcess(&fixture->sh, fixture->message, &subscribed, &error));
+    g_assert_true(subscribed);
 }
 
 static void
@@ -305,18 +307,18 @@ test_LSSubscriptionPost(TestData *fixture, gconstpointer user_data)
     LSErrorInit(&error);
 
     // post with no subscriptions
-    g_assert(LSSubscriptionPost(&fixture->sh, category, method, payload, &error));
+    g_assert_true(LSSubscriptionPost(&fixture->sh, category, method, payload, &error));
     g_assert_cmpint(fixture->lsmessagereply_call_count, ==, 0);
 
     // post with valid subscription
     const char *key = "a/b";
-    g_assert(LSSubscriptionAdd(&fixture->sh, key, fixture->message, &error));
-    g_assert(LSSubscriptionPost(&fixture->sh, category, method, payload, &error));
+    g_assert_true(LSSubscriptionAdd(&fixture->sh, key, fixture->message, &error));
+    g_assert_true(LSSubscriptionPost(&fixture->sh, category, method, payload, &error));
     g_assert_cmpint(fixture->lsmessagereply_call_count, ==, 1);
     g_assert_cmpstr(fixture->lsmessagereply_payload, ==, "{}");
 
     LSSubscriptionIter *sub_iter = NULL;
-    g_assert(LSSubscriptionAcquire(&fixture->sh, key, &sub_iter, &error));
+    g_assert_true(LSSubscriptionAcquire(&fixture->sh, key, &sub_iter, &error));
     LSMessage *msg = LSSubscriptionNext(sub_iter);
     LSMessageUnref(msg);
     LSSubscriptionRemove(sub_iter);

@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ void ClockAccum(struct timespec *sum, const struct timespec *b);
 
 void ClockAccumMs (struct timespec *sum, int duration_ms);
 
-long ClockGetMs(struct timespec *ts);
+long long ClockGetMs(struct timespec *ts);
 
 void ClockClear(struct timespec *a);
 

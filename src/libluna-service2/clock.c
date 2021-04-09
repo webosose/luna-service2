@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -158,11 +158,11 @@ ClockAccumMs (struct timespec *sum, int duration_ms)
     }
 }
 
-long
+long long
 ClockGetMs(struct timespec *ts)
 {
     if (!ts) return 0;
-    return ts->tv_sec * 1000 + ts->tv_nsec / NSEC_PER_MSEC;
+    return (ts->tv_sec * 1000LL) + (ts->tv_nsec / NSEC_PER_MSEC);
 }
 
 /**

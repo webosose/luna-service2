@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 typedef struct TestData
 {
     // payload from mocked LSMessageReply
-    gchar *lsmessagereply_payload;
+    jvalue_ref lsmessagereply_payload;
 
     // for mocked LSMessageGetSenderServiceName
     const char *message_sender_service_name;
@@ -44,9 +44,6 @@ test_setup(TestData *fixture, gconstpointer user_data)
 static void
 test_teardown(TestData *fixture, gconstpointer user_data)
 {
-    g_free(fixture->lsmessagereply_payload);
-    fixture->lsmessagereply_payload = NULL;
-
     test_data = NULL;
 }
 
@@ -62,11 +59,17 @@ test_LSPrivateGetSubscriptions(TestData *fixture, gconstpointer user_data)
     // _LSPrivateGetSubscriptions works only if requested from monitor
     fixture->message_sender_service_name = MONITOR_NAME;
 
-    g_assert(_LSPrivateGetSubscriptions(sh, msg, ctx));
-    g_assert_cmpstr(fixture->lsmessagereply_payload, ==, "{\"returnValue\":true,\"subscriptions\":[]}");
+    jvalue_ref exp = jobject_create_var(
+    jkeyval( J_CSTR_TO_JVAL("returnValue"), jboolean_create(true) ),
+    jkeyval( J_CSTR_TO_JVAL("subscriptions"), jarray_create(NULL) ),
+    J_END_OBJ_DECL
+    );
 
-    g_free(fixture->lsmessagereply_payload);
-    fixture->lsmessagereply_payload = NULL;
+    g_assert_true(_LSPrivateGetSubscriptions(sh, msg, ctx));
+    g_assert_true(jvalue_equal(fixture->lsmessagereply_payload, exp));
+
+    j_release(&fixture->lsmessagereply_payload);
+    j_release(&exp);
 }
 
 static void
@@ -75,16 +78,18 @@ test_LSPrivateGetMallinfo(TestData *fixture, gconstpointer user_data)
     LSHandle *sh = GINT_TO_POINTER(1);
     LSMessage *msg = GINT_TO_POINTER(2);
     void *ctx = NULL;
+    bool ret = false;
 
     // _LSPrivateGetMallinfo works only if requested from monitor
     fixture->message_sender_service_name = MONITOR_NAME;
 
-    g_assert(_LSPrivateGetMallinfo(sh, msg, ctx));
-    g_assert(g_str_has_prefix(fixture->lsmessagereply_payload, "{\"returnValue\":true,\"mallinfo\":{"));
+    g_assert_true(_LSPrivateGetMallinfo(sh, msg, ctx));
+
+    (void) jboolean_get(jobject_get(fixture->lsmessagereply_payload, J_CSTR_TO_BUF("returnValue")), &ret);
+    g_assert_true(ret);
 
     // verify that no reply sent to non-monitor client
-    g_free(fixture->lsmessagereply_payload);
-    fixture->lsmessagereply_payload = NULL;
+    j_release(&fixture->lsmessagereply_payload);
 }
 
 static void
@@ -94,9 +99,24 @@ test_LSPrivateDoMallocTrim(TestData *fixture, gconstpointer user_data)
     LSMessage *msg = GINT_TO_POINTER(2);
     void *ctx = NULL;
 
-    g_assert(_LSPrivateDoMallocTrim(sh, msg, ctx));
-    g_assert(g_str_has_prefix(fixture->lsmessagereply_payload, "{\"malloc_trim\":1,\"returnValue\":true}") ||
-             g_str_has_prefix(fixture->lsmessagereply_payload, "{\"malloc_trim\":0,\"returnValue\":true}"));
+    jvalue_ref exp1 = jobject_create_var(
+        jkeyval( J_CSTR_TO_JVAL("returnValue"), jboolean_create(true) ),
+        jkeyval( J_CSTR_TO_JVAL("malloc_trim"), jnumber_create_i32(1) ),
+        J_END_OBJ_DECL
+    );
+
+    jvalue_ref exp2 = jobject_create_var(
+            jkeyval( J_CSTR_TO_JVAL("returnValue"), jboolean_create(true) ),
+            jkeyval( J_CSTR_TO_JVAL("malloc_trim"), jnumber_create_i32(0) ),
+            J_END_OBJ_DECL
+    );
+
+    g_assert_true(_LSPrivateDoMallocTrim(sh, msg, ctx));
+    g_assert_true( jvalue_equal(fixture->lsmessagereply_payload, exp1) || jvalue_equal(fixture->lsmessagereply_payload, exp2) );
+
+    j_release(&fixture->lsmessagereply_payload);
+    j_release(&exp1);
+    j_release(&exp2);
 }
 
 /* Mocks **********************************************************************/
@@ -120,8 +140,7 @@ bool
 LSMessageReply(LSHandle *sh, LSMessage *lsmsg, const char *replyPayload,
                 LSError *lserror)
 {
-    g_free(test_data->lsmessagereply_payload);
-    test_data->lsmessagereply_payload = g_strdup(replyPayload);
+    test_data->lsmessagereply_payload = jdom_create(j_cstr_to_buffer(replyPayload), jschema_all(), NULL);
     return true;
 }
 

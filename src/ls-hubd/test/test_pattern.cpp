@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,20 +28,20 @@ test_LSHubPatternSpecCompare(TestData *fixture, gconstpointer user_data)
 {
     _LSHubPatternSpec *a = _LSHubPatternSpecNew("a*");
     _LSHubPatternSpec *b = _LSHubPatternSpecNew("b*");
-    g_assert_cmpint(_LSHubPatternSpecCompare(a, b, NULL), ==, -1);
-    g_assert_cmpint(_LSHubPatternSpecCompare(b, a, NULL), ==, 1);
+    g_assert_cmpint(_LSHubPatternSpecCompare(a, b, NULL), <, 0);
+    g_assert_cmpint(_LSHubPatternSpecCompare(b, a, NULL), >, 0);
     g_assert_cmpint(_LSHubPatternSpecCompare(a, a, NULL), ==, 0);
     g_assert_cmpint(_LSHubPatternSpecCompare(b, b, NULL), ==, 0);
 
     _LSHubPatternSpec key = { .ref = 0, .pattern_str = "abcd", };
     g_assert_cmpint(_LSHubPatternSpecCompare(a, &key, NULL), ==, 0);
     g_assert_cmpint(_LSHubPatternSpecCompare(&key, a, NULL), ==, 0);
-    g_assert_cmpint(_LSHubPatternSpecCompare(b, &key, NULL), ==, 1);
-    g_assert_cmpint(_LSHubPatternSpecCompare(&key, b, NULL), ==, -1);
+    g_assert_cmpint(_LSHubPatternSpecCompare(b, &key, NULL), >, 0);
+    g_assert_cmpint(_LSHubPatternSpecCompare(&key, b, NULL), <, 0);
 
     key.pattern_str = "bcd";
-    g_assert_cmpint(_LSHubPatternSpecCompare(a, &key, NULL), ==, -1);
-    g_assert_cmpint(_LSHubPatternSpecCompare(&key, a, NULL), ==, 1);
+    g_assert_cmpint(_LSHubPatternSpecCompare(a, &key, NULL), <, 0);
+    g_assert_cmpint(_LSHubPatternSpecCompare(&key, a, NULL), >, 0);
     g_assert_cmpint(_LSHubPatternSpecCompare(b, &key, NULL), ==, 0);
     g_assert_cmpint(_LSHubPatternSpecCompare(&key, b, NULL), ==, 0);
 

@@ -830,7 +830,7 @@ _handle_reply(LSHandle *sh, _TokenList *tokens, _LSTransportMessage *msg,
                 {
                     ClockGetTime(&current_time);
                     ClockDiff(&gap_time, &current_time, &call->time);
-                    LOG_LS_DEBUG("TYPE=method call response time | TIME=%ld | FROM=%s | TO=%s",
+                    LOG_LS_DEBUG("TYPE=method call response time | TIME=%lld | FROM=%s | TO=%s",
                               ClockGetMs(&gap_time), sh->name, call->serviceName);
                 }
 
@@ -841,7 +841,7 @@ _handle_reply(LSHandle *sh, _TokenList *tokens, _LSTransportMessage *msg,
                 {
                     ClockGetTime(&current_time);
                     ClockDiff(&gap_time, &current_time, &call->time);
-                    LOG_LS_DEBUG("TYPE=client handler execution time | TIME=%ld", ClockGetMs(&gap_time));
+                    LOG_LS_DEBUG("TYPE=client handler execution time | TIME=%lld", ClockGetMs(&gap_time));
                 }
 
                 if (!ret)

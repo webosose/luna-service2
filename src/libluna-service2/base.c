@@ -595,7 +595,7 @@ LSCategoryMethodCall(LSHandle *sh, LSCategoryTable *category,
     {
         ClockGetTime(&end_time);
         ClockDiff(&gap_time, &end_time, &start_time);
-        LOG_LS_DEBUG("TYPE=service handler execution time | TIME=%ld | SERVICE=%s | CATEGORY=%s | METHOD=%s",
+        LOG_LS_DEBUG("TYPE=service handler execution time | TIME=%lld | SERVICE=%s | CATEGORY=%s | METHOD=%s",
                 ClockGetMs(&gap_time), receiver, LSMessageGetCategory(message), method_name);
     }
 

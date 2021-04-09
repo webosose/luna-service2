@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2019 LG Electronics, Inc.
+// Copyright (c) 2015-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,11 +21,8 @@ namespace {
     pbnjson::JSchema getSchema(const char *id)
     {
 #ifdef LS_VALIDATE_CONF
-#ifndef LS_SCHEMA_ROOT
         std::string schema_root(WEBOS_INSTALL_WEBOS_SYSCONFDIR"/schemas/luna-service2");
-#else
-        std::string schema_root(LS_SCHEMA_ROOT);
-#endif
+
         auto path = schema_root + "/" + id + ".schema";
         auto schema = pbnjson::JSchema::fromFile(path.c_str());
         if (!schema)
