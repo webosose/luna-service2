@@ -54,8 +54,8 @@
 #include "hub_service.hpp"
 
 #include <fstream>
-
 #include <iostream>
+#include <systemd/sd-daemon.h>
 #include <utility>
 
 template <typename Arg, typename... Args>
@@ -3515,21 +3515,11 @@ int main(int argc, char *argv[])
         lane.AttachLocalListener(hub_local_addr, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 
 #if !defined(WEBOS_TARGET_MACHINE_IMPL_GUEST)
-        const char *upstart_job = getenv("UPSTART_JOB");
+        const char *event = "READY=1\nSTATUS=hubd ready event notified";
 
-        if (upstart_job)
+        if (sd_notify(0, event) <= 0)
         {
-            char *upstart_event = g_strdup_printf("/sbin/initctl emit --no-wait %s-ready", upstart_job);
-
-            if (upstart_event)
-            {
-                system(upstart_event);
-                g_free(upstart_event);
-            }
-            else
-            {
-                LOG_LS_ERROR(MSGID_LSHUB_UPSTART_ERROR, 0, "Unable to emit upstart event");
-            }
+            LOG_LS_ERROR(MSGID_LSHUB_UPSTART_ERROR, 0, "Unable to send systemd ready event");
         }
 #endif
 
