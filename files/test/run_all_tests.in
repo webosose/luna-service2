@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2015-2018 LG Electronics, Inc.
+# Copyright (c) 2015-2021 LG Electronics, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ fi
 
 while getopts ":uip" o; do
 	case "${o}" in
-		u) execute 'unit' '@TEST_INSTALL_DIR@/unit/*' 'LD_LIBRARY_PATH="@TEST_INSTALL_DIR@/lib"' ;;
+		u) execute 'unit' '@TEST_INSTALL_DIR@/unit/*' 'LD_LIBRARY_PATH="@WEBOS_INSTALL_LIBDIR@;@TEST_INSTALL_DIR@/lib"' ;;
 		i) execute 'integration' '@TEST_INSTALL_DIR@/integration/*.conf' '@TEST_INSTALL_DIR@/run_test' ;;
 		p) execute 'preformance' '@PERF_INSTALL_DIR@/*.conf' '@PERF_INSTALL_DIR@/run_test' ;;
 		*) usage ;;
