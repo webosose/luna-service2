@@ -4269,6 +4269,8 @@ LSTransportSendQueryServiceStatus(_LSTransport *transport, const char *service_n
     bool ret = false;
 
     _LSTransportMessage *message = _LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE);
+    if (!message) goto error;
+
     message->raw->header.is_public_bus = is_public_bus;
     _LSTransportMessageSetType(message, _LSTransportMessageTypeQueryServiceStatus);
     _LSTransportMessageIterInit(message, &iter);
