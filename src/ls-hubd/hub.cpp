@@ -703,7 +703,7 @@ _LSHubSendServiceDownSignal(const char *service_name, const char *unique_name)
  */
 static void
 _LSHubSendServiceUpSignal(const char *service_name, const char *unique_name, pid_t service_pid, const char *all_names,
-                          bool is_public_bus, bool is_old_format)
+                          bool is_public_bus, bool is_old_format = false)
 {
 
     _LSHubSendServiceUpDownSignal(service_name, unique_name, service_pid, all_names, true, is_public_bus);
@@ -1643,22 +1643,6 @@ _LSHubHandleNodeUp(_LSTransportMessage *message)
         return;
     }
 
-    bool is_old_service;
-    {
-        const LSHubRole *role;
-        if (client->app_id)
-        {
-            // look-up in all roles by app-id
-            role = SecurityData::CurrentSecurityData().roles.Lookup(client->app_id);
-        }
-        else
-        {
-            role = LSHubActiveRoleMapLookup(_LSTransportCredGetPid(_LSTransportClientGetCred(client)));
-        }
-        // Assume that services registered without any roles (when security is
-        // disabled) are all old.
-        is_old_service = LIKELY(role) ? LSHubRoleIsOldFormat(role) : true;
-    }
 
     bool is_public_bus = message->raw->header.is_public_bus;
     if (!id->service_name)
@@ -1669,7 +1653,7 @@ _LSHubHandleNodeUp(_LSTransportMessage *message)
         auto allowed_name = mk_ptr(g_strdup_printf("\"%s\"", id->local.name), g_free);
 
         _LSHubSendServiceUpSignal(id->local.name, id->local.name, pid,
-                                  allowed_name.get(), is_public_bus, is_old_service);
+                                  allowed_name.get(), is_public_bus);
         return;
     }
 
@@ -1737,13 +1721,13 @@ _LSHubHandleNodeUp(_LSTransportMessage *message)
     }
 
     _LSHubSendServiceUpSignal(id->service_name, id->local.name, pid, allowed_names.c_str(),
-                              is_public_bus, is_old_service);
+                              is_public_bus);
     for (const auto& name : GetServiceRedirectionVariants(id->service_name))
     {
         /* Let registered clients know that this service is up */
         if (!g_hash_table_lookup(available_services, name.c_str()))
             _LSHubSendServiceUpSignal(name.c_str(), id->local.name, pid, allowed_names.c_str(),
-                                      is_public_bus, is_old_service);
+                                      is_public_bus);
     }
 
     if (g_conf_log_service_status)
