@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2018 LG Electronics, Inc.
+// Copyright (c) 2015-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,5 +25,6 @@ extern pbnjson::JSchema manifest_schema;
 extern pbnjson::JSchema api_permissions_schema;
 extern pbnjson::JSchema client_permissions_schema;
 extern pbnjson::JSchema container_schema;
+extern pbnjson::JSchema proxy_agents_schema;
 extern pbnjson::JSchema groups_schema;
 #endif //_FILE_SCHEMA_HPP_

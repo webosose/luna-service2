@@ -121,6 +121,7 @@ bool _LSTransportSendMessage(_LSTransportMessage *message, _LSTransportClient *c
                         LSMessageToken *token, LSError *lserror);
 void _LSTransportAddInitialWatches(_LSTransport *transport, GMainContext *context);
 bool _LSTransportGetPrivileged(const _LSTransport *tansport);
+bool _LSTransportGetProxyStatus(const _LSTransport *tansport);
 
 gboolean _LSTransportAcceptConnection(GIOChannel *source, GIOCondition condition, gpointer data);
 gboolean _LSTransportReceiveClient(GIOChannel *source, GIOCondition condition, gpointer data);
@@ -128,7 +129,9 @@ gboolean _LSTransportSendClient(GIOChannel *source, GIOCondition condition, gpoi
 
 bool _LSTransportIsHub(void);
 
-bool LSTransportSend(_LSTransport *transport, const char *service_name, bool is_public_bus,
+bool LSTransportSend(_LSTransport *transport, const char *origin_exe,
+                     const char *origin_id, const char *origin_name,
+                     const char *service_name, bool is_public_bus,
                      const char *category, const char *method, const char *payload, const char* applicationId,
                      LSMessageToken *token, LSError *lserror);
 bool LSTransportSendMethodToHub(_LSTransport *transport, const char* method, const char* payload,

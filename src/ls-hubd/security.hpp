@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,6 +48,14 @@ struct LSHubPermission;
 typedef std::set<std::string> AppContainers;
 
 /**
+ * @brief ProxyAgents
+ *
+ * Unordered set to store list of proxy agents which act
+ * as mediators on behalf of apps/services.
+ */
+typedef std::unordered_set<std::string> ProxyAgents;
+
+/**
   * @brief SecurityData
   *
   * Security settings, which get filled
@@ -71,7 +79,8 @@ public:
     bool IsGroupForDevmode(const std::string &group) const;
 
     LSHubPermission* LookupPermission(const _LSTransportClient *client, const char *service_name) const;
-
+    LSHubPermission* LookupPermissionProxy(const char *origin_exe, const char *origin_id,
+                                           const char *origin_name, const _LSTransportClient *origin_client) const;
     void InitNonVolatileDirs(const char **dirs);
     bool IsManifestNonVolatile(const std::string &path);
     const std::unordered_set<std::string>& GetNonVolatileDirs() const { return _non_volatile_dirs; }
@@ -84,6 +93,7 @@ public:
     PermissionsMap permissions;
     GroupsMap groups;
     AppContainers containers;
+    ProxyAgents proxy_agents;
 
 private:
     SecurityData(SecurityData &) = delete;
@@ -111,6 +121,7 @@ public:
 bool LSHubIsClientAllowedToQueryName(_LSTransportClient *sender_client, _LSTransportClient *dest_client,
                                      const char *dest_service_name);
 bool LSHubIsClientApplicationContainer(const _LSTransportClient *client);
+bool LSHubIsClientProxyAgent(const _LSTransportClient *client);
 bool LSHubIsClientAllowedToRequestName(const _LSTransportClient *client, const char *service_name, int32_t &client_flags);
 bool LSHubIsClientAllowedToSendSignal(_LSTransportClient *client, const char *category, const char *method);
 bool LSHubIsClientAllowedToSubscribeSignal(_LSTransportClient *client, const char *category, const char *method);
@@ -120,13 +131,28 @@ bool LSHubIsClientMonitor(const _LSTransportClient *client);
 bool LSHubIsClientAllowedOutbound(_LSTransportClient *sender_client, const char *dest_service_name);
 bool LSHubIsClientAllowedInbound(const _LSTransportClient *sender_client, const _LSTransportClient *dest_client,
                                   const char *dest_service_name);
+bool
+LSHubIsAllowedToQueryProxyName(const char *origin_exe, const char *origin_id,
+                               const char *origin_name, _LSTransportClient *origin_client,
+                               _LSTransportClient *dest_client, const char *dest_service_name);
+bool
+LSHubIsAllowedOutboundProxy(const char *origin_exe, const char *origin_id,
+                            const char *origin_name, _LSTransportClient *origin_client,
+                            const char *dest_service_name);
+bool
+LSHubIsAllowedInboundProxy(const char *origin_exe, const char *origin_id, const char *origin_name,
+                            const _LSTransportClient *dest_client, const char *dest_service_name);
 bool LSHubPushRole(const _LSTransportClient *client, const char *path, bool public_bus, LSError *lserror);
 
 bool LSHubClientGetPrivileged(const _LSTransportClient *client);
 bool LSHubClientGetPrivileged(const _LSTransportClient *client, bool public_bus);
+
+bool LSHubClientGetProxy(const _LSTransportClient *client);
+
 const char* IsMediaService(const char *service_name);
 
 bool ProcessContainersDirectories(const char **dirs, void *ctxt, LSError *lserror);
+bool ProcessProxyAgentsDirectories(const char **dirs, void *ctxt, LSError *lserror);
 
 #ifdef UNIT_TESTS
 std::string getServiceNameFromUri(pbnjson::JInput uri);

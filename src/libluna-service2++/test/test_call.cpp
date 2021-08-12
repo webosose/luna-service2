@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018 LG Electronics, Inc.
+// Copyright (c) 2014-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,11 @@ namespace
 #define TIMEOUT_URI "luna://com.palm.test_call_service/testCalls/timeoutCall"
 #define SUBSCRIBE_URI "luna://com.palm.test_call_service/testCalls/subscribeCall"
 #define ECHO_APPID_URI "luna://com.palm.test_call_service/testCalls/echoAppIdCall"
+
+#define SERVICE_NAME "com.palm.test_call"
+#define CALLER_ID ""
+#define CALLER_EXE "/usr/opt/webos/tests/luna-service2/integration/test_call"
+#define CALLER_NAME "com.palm.test_call"
 
 class CallTest : public ::testing::Test
 {
@@ -126,10 +131,23 @@ TEST_F(CallTest, BasicCall)
     ASSERT_NO_THROW(call = _service.callOneReply(SIMPLE_URI, "{}"));
 }
 
+// Tests Proxy LS::Call basic call
+TEST_F(CallTest, ProxyBasicCall)
+{
+    LS::Call call;
+    ASSERT_NO_THROW(call = _service.callProxyOneReply(CALLER_EXE, CALLER_ID, CALLER_NAME, SIMPLE_URI, "{}"));
+}
+
 // Tests LS::Call throw exception if LSCallXXXX fails
 TEST_F(CallTest, ExceptionOnInvalidPayload)
 {
     ASSERT_THROW(_service.callOneReply(SIMPLE_URI, ""), LS::Error);
+}
+
+// Tests Proxy LS::Call throw exception if LSCallXXXX fails
+TEST_F(CallTest, ProxyExceptionOnInvalidPayload)
+{
+    ASSERT_THROW(_service.callProxyOneReply(CALLER_EXE, CALLER_ID, CALLER_NAME, SIMPLE_URI, ""), LS::Error);
 }
 
 // Tests LS::Call throw exception if LSCallXXXX fails
@@ -139,11 +157,31 @@ TEST_F(CallTest, ExceptionOnInvalidHandle)
     ASSERT_THROW(service.callOneReply(SIMPLE_URI, "{}"), LS::Error);
 }
 
+// Tests Proxy LS::Call throw exception if LSCallXXXX fails
+TEST_F(CallTest, ProxyExceptionOnInvalidHandle)
+{
+    LS::Handle service;
+    ASSERT_THROW(service.callProxyOneReply(CALLER_EXE, CALLER_ID, CALLER_NAME, SIMPLE_URI, "{}"), LS::Error);
+}
+
 // Tests set reply callback before main loop
 TEST_F(CallTest, SetReplyCBBeforeLoop)
 {
     Timeout hangingCB{1000, [this]{return onHangingCB(this);}, _mainloop};
     LS::Call call = _service.callOneReply(SIMPLE_URI, "{}");
+    call.continueWith(onReplyCB, this);
+
+    g_main_loop_run(_mainloop);
+    ASSERT_FALSE(ON_MAINLOOP_FAILURE == _resultFlag) << "Main loop quit condition failed - loop not finished in time";
+    ASSERT_EQ(ON_REPLY, _resultFlag);
+    ASSERT_FALSE(call.isActive());
+}
+
+// Tests Proxy set reply callback before main loop
+TEST_F(CallTest, ProxySetReplyCBBeforeLoop)
+{
+    Timeout hangingCB{1000, [this]{return onHangingCB(this);}, _mainloop};
+    LS::Call call = _service.callProxyOneReply(CALLER_EXE, CALLER_ID, CALLER_NAME, SIMPLE_URI, "{}");
     call.continueWith(onReplyCB, this);
 
     g_main_loop_run(_mainloop);
@@ -166,6 +204,20 @@ TEST_F(CallTest, SetReplyCBAfterLoop)
     ASSERT_EQ(ON_REPLY, _resultFlag);
 }
 
+// Tests Proxy set reply callback after loop
+TEST_F(CallTest, ProxySetReplyCBAfterLoop)
+{
+    Timeout setCB{100, [this]{return onTimeoutSetCB(this);}, _mainloop};
+    Timeout hangingCB{1000, [this]{return onHangingCB(this);}, _mainloop};
+
+    LS::Call call = _service.callProxyOneReply(CALLER_EXE, CALLER_ID, CALLER_NAME, SIMPLE_URI, "{}");
+    _call = &call;
+
+    g_main_loop_run(_mainloop);
+    ASSERT_FALSE(ON_MAINLOOP_FAILURE == _resultFlag) << "Main loop quit condition failed - loop not finished in time";
+    ASSERT_EQ(ON_REPLY, _resultFlag);
+}
+
 // Tests calling with callback before main loop started
 TEST_F(CallTest, CallCBBeforeLoop)
 {
@@ -177,8 +229,34 @@ TEST_F(CallTest, CallCBBeforeLoop)
     ASSERT_EQ(ON_REPLY, _resultFlag);
 }
 
+// Tests Proxy calling with callback before main loop started
+TEST_F(CallTest, ProxyCallCBBeforeLoop)
+{
+    Timeout hangingCB{1000, [this]{return onHangingCB(this);}, _mainloop};
+    LS::Call call = _service.callProxyOneReply(CALLER_EXE, CALLER_ID, CALLER_NAME,
+        SIMPLE_URI, "{}", onReplyCB, this);
+
+    g_main_loop_run(_mainloop);
+    ASSERT_FALSE(ON_MAINLOOP_FAILURE == _resultFlag) << "Main loop quit condition failed - loop not finished in time";
+    ASSERT_EQ(ON_REPLY, _resultFlag);
+}
+
 // Tests calling with callback after main loop started
 TEST_F(CallTest, CallCBAfterLoop)
+{
+    Timeout hangingCB{1000, [this]{return onHangingCB(this);}, _mainloop};
+    Timeout callWithCB{100, [this]{return onTimeoutCallWithCB(this);}, _mainloop};
+
+    LS::Call call;
+    _call = &call;
+
+    g_main_loop_run(_mainloop);
+    ASSERT_FALSE(ON_MAINLOOP_FAILURE == _resultFlag) << "Main loop quit condition failed - loop not finished in time";
+    ASSERT_EQ(ON_REPLY, _resultFlag);
+}
+
+// Tests Proxy calling with callback after main loop started
+TEST_F(CallTest, ProxyCallCBAfterLoop)
 {
     Timeout hangingCB{1000, [this]{return onHangingCB(this);}, _mainloop};
     Timeout callWithCB{100, [this]{return onTimeoutCallWithCB(this);}, _mainloop};
@@ -204,6 +282,20 @@ TEST_F(CallTest, CallTimeout)
     ASSERT_EQ(ON_REPLY, _resultFlag);
 }
 
+// Tests Proxy call timeout
+TEST_F(CallTest, ProxyCallTimeout)
+{
+    Timeout hangingCB{1000, [this]{return onHangingCB(this);}, _mainloop};
+
+    LS::Call call = _service.callProxyOneReply(CALLER_EXE, CALLER_ID, CALLER_NAME,
+        TIMEOUT_URI, R"({"timeout": 100})", onReplyCB, this);
+    call.setTimeout(200);
+
+    g_main_loop_run(_mainloop);
+    ASSERT_FALSE(ON_MAINLOOP_FAILURE == _resultFlag) << "Main loop quit condition failed - loop not finished in time";
+    ASSERT_EQ(ON_REPLY, _resultFlag);
+}
+
 // Tests call timeout expiration
 TEST_F(CallTest, CallTimeoutExpiration)
 {
@@ -218,10 +310,36 @@ TEST_F(CallTest, CallTimeoutExpiration)
     ASSERT_EQ(ON_CALL_TIMEOUT, _resultFlag);
 }
 
+// Tests Proxy call timeout expiration
+TEST_F(CallTest, ProxyCallTimeoutExpiration)
+{
+    Timeout hangingCB{1000, [this]{return onHangingCB(this);}, _mainloop};
+    Timeout timeoutCB{500, [this]{return onTimeoutCB(this);}, _mainloop};
+
+    LS::Call call = _service.callProxyOneReply(CALLER_EXE, CALLER_ID, CALLER_NAME,
+        TIMEOUT_URI, R"({"timeout": 300})", onReplyCB, this);
+    call.setTimeout(150);
+
+    g_main_loop_run(_mainloop);
+    ASSERT_FALSE(ON_MAINLOOP_FAILURE == _resultFlag) << "Main loop quit condition failed - loop not finished in time";
+    ASSERT_EQ(ON_CALL_TIMEOUT, _resultFlag);
+}
+
 // Tests get interface
 TEST_F(CallTest, MainLoopGet)
 {
     LS::Call call = _service.callMultiReply(SUBSCRIBE_URI, R"({"subscribe": true, "timeout": 100})");
+    auto reply = call.get();
+    ASSERT_TRUE(bool(reply));
+    reply = call.get();
+    ASSERT_TRUE(bool(reply));
+}
+
+// Tests Proxy get interface
+TEST_F(CallTest, ProxyMainLoopGet)
+{
+    LS::Call call = _service.callProxyMultiReply(CALLER_EXE, CALLER_ID, CALLER_NAME,
+        SUBSCRIBE_URI, R"({"subscribe": true, "timeout": 100})");
     auto reply = call.get();
     ASSERT_TRUE(bool(reply));
     reply = call.get();
@@ -244,6 +362,23 @@ TEST_F(CallTest, isActive)
     ASSERT_FALSE(bool(reply));
 }
 
+// Tests Proxy isActive method
+TEST_F(CallTest, ProxyIsActive)
+{
+    LS::Call call = _service.callProxyMultiReply(CALLER_EXE, CALLER_ID, CALLER_NAME,
+    SUBSCRIBE_URI, R"({"subscribe": true, "timeout": 100})");
+
+    auto reply = call.get();
+    ASSERT_TRUE(bool(reply));
+
+    ASSERT_TRUE(call.isActive());
+    call.cancel();
+    ASSERT_FALSE(call.isActive());
+
+    reply = call.get(200);
+    ASSERT_FALSE(bool(reply));
+}
+
 // Tests get interface with timeout (wait failed)
 TEST_F(CallTest, MainLoopGetTimeoutFail)
 {
@@ -254,10 +389,30 @@ TEST_F(CallTest, MainLoopGetTimeoutFail)
     ASSERT_TRUE(bool(reply));
 }
 
+// Tests Proxy get interface with timeout (wait failed)
+TEST_F(CallTest, ProxyMainLoopGetTimeoutFail)
+{
+    LS::Call call = _service.callProxyMultiReply(CALLER_EXE, CALLER_ID, CALLER_NAME,
+        TIMEOUT_URI, R"({"subscribe": true, "timeout": 300})");
+    auto reply = call.get(150);
+    ASSERT_FALSE(bool(reply));
+    reply = call.get();
+    ASSERT_TRUE(bool(reply));
+}
+
 // Tests get interface with timeout (wait succeeded)
 TEST_F(CallTest, MainLoopGetTimeoutSuccess)
 {
     LS::Call call = _service.callMultiReply(TIMEOUT_URI, R"({"subscribe": true, "timeout": 200})");
+    auto reply = call.get(250);
+    ASSERT_TRUE(bool(reply));
+}
+
+// Tests Proxy get interface with timeout (wait succeeded)
+TEST_F(CallTest, ProxyMainLoopGetTimeoutSuccess)
+{
+    LS::Call call = _service.callProxyMultiReply(CALLER_EXE, CALLER_ID, CALLER_NAME,
+        TIMEOUT_URI, R"({"subscribe": true, "timeout": 200})");
     auto reply = call.get(250);
     ASSERT_TRUE(bool(reply));
 }
@@ -275,6 +430,28 @@ TEST_F(CallTest, CallWithApplicationId)
     ASSERT_EQ(appId, replyAppId);
 
     call = _service.callOneReply(ECHO_APPID_URI, "{}");
+    reply = call.get();
+    ASSERT_TRUE(bool(reply));
+    LS::JSONPayload reply2{reply.getPayload()};
+    ASSERT_TRUE(reply2.isValid());
+    ASSERT_TRUE(reply2.get("appId", replyAppId));
+    ASSERT_EQ(noAppId, replyAppId);
+}
+
+// Tests Proxy call with/without application Id
+TEST_F(CallTest, ProxyCallWithApplicationId)
+{
+    std::string appId = "com.palm.app.foo", noAppId = "", replyAppId;
+    LS::Call call = _service.callProxyOneReply(CALLER_EXE, CALLER_ID, CALLER_NAME,
+        ECHO_APPID_URI, "{}", appId.c_str());
+    auto reply = call.get();
+    ASSERT_TRUE(bool(reply));
+    LS::JSONPayload reply1{reply.getPayload()};
+    ASSERT_TRUE(reply1.isValid());
+    ASSERT_TRUE(reply1.get("appId", replyAppId));
+    ASSERT_EQ(appId, replyAppId);
+
+    call = _service.callProxyOneReply(CALLER_EXE, CALLER_ID, CALLER_NAME, ECHO_APPID_URI, "{}");
     reply = call.get();
     ASSERT_TRUE(bool(reply));
     LS::JSONPayload reply2{reply.getPayload()};
@@ -328,6 +505,28 @@ TEST(CallTimeoutTest, BHV_7106_CallTimeoutAfterUnregisterOneReply)
     g_main_loop_unref(mainloop);
 }
 
+TEST(CallTimeoutTest, BHV_7106_ProxyCallTimeoutAfterUnregisterOneReply)
+{
+    GMainLoop *mainloop = g_main_loop_new(g_main_context_new(), FALSE);
+    {
+        LS::Handle service;
+        ASSERT_NO_THROW(service = LS::registerService("com.palm.test_call"));
+        ASSERT_NO_THROW(service.attachToLoop(mainloop));
+
+        LS::Call call = service.callProxyOneReply(CALLER_EXE, CALLER_ID, CALLER_NAME,
+            TIMEOUT_URI, R"({"timeout": 50})",
+            CallTimeoutCallbacks::stopOnceCB_LS, mainloop);
+        call.setTimeout(100);
+        g_main_loop_run(mainloop);
+    }
+    GSource *source = g_timeout_source_new(200);
+    g_source_set_callback(source, CallTimeoutCallbacks::stopCB_GLIB, mainloop, nullptr);
+    g_source_attach(source, g_main_loop_get_context(mainloop));
+    g_main_loop_run(mainloop);
+    g_main_context_unref(g_main_loop_get_context(mainloop));
+    g_main_loop_unref(mainloop);
+}
+
 TEST(CallTimeoutTest, BHV_7106_CallTimeoutAfterUnregisterMultiReplyWithCancel)
 {
     GMainLoop *mainloop = g_main_loop_new(g_main_context_new(), FALSE);
@@ -337,6 +536,27 @@ TEST(CallTimeoutTest, BHV_7106_CallTimeoutAfterUnregisterMultiReplyWithCancel)
         ASSERT_NO_THROW(service.attachToLoop(mainloop));
 
         LS::Call call = service.callMultiReply(
+            SUBSCRIBE_URI, R"({"subscribe": true, "timeout": 50})", CallTimeoutCallbacks::stopMultiCB_LS, mainloop);
+        call.setTimeout(100);
+        g_main_loop_run(mainloop);
+    }
+    GSource *source = g_timeout_source_new(200);
+    g_source_set_callback(source, CallTimeoutCallbacks::stopCB_GLIB, mainloop, nullptr);
+    g_source_attach(source, g_main_loop_get_context(mainloop));
+    g_main_loop_run(mainloop);
+    g_main_context_unref(g_main_loop_get_context(mainloop));
+    g_main_loop_unref(mainloop);
+}
+
+TEST(CallTimeoutTest, BHV_7106_ProxyCallTimeoutAfterUnregisterMultiReplyWithCancel)
+{
+    GMainLoop *mainloop = g_main_loop_new(g_main_context_new(), FALSE);
+    {
+        LS::Handle service;
+        ASSERT_NO_THROW(service = LS::registerService("com.palm.test_call"));
+        ASSERT_NO_THROW(service.attachToLoop(mainloop));
+
+        LS::Call call = service.callProxyMultiReply(CALLER_EXE, CALLER_ID, CALLER_NAME,
             SUBSCRIBE_URI, R"({"subscribe": true, "timeout": 50})", CallTimeoutCallbacks::stopMultiCB_LS, mainloop);
         call.setTimeout(100);
         g_main_loop_run(mainloop);
@@ -359,6 +579,29 @@ TEST(CallTimeoutTest, BHV_7106_CallTimeoutAfterUnregisterMultiReplyNoCancel)
 
         LSMessageToken token;
         LSCall(service.get(), SUBSCRIBE_URI, R"({"subscribe": true, "timeout": 50})",
+            CallTimeoutCallbacks::stopMultiCB_LS, mainloop, &token, LS::Error().get());
+        LSCallSetTimeout(service.get(), token, 100, LS::Error().get());
+        g_main_loop_run(mainloop);
+    }
+    GSource *source = g_timeout_source_new(200);
+    g_source_set_callback(source, CallTimeoutCallbacks::stopCB_GLIB, mainloop, nullptr);
+    g_source_attach(source, g_main_loop_get_context(mainloop));
+    g_main_loop_run(mainloop);
+    g_main_context_unref(g_main_loop_get_context(mainloop));
+    g_main_loop_unref(mainloop);
+}
+
+TEST(CallTimeoutTest, BHV_7106_ProxyCallTimeoutAfterUnregisterMultiReplyNoCancel)
+{
+    GMainLoop *mainloop = g_main_loop_new(g_main_context_new(), FALSE);
+    {
+        LS::Handle service;
+        ASSERT_NO_THROW(service = LS::registerService("com.palm.test_call"));
+        ASSERT_NO_THROW(service.attachToLoop(mainloop));
+
+        LSMessageToken token;
+        LSCallProxy(service.get(), CALLER_EXE, CALLER_ID, CALLER_NAME,
+            SUBSCRIBE_URI, R"({"subscribe": true, "timeout": 50})",
             CallTimeoutCallbacks::stopMultiCB_LS, mainloop, &token, LS::Error().get());
         LSCallSetTimeout(service.get(), token, 100, LS::Error().get());
         g_main_loop_run(mainloop);

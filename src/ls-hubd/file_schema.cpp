@@ -48,3 +48,4 @@ pbnjson::JSchema client_permissions_schema = getSchema("client_permissions");
 pbnjson::JSchema manifest_schema = getSchema("manifest");
 pbnjson::JSchema container_schema = getSchema("container");
 pbnjson::JSchema groups_schema = getSchema("groups");
+pbnjson::JSchema proxy_agents_schema = getSchema("proxy_agent");

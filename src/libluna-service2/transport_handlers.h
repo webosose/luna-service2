@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@ typedef enum {
     _LSTransportMessageFailureTypePermissionDenied,     /**< invalid permission to contact service */
     _LSTransportMessageFailureTypeServiceNotExist,      /**< service doesn't exists (not in service file) */
     _LSTransportMessageFailureTypeMessageContentError,  /**< badly formatted message (corrupt or fake) */
+    _LSTransportMessageFailureTypeProxyAuthError,       /**< proxy authentication error */
 } _LSTransportMessageFailureType;
 
 typedef void (*LSTransportMessageFailure)(_LSTransportMessage *message, _LSTransportMessageFailureType failure_type, void *context);

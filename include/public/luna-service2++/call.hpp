@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018 LG Electronics, Inc.
+// Copyright (c) 2014-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -199,6 +199,25 @@ private:
         auto callFunc = _single ? LSCallFromApplicationOneReply : LSCallFromApplication;
 
         if (!callFunc(_sh, uri, payload, appID, &replyCallback, _context.get(), &_token, error.get()))
+            throw error;
+    }
+
+    void callProxy(LSHandle *sh,
+                   const char *origin_exe,
+                   const char *origin_id,
+                   const char *origin_name,
+                   const char *uri,
+                   const char *payload,
+                   bool oneReply,
+                   const char *appID = NULL) {
+        Error error;
+
+        _sh = sh;
+        _single = oneReply;
+        auto callFunc = _single ? LSCallProxyFromApplicationOneReply : LSCallProxyFromApplication;
+
+        if (!callFunc(_sh, origin_exe, origin_id, origin_name, uri, payload, appID,
+                      &replyCallback, _context.get(), &_token, error.get()))
             throw error;
     }
 

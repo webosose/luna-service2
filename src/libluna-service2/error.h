@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,15 +37,18 @@
 extern "C" {
 #endif
 
-#define LS_ERROR_TEXT_UNKNOWN_ERROR     "Unknown error"
-#define LS_ERROR_TEXT_OOM               "Out of memory"
-#define LS_ERROR_TEXT_PERMISSION        "Invalid permissions for %s"
-#define LS_ERROR_TEXT_DUPLICATE_NAME    "Attempted to register for a service name that already exists: %s"
-#define LS_ERROR_TEXT_CONNECT_FAILURE   "Unable to connect to %s (%s)"
-#define LS_ERROR_TEXT_DEPRECATED        "API is deprecated"
-#define LS_ERROR_TEXT_NOT_PRIVILEGED    "LSCallFromApplication with application ID %s but not privileged"
-#define LS_ERROR_TEXT_PROTOCOL_VERSION  "Protocol version (%d) does not match the hub"
-#define LS_ERROR_TEXT_EAGAIN            "Try again later"
+#define LS_ERROR_TEXT_UNKNOWN_ERROR         "Unknown error"
+#define LS_ERROR_TEXT_OOM                   "Out of memory"
+#define LS_ERROR_TEXT_PERMISSION            "Invalid permissions for %s"
+#define LS_ERROR_TEXT_DUPLICATE_NAME        "Attempted to register for a service name that already exists: %s"
+#define LS_ERROR_TEXT_CONNECT_FAILURE       "Unable to connect to %s (%s)"
+#define LS_ERROR_TEXT_DEPRECATED            "API is deprecated"
+#define LS_ERROR_TEXT_NOT_PRIVILEGED        "LSCallFromApplication with application ID %s but not privileged"
+#define LS_ERROR_TEXT_NOT_PROXY_PRIVILEGED  "Called LSCallProxy but service is not proxy/privileged"
+#define LS_ERROR_TEXT_PROXY_NULL_PARAMS     "Called LSCallProxy but origin details are NULL"
+#define LS_ERROR_TEXT_HUB_CALL_NOT_ALLOWED  "Not allowed to make HUB call as proxy"
+#define LS_ERROR_TEXT_PROTOCOL_VERSION      "Protocol version (%d) does not match the hub"
+#define LS_ERROR_TEXT_EAGAIN                "Try again later"
 
 #define LS__FILE__BASENAME (strrchr("/" __FILE__, '/') + 1)
 

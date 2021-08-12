@@ -170,6 +170,7 @@ _LSTransportClientFree(_LSTransportClient* client)
     g_free(client->app_id);
     g_free(client->security_required_groups);
     g_free(client->trust_level_string);
+    g_free(client->exe_path);
     _LSTransportCredFree(client->cred);
     _LSTransportOutgoingFree(client->outgoing);
     _LSTransportIncomingFree(client->incoming);
@@ -291,6 +292,18 @@ _LSTransportClientGetUniqueName(const _LSTransportClient *client)
 {
     LS_ASSERT(client != NULL);
     return client->unique_name;
+}
+
+const char*
+_LSTransportClientGetExePath(const _LSTransportClient *client) {
+    LS_ASSERT(client != NULL);
+    return client->exe_path;
+}
+
+const char*
+_LSTransportClientTrustLevel(const _LSTransportClient *client) {
+    LS_ASSERT(client != NULL);
+    return client->trust_level_string;
 }
 
 /**
@@ -537,6 +550,32 @@ bool _LSTransportClientInitializeTrustLevel(_LSTransportClient *client, const ch
     LS_ASSERT(trust_level);
     g_free(client->trust_level_string);
     client->trust_level_string = g_strdup(trust_level);
+    return true;
+}
+
+/**
+ * @brief  Initialize mask for required trust by client
+ *
+ * @param  client       IN  Client transport
+ * @param  exe_path     IN  char* string - executable path of the service
+ *
+ * @retval true on success
+ */
+bool _LSTransportClientSetExePath(_LSTransportClient *client, const char *exe_path) {
+
+    LS_ASSERT(client != NULL);
+
+    if (!exe_path)
+        return true;
+
+    if (strlen(exe_path) == 0)
+        return true;
+
+    LOG_LS_DEBUG("[%s] client service name : %s, client trasport service name : %s trust_level: %s exe_path: %s\n",
+             __func__, client->service_name, client->transport->service_name, client->trust_level_string, exe_path);
+
+    LS_ASSERT(exe_path);
+    client->exe_path = g_strdup(exe_path);
     return true;
 }
 /**

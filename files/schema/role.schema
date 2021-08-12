@@ -3,7 +3,7 @@
     "properties": {
         "exeName": { "type": "string", "minLength": 1 },
         "appId": { "type": "string", "minLength": 1 },
-        "type": { "enum": ["devmode", "regular", "privileged"] },
+        "type": { "enum": ["devmode", "regular", "privileged", "proxy"] },
         "allowedNames" : { "type": "array", "items": { "type": "string" }, "minItems": 1, "uniqueItems": true },
         "permissions": {
             "type": "array",

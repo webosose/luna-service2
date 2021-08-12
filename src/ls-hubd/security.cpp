@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2019 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -66,6 +66,7 @@
 
 #define ROLE_KEY            "role"
 #define EXE_NAMES_KEY       "exeNames"
+#define ID_KEY              "id"
 
 #define TRITON_SERVICE_EXE_PATH     "js"    /**< special "path" for triton services */
 
@@ -85,6 +86,19 @@ AppContainers&
 LSHubAppContainersGet()
 {
     return SecurityData::CurrentSecurityData().containers;
+}
+
+/**
+ *******************************************************************************
+ * @brief Returns proxy agents's names data structure.
+ *
+ * @retval Static proxy agents data structure
+ *******************************************************************************
+ */
+ProxyAgents&
+LSHubProxyAgentsGet()
+{
+    return SecurityData::CurrentSecurityData().proxy_agents;
 }
 
 /*
@@ -141,6 +155,21 @@ bool
 _LSHubIsExeApplicationContainer(const std::string &exePath)
 {
     return LSHubAppContainersGet().count(exePath);
+}
+
+/**
+ *******************************************************************************
+ * @brief Returns true if the app_id or executable path is a proxy agent.
+ *
+ * @param  Id   IN  app_id or executable path
+ *
+ * @retval  true if the executable path is a proxy agent.
+ * @retval  false otherwise
+ *******************************************************************************
+ */
+bool
+_LSHubIsIdProxyAgent(const std::string &id) {
+    return LSHubProxyAgentsGet().count(id);
 }
 
 bool
@@ -301,6 +330,22 @@ LSHubClientGetPrivileged(const _LSTransportClient *client)
     return LSHubClientGetPrivilegedFlag(client, NO_BUS_ROLE);
 }
 
+bool LSHubClientGetProxy(const _LSTransportClient *client) {
+    bool proxy = !g_conf_security_enabled;
+    if (!proxy) {
+        const LSHubRole *role{nullptr};
+        if (const char *app_id = _LSTransportClientGetApplicationId(client)) {
+            role = SecurityData::CurrentSecurityData().roles.Lookup(app_id);
+        } else {
+            auto *cred = _LSTransportClientGetCred(client);
+            role =  cred ? LSHubActiveRoleMapLookup(_LSTransportCredGetPid(cred))
+                         : nullptr;
+        }
+        proxy = role && LSHubRoleIsProxy(role);
+    }
+    return proxy;
+}
+
 static bool
 _LSHubSecurityPatternQueueAllowServiceName(_LSHubPatternQueue *q, const char *service_name)
 {
@@ -341,6 +386,25 @@ LSHubIsClientApplicationContainer(const _LSTransportClient *client)
         return false;
 
     return _LSHubIsExeApplicationContainer(_LSTransportCredGetExePath(cred));
+}
+
+/* true if the client's executable is proxy agent */
+bool
+LSHubIsClientProxyAgent(const _LSTransportClient *client) {
+    LS_ASSERT(client);
+
+    // If mediator is app check if it is proxy agent from list
+    const char* app_id = _LSTransportClientGetApplicationId(client);
+    if (app_id) {
+        return _LSHubIsIdProxyAgent(app_id);
+    }
+
+    /* Use executable path to verify if connected peer is proxy agent */
+    const _LSTransportCred *cred = _LSTransportClientGetCred(client);
+    if (!cred || !_LSTransportCredGetExePath(cred))
+        return false;
+
+    return _LSHubIsIdProxyAgent(_LSTransportCredGetExePath(cred));
 }
 
 /* true if the client is allowed to register the requested service name */
@@ -552,6 +616,33 @@ _LSHubPrintPermissionsMessage(const _LSTransportClient *client, const char *send
 }
 
 static inline void
+_LSHubPrintProxyPermissionsMessage(const char *origin_exe, const char *origin_id,
+                                   const char *origin_name, const _LSTransportClient *origin_client,
+                                   const char *dest_service_name, bool inbound, bool is_error) {
+
+    const char *origin_service_name = origin_client ? _LSTransportClientGetServiceName(origin_client) : origin_name;
+    const char *origin_exe_path = origin_client ?
+                                  _LSTransportCredGetExePath(_LSTransportClientGetCred(origin_client)) : origin_exe;
+
+    if (inbound) {
+        LOG_LS_ERROR(MSGID_LSHUB_NO_INBOUND_PERMS, 3,
+                     PMLOGKS("DEST_APP_ID", dest_service_name),
+                     PMLOGKS("ORIGIN_APP_ID", origin_service_name),
+                     PMLOGKS("EXE", origin_exe_path),
+                     "Permissions does not allow inbound connections from \"%s\" to \"%s\"",
+                     origin_service_name, dest_service_name);
+    } else {
+        /* outbound */
+        LOG_LS_ERROR(MSGID_LSHUB_NO_OUTBOUND_PERMS, 3,
+                     PMLOGKS("DEST_APP_ID", dest_service_name),
+                     PMLOGKS("ORIGIN_APP_ID", origin_service_name),
+                     PMLOGKS("EXE", origin_exe_path),
+                     "\"%s\" does not have sufficient outbound permissions to communicate with \"%s\"",
+                     origin_service_name, dest_service_name);
+    }
+}
+
+static inline void
 _LSHubPrintSignalPermissionsMessage(const _LSTransportClient *client, bool is_send,
                                     const char *category, const char *method)
 {
@@ -566,6 +657,24 @@ _LSHubPrintSignalPermissionsMessage(const _LSTransportClient *client, bool is_se
                  is_send ? "send" : "subscribe",
                  category, method,
                  _LSTransportCredGetCmdLine(cred));
+}
+
+bool
+LSHubIsAllowedOutboundProxy(const char *origin_exe, const char *origin_id,
+                            const char *origin_name, _LSTransportClient *origin_client,
+                            const char *dest_service_name) {
+    LS_ASSERT(dest_service_name != NULL);
+
+    if ((origin_name == NULL) && g_conf_allow_null_outbound_by_default) {
+         return true;
+    }
+
+    auto perm = SecurityData::CurrentSecurityData().LookupPermissionProxy(origin_exe, origin_id, origin_name, origin_client);
+    if (perm && perm->outbound && _LSHubSecurityPatternQueueAllowServiceName(perm->outbound, dest_service_name)) {
+        return true;
+    }
+
+    return !g_conf_security_enabled;
 }
 
 bool
@@ -589,6 +698,46 @@ LSHubIsClientAllowedOutbound(_LSTransportClient *sender_client,
     }
 
     return !g_conf_security_enabled;
+}
+
+bool
+LSHubIsAllowedInboundProxy(const char *origin_exe, const char *origin_id,
+                            const char *origin_name, const _LSTransportClient *origin_client,
+                            const _LSTransportClient *dest_client, const char *dest_service_name) {
+    LS_ASSERT(dest_service_name != NULL);
+
+    /* If target service is up, we check active permissions. But if service
+     * is down and permission have multiple entries for different exepaths,
+     * we have no idea what exename this service will have, so just
+     * leave client to wait until the service will connect */
+    LSHubPermission *perm = LSHubActivePermissionMapLookup(dest_client);
+    if (!perm) {
+        auto perms = SecurityData::CurrentSecurityData().permissions.LookupServicePermissions(dest_service_name);
+        /* If we have no entries with given service name, return false */
+        if (!perms) {
+            _LSHubPrintProxyPermissionsMessage(origin_exe, origin_id,
+                                               origin_name, origin_client,
+                                               dest_service_name, true, g_conf_security_enabled);
+            return !g_conf_security_enabled;
+        } else if (g_slist_length(perms->permissions) == 1) {
+            /* Else if we have single entry for the service name, we could check this entry */
+            perm = perms->default_permission;
+        }
+    }
+
+    // Check inbound permissions if found target permission
+    // If inbound permissions are empty - allow all inbound connections by default
+    if (perm && perm->inbound) {
+        if (!_LSHubPatternQueueIsEmpty(perm->inbound)
+            && !_LSHubSecurityPatternQueueAllowServiceName(perm->inbound, origin_name)) {
+                _LSHubPrintProxyPermissionsMessage(origin_exe, origin_id,
+                                                   origin_name, origin_client,
+                                                   dest_service_name, true, g_conf_security_enabled);
+            return !g_conf_security_enabled;
+        }
+    }
+
+    return true;
 }
 
 bool
@@ -641,6 +790,36 @@ LSHubIsClientAllowedInbound(const _LSTransportClient *sender_client, const _LSTr
                                           true, g_conf_security_enabled);
             return !g_conf_security_enabled;
         }
+    }
+
+    return true;
+}
+
+bool
+LSHubIsAllowedToQueryProxyName(const char *origin_exe, const char *origin_id,
+                               const char *origin_name, _LSTransportClient *origin_client,
+                               _LSTransportClient *dest_client, const char *dest_service_name) {
+    LS_ASSERT(dest_service_name != NULL);
+
+#ifdef SECURITY_HACKS_ENABLED
+    if (_LSIsTrustedService(origin_name) || _LSIsTrustedService(dest_service_name)) {
+        return true;
+    }
+#endif
+
+    if (!LSHubIsAllowedOutboundProxy(origin_exe, origin_id, origin_name, origin_client, dest_service_name)) {
+        _LSHubPrintProxyPermissionsMessage(origin_exe, origin_id,
+                                           origin_name, origin_client,
+                                           dest_service_name, false, g_conf_security_enabled);
+        return false;
+    }
+
+    if (!LSHubIsAllowedInboundProxy(origin_exe, origin_id, origin_name, origin_client,
+                                    dest_client, dest_service_name)) {
+        _LSHubPrintProxyPermissionsMessage(origin_exe, origin_id,
+                                           origin_name, origin_client,
+                                           dest_service_name, true, g_conf_security_enabled);
+        return false;
     }
 
     return true;
@@ -861,6 +1040,74 @@ ProcessContainersFile(SecurityData &security_data, const std::string &filepath, 
     return true;
 }
 
+/// @brief Parse file with proxy agents
+///
+/// @param[in] security_data Security data container to work with
+/// @param[in] filepath
+/// @param[in,out] lserror
+/// @return true on success
+bool
+ProcessProxyAgentsFile(SecurityData &security_data, const std::string &filepath, LSError *lserror) {
+    LOG_LS_DEBUG("%s: parsing JSON from file: \"%s\"", __func__, filepath.c_str());
+
+    auto json = pbnjson::JDomParser::fromFile(filepath.c_str(), proxy_agents_schema);
+    if (!json) {
+        _LSErrorSet(lserror, MSGID_LSHUB_PROXY_AGENTS_FILE_ERR, -1,
+                    "%s: Failed to parse proxy agents file %s: %s",
+                    __func__, filepath.c_str(), json.errorString().c_str());
+        return false;
+    }
+
+    pbnjson::JValue apps_array{json[ID_KEY]};
+    for (ssize_t idx = 0; idx < apps_array.arraySize(); ++idx) {
+        security_data.proxy_agents.emplace(apps_array[idx].asString());
+    }
+
+    return true;
+}
+
+/// @brief Parse directory with proxy agent definition files
+///
+/// @param[in] security_data Security data proxy agents to work with
+/// @param[in] dirpath
+/// @param[in,out] lserror
+/// @return true on success
+bool
+ProcessProxyAgentsDirectory(SecurityData &security_data, const char *dirpath, LSError *lserror) {
+    /* process the proxy agent file in the specified directory */
+    LS_ASSERT(dirpath != NULL);
+    LOG_LS_DEBUG("%s: parsing proxy agent directory: \"%s\"\n", __func__, dirpath);
+
+    GErrorPtr gerror;
+    auto dir = mk_ptr(g_dir_open(dirpath, 0, gerror.pptr()), g_dir_close);
+    if (!dir) {
+        if (gerror->code == G_FILE_ERROR_NOENT) {
+            LOG_LS_DEBUG("Skipping missing proxy agent directory %s", dirpath);
+            return true;
+        }
+
+        _LSErrorSetFromGError(lserror, MSGID_LSHUB_NO_PROXY_AGENTS_DIR, gerror.release());
+        return false;
+    }
+
+    const char *filename = NULL;
+    while ((filename = g_dir_read_name(dir.get())) != NULL) {
+        /* check file extension */
+        if (g_str_has_suffix(filename, JSON_FILE_SUFFIX)) {
+            std::string full_path(dirpath);
+            full_path += "/";
+            full_path += filename;
+
+            if (!ProcessProxyAgentsFile(security_data, full_path, lserror)) {
+                LOG_LSERROR(MSGID_LSHUB_CONTAINERS_FILE_ERR, lserror);
+                LSErrorFree(lserror);
+            }
+        }
+    }
+
+    return true;
+}
+
 /// @brief Parse directory with container definition files
 ///
 /// @param[in] security_data Security data container to work with
@@ -934,6 +1181,46 @@ ProcessContainersDirectories(const char **dirs, void *ctxt, LSError *lserror)
     }
 
     return true;
+}
+
+/// @brief Parse directories with proxy agent definition file
+///
+/// @param[in] dirs
+/// @param[in] ctxt
+/// @param[in,out] lserror
+/// @return true on success
+bool
+ProcessProxyAgentsDirectories(const char **dirs, void *ctxt, LSError *lserror) {
+    /* process all the proxy agents files in the specified directories */
+    LS_ASSERT(dirs != NULL);
+    LS_ASSERT(ctxt != nullptr);
+
+    auto security_data = static_cast<SecurityData *>(ctxt);
+
+    for (const char **cur_dir = dirs; cur_dir != NULL && *cur_dir != NULL; cur_dir++) {
+        if (!ProcessProxyAgentsDirectory(*security_data, *cur_dir, lserror)) {
+            LOG_LSERROR(MSGID_LSHUB_PROXY_AGENTS_FILE_ERR, lserror);
+            LSErrorFree(lserror);
+        }
+    }
+
+    return true;
+}
+
+LSHubPermission*
+SecurityData::LookupPermissionProxy(const char *origin_exe, const char *origin_id,
+                                    const char *origin_name, const _LSTransportClient *origin_client) const {
+    // If client is available first look up effective permissions
+    if (origin_client) {
+        LSHubPermission *perm = LSHubActivePermissionMapLookup(origin_client);
+        if (perm)
+            return perm;
+    }
+
+    const char *lookup_service = origin_name ? origin_name : "";
+    const char *permission_key = origin_id ? origin_id : origin_exe;
+
+    return permissions.Lookup(lookup_service, permission_key);
 }
 
 /// @brief Look up permissions for a given client.

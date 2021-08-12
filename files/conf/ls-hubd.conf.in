@@ -1,4 +1,4 @@
-# Copyright (c) 2008-2018 LG Electronics, Inc.
+# Copyright (c) 2008-2021 LG Electronics, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,3 +37,4 @@ ManifestsDirectories=@CONF_SECURITY_MANIFESTS_DIRECTORIES@
 ManifestsVolatileDirectories=@CONF_SECURITY_MANIFESTS_VOLATILE_DIRECTORIES@
 DevmodeCertificate=@CONF_SECURITY_DEVMODE_CERTIFICATE@
 DefaultDevmodeCertificate=@CONF_SECURITY_DEFAULT_DEVMODE_CERTIFICATE@
+ProxyAgentsDirectories=@CONF_SECURITY_PROXY_AGENTS_DIRECTORIES@

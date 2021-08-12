@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -83,6 +83,8 @@ typedef enum LSTransportMessageType
     _LSTransportMessageTypeQueryServiceCategoryReply,/**< reply from hub to client with list of registered categories */
     _LSTransportMessageTypeDumpHubData,              /**< request the hub to dump its security data */
     _LSTransportMessageTypeDumpHubDataReply,         /**< reply with the hub data (the data may come in chunks) */
+    _LSTransportMessageTypeQueryProxyName,           /**< look up a service name from the hub as proxy (on behalf)*/
+    _LSTransportMessageTypeQueryProxyNameReply,
 
 } _LSTransportMessageType;
 
@@ -98,6 +100,7 @@ typedef enum LSTransportMessageType
 #define LS_TRANSPORT_QUERY_NAME_SERVICE_NOT_EXIST       -4  /**< service does not exist */
 #define LS_TRANSPORT_QUERY_NAME_CONNECT_TIMEOUT         -5  /**< connect'ing to service timed out */
 #define LS_TRANSPORT_QUERY_NAME_MESSAGE_CONTENT_ERROR   -6  /**< badly formatted message (corrupt or fake) */
+#define LS_TRANSPORT_QUERY_NAME_PROXY_AUTH_ERROR        -7  /**< proxy authentication failure */
 
 /**
  * @} END OF LSTransportQueryNameReturnCodes
@@ -274,6 +277,12 @@ const _LSMonitorMessageData *_LSTransportMessageGetMonitorMessageData(_LSTranspo
 
 const char* _LSTransportMessageTypeQueryNameGetQueryName(_LSTransportMessage *message);
 const char* _LSTransportMessageTypeQueryNameGetAppId(_LSTransportMessage *message);
+
+const char* _LSTransportMessageTypeQueryProxyNameGetQueryName(_LSTransportMessage *message);
+const char* _LSTransportMessageTypeQueryProxyNameGetAppId(_LSTransportMessage *message);
+const char* _LSTransportMessageTypeQueryProxyNameGetOriginName(_LSTransportMessage *message);
+const char* _LSTransportMessageTypeQueryProxyNameGetOriginId(_LSTransportMessage *message);
+const char* _LSTransportMessageTypeQueryProxyNameGetOriginExePath(_LSTransportMessage *message);
 
 /**
  * @defgroup LunaServiceTransportMessageIterator LunaServiceTransportMessageIterator

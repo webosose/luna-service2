@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018 LG Electronics, Inc.
+// Copyright (c) 2014-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -128,6 +128,14 @@ public:
     const char *getSenderServiceName() const
     {
         return LSMessageGetSenderServiceName(_message);
+    }
+
+    const char *getSenderExePath() const {
+        return LSMessageGetSenderExePath(_message);
+    }
+
+    const char *getSenderTrustLevel() const {
+        return LSMessageGetSenderTrustLevel(_message);
     }
 
     const char *getCategory() const

@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2019 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -65,6 +65,7 @@ struct LSTransportClient {
     char *unique_name;                  /**< globally unique address */
     char *service_name;                 /**< well-known name (e.g., com.palm.foo) */
     char *app_id;                       /**< application id for non-native applications */
+    char *exe_path;                     /**<exe_path */
     _LSTransportClientState state;      /* TODO: locking? */
     _LSTransport *transport;            /**< ptr back to overall transport obj */
     _LSTransportChannel channel;
@@ -105,6 +106,7 @@ bool _LSTransportClientInitializeSecurityGroups(_LSTransportClient *client, cons
 // Requires groups initialization. json - array of strings. a string - security group
 // Ex.: ["camera", "torch"]
 bool _LSTransportClientInitializeTrustLevel(_LSTransportClient *client, const char *trust_level);
+bool _LSTransportClientSetExePath(_LSTransportClient *client, const char *exe_path);
 /** @endcond */
 
 #endif      // _TRANSPORT_CLIENT_H_

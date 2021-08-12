@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2019 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -95,6 +95,7 @@ struct LSTransport {
     char                    *trust_as_string; /* << trust level as string */
 
     bool                    privileged;         /*<< true if we are a privileged service */
+    bool                    proxy;              /*<< true if we are a proxy service */
 
 #ifdef SECURITY_COMPATIBILITY
     bool                    is_old_config;      /*<< true if this transport for old-configured service */

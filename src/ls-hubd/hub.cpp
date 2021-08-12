@@ -943,6 +943,7 @@ _LSHubSendRequestNameReply(_LSTransportClient *client, const char *unique_name, 
     _LSTransportMessageIterInit(reply.get(), &iter);
     if (!_LSTransportMessageAppendInt32(&iter, LS_TRANSPORT_REQUEST_NAME_SUCCESS)
         || !_LSTransportMessageAppendBool(&iter, LSHubClientGetPrivileged(client))
+        || !_LSTransportMessageAppendBool(&iter, LSHubClientGetProxy(client))
         || !_LSTransportMessageAppendString(&iter, unique_name)
         || !_LSTransportMessageAppendString(&iter, jval_str.c_str())
         || !_LSTransportMessageAppendString(&iter, trust_provided_str.c_str())
@@ -1176,6 +1177,39 @@ _LSHubHandleRequestName(_LSTransportMessage *message)
 }
 
 static std::string
+_LSHubGetRequiredTrustsByName(const char *origin_exe, const char *origin_id, const char *origin_name) {
+
+    const LSHubRole *role = nullptr;
+    if (origin_id) {
+        // look-up in all roles by app-id
+        role = SecurityData::CurrentSecurityData().roles.Lookup(origin_id);
+    } else if (origin_exe) {
+        role = SecurityData::CurrentSecurityData().roles.Lookup(origin_exe);
+    }
+
+    bool is_devmode = !role || LSHubRoleGetType(role) == LSHubRoleTypeDevmode;
+    pbnjson::JValue jval = pbnjson::Array();
+    std::string trust;
+
+    {
+        GroupsMap &groups = SecurityData::CurrentSecurityData().groups;
+        trust = groups.GetRequiredTrustAsString(origin_name);
+        LOG_LS_DEBUG("[%s] trust: %s \n", __func__, trust.c_str());
+        {
+            jval << pbnjson::JValue(trust);
+        }
+    }
+
+    std::string jval_str = pbnjson::JGenerator::serialize(jval, true);
+    if (!g_conf_security_enabled) {
+        // If security is disabled, all the API belong to the same group "TOTUM" (lat. everything),
+        // and every service `requires' that group to function.
+        jval_str = R"(["TOTUM"])";
+    }
+    return trust;
+}
+
+static std::string
 _LSHubGetRequiredTrusts(const _LSTransportClient *client)
 {
     // TBD: Reply with required trustlevels
@@ -1238,6 +1272,38 @@ _LSHubGetRequiredTrusts(const _LSTransportClient *client)
         jval_str = R"(["TOTUM"])";
     }
     return trust;
+}
+
+static std::string
+_LSHubGetRequiredGroupsByName(const char *origin_exe, const char *origin_id, const char *origin_name) {
+    // Ensure restricted in devmode agents (like luna-send-pub) can't call private API.
+    const LSHubRole *role = nullptr;
+    if (origin_id) {
+        // look-up in all roles by app-id
+        role = SecurityData::CurrentSecurityData().roles.Lookup(origin_id);
+    } else if (origin_exe) {
+        role = SecurityData::CurrentSecurityData().roles.Lookup(origin_exe);
+    }
+
+    bool is_devmode = !role || LSHubRoleGetType(role) == LSHubRoleTypeDevmode;
+
+    pbnjson::JValue jval = pbnjson::Array();
+
+    GroupsMap &groups = SecurityData::CurrentSecurityData().groups;
+    for (const auto &group : groups.GetRequired(origin_name)) {
+        if (is_devmode && !SecurityData::CurrentSecurityData().IsGroupForDevmode(group))
+            continue;
+        jval << pbnjson::JValue(group);
+    }
+
+    std::string jval_str = pbnjson::JGenerator::serialize(jval, true);
+    if (!g_conf_security_enabled) {
+        // If security is disabled, all the API belong to the same group "TOTUM" (lat. everything),
+        // and every service `requires' that group to function.
+        jval_str = R"(["TOTUM"])";
+    }
+
+    return jval_str;
 }
 
 static std::string
@@ -1314,31 +1380,62 @@ _LSHubGetRequiredTrustLevelAsString(const _LSTransportClient *client)
 }
 
 static bool
-_LSHubSendQueryNameReplyMessage(_LSTransportClient *client, const _LSTransportClient *source_client,
-                                bool is_public_bus, long err_code, const char *service_name,
-                                const char *unique_name, const char *app_id, bool is_dynamic,
-                                int fd, _LSTransportClientPermissions client_permissions, LSError *lserror)
-{
+_LSHubSendQueryProxyNameReplyMessage(_LSTransportClient *client, const _LSTransportClient *source_client,
+                                     bool is_public_bus, long err_code, const char *service_name,
+                                     const char *unique_name, const char *app_id, bool is_dynamic,
+                                     int fd, _LSTransportClientPermissions client_permissions, LSError *lserror,
+                                     const char *origin_exe, const char *origin_id, const char *origin_name,
+                                     const _LSTransportClient *origin_client, bool to_proxy_service) {
+
     _LSTransportMessage *reply_message = _LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE);
-    reply_message->raw->header.is_public_bus = is_public_bus;
-    _LSTransportMessageSetType(reply_message, _LSTransportMessageTypeQueryNameReply);
 
-    _LSTransportMessageIter iter;
-    _LSTransportMessageIterInit(reply_message, &iter);
-
-    do
-    {
-        if (!_LSTransportMessageAppendInt32(&iter, err_code) ||
-            !_LSTransportMessageAppendString(&iter, service_name) ||
-            !_LSTransportMessageAppendString(&iter, unique_name) ||
-            !_LSTransportMessageAppendInt32(&iter, is_dynamic))
-        {
+    do {
+        if (NULL == reply_message) {
             _LSErrorSetOOM(lserror);
             break;
         }
 
-        std::string groups = source_client ? _LSHubGetRequiredGroups(source_client) : "";
-        std::string trusts = source_client ? _LSHubGetRequiredTrusts(source_client) : "";
+        reply_message->raw->header.is_public_bus = is_public_bus;
+        _LSTransportMessageSetType(reply_message, _LSTransportMessageTypeQueryProxyNameReply);
+
+        _LSTransportMessageIter iter;
+        _LSTransportMessageIterInit(reply_message, &iter);
+
+        std::string groups;
+        std::string trusts;
+
+        if (!_LSTransportMessageAppendInt32(&iter, err_code) ||
+            !_LSTransportMessageAppendString(&iter, service_name) ||
+            !_LSTransportMessageAppendString(&iter, unique_name) ||
+            !_LSTransportMessageAppendInt32(&iter, is_dynamic) ||
+            !_LSTransportMessageAppendString(&iter, origin_name)) {
+            _LSErrorSetOOM(lserror);
+            break;
+        }
+
+        if (to_proxy_service) {
+            if (!_LSTransportMessageAppendString(&iter, origin_exe) ||
+                !_LSTransportMessageAppendString(&iter, origin_id)) {
+                _LSErrorSetOOM(lserror);
+                break;
+            }
+
+            groups = source_client ? _LSHubGetRequiredGroups(source_client) : "";
+            trusts = source_client ? _LSHubGetRequiredTrusts(source_client) : "";
+
+        } else {
+            if (!_LSTransportMessageAppendString(&iter, NULL) ||
+                !_LSTransportMessageAppendString(&iter, NULL)) {
+                _LSErrorSetOOM(lserror);
+                break;
+            }
+
+            groups = origin_client ? _LSHubGetRequiredGroups(origin_client) :
+                                     _LSHubGetRequiredGroupsByName(origin_exe, origin_id, origin_name);
+            trusts = origin_client? _LSHubGetRequiredTrusts(origin_client) :
+                                     _LSHubGetRequiredTrustsByName(origin_exe, origin_id, origin_name);
+        }
+
         //TBD: Below line is crashing :(
         //std::string required_trust_as_string = source_client ? _LSHubGetRequiredTrustLevelAsString(source_client) : std::string("dev");
 
@@ -1351,6 +1448,89 @@ _LSHubSendQueryNameReplyMessage(_LSTransportClient *client, const _LSTransportCl
              !_LSTransportMessageAppendInt32(&iter, client_permissions) ||
              !_LSTransportMessageAppendString(&iter, trusts.c_str()) ||
              !_LSTransportMessageAppendString(&iter, trusts.c_str()) ||
+             !_LSTransportMessageAppendInvalid(&iter))) {
+            _LSErrorSetOOM(lserror);
+            break;
+        }
+
+        if (err_code != LS_TRANSPORT_QUERY_NAME_SUCCESS) {
+             LOG_LS_WARNING(MSGID_LSHUB_NO_SERVICE, 0,
+                            "%s: Failed Connecting to Service err_code: %ld, service_name: \"%s\", unique_name: \"%s\", %s, fd %d\n",
+                            __func__, err_code, service_name, unique_name,
+                            is_dynamic ? "dynamic" : "static", fd);
+        }
+
+        LOG_LS_DEBUG("%s: err_code: %ld, service_name: \"%s\", unique_name: \"%s\", %s, fd %d, groups: \"%s\"\n",
+                     __func__, err_code, service_name, unique_name,
+                     is_dynamic ? "dynamic" : "static", fd, groups.c_str());
+
+        // Set the connection fd on the message (-1 on error)
+        _LSTransportMessageSetFd(reply_message, fd);
+
+        if (!_LSTransportSendMessage(reply_message, client, NULL, lserror)) {
+            break;
+        }
+
+        _LSTransportMessageUnref(reply_message);
+        return true;
+    } while (false);
+
+    if (reply_message) _LSTransportMessageUnref(reply_message);
+    return false;
+}
+
+static bool
+_LSHubSendQueryNameReplyMessage(_LSTransportClient *client, const _LSTransportClient *source_client,
+                                bool is_public_bus, long err_code, const char *service_name,
+                                const char *unique_name, const char *app_id, bool is_dynamic,
+                                int fd, _LSTransportClientPermissions client_permissions, LSError *lserror)
+{
+    _LSTransportMessage *reply_message = _LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE);
+
+    do {
+        if (NULL == reply_message) {
+            _LSErrorSetOOM(lserror);
+            break;
+        }
+
+        reply_message->raw->header.is_public_bus = is_public_bus;
+        _LSTransportMessageSetType(reply_message, _LSTransportMessageTypeQueryNameReply);
+
+        _LSTransportMessageIter iter;
+        _LSTransportMessageIterInit(reply_message, &iter);
+
+        if (!_LSTransportMessageAppendInt32(&iter, err_code) ||
+            !_LSTransportMessageAppendString(&iter, service_name) ||
+            !_LSTransportMessageAppendString(&iter, unique_name) ||
+            !_LSTransportMessageAppendInt32(&iter, is_dynamic))
+        {
+            _LSErrorSetOOM(lserror);
+            break;
+        }
+
+        std::string groups = source_client ? _LSHubGetRequiredGroups(source_client) : "";
+        std::string trusts = source_client ? _LSHubGetRequiredTrusts(source_client) : "";
+
+        const char *exe_path = NULL;
+
+        if ((err_code == LS_TRANSPORT_QUERY_NAME_SUCCESS) &&
+            (LSHubClientGetPrivileged(client) || LSHubClientGetProxy(client))) {
+            exe_path = _LSTransportCredGetExePath(_LSTransportClientGetCred(source_client));
+        }
+
+        //TBD: Below line is crashing :(
+        //std::string required_trust_as_string = source_client ? _LSHubGetRequiredTrustLevelAsString(source_client) : std::string("dev");
+
+        LOG_LS_DEBUG("%s : trusts : %s", __func__, trusts.c_str());
+        //LOG_LS_DEBUG("%s : required_trust_as_string : %s", __func__, required_trust_as_string.c_str());
+        // TBD: We need  to add trust level here the client has
+        if (err_code == LS_TRANSPORT_QUERY_NAME_SUCCESS &&
+            (!_LSTransportMessageAppendString(&iter, app_id) ||
+             !_LSTransportMessageAppendString(&iter, groups.c_str()) ||
+             !_LSTransportMessageAppendInt32(&iter, client_permissions) ||
+             !_LSTransportMessageAppendString(&iter, trusts.c_str()) ||
+             !_LSTransportMessageAppendString(&iter, trusts.c_str()) ||
+             !_LSTransportMessageAppendString(&iter, exe_path) ||
              !_LSTransportMessageAppendInvalid(&iter)))
         {
             _LSErrorSetOOM(lserror);
@@ -1364,9 +1544,9 @@ _LSHubSendQueryNameReplyMessage(_LSTransportClient *client, const _LSTransportCl
                             is_dynamic ? "dynamic" : "static", fd);
         }
 
-        LOG_LS_DEBUG("%s: err_code: %ld, service_name: \"%s\", unique_name: \"%s\", %s, fd %d, groups: \"%s\"\n",
+        LOG_LS_DEBUG("%s: err_code: %ld, service_name: \"%s\", unique_name: \"%s\", %s, fd %d, groups: \"%s\", exe_path: \"%s\"\n",
                      __func__, err_code, service_name, unique_name,
-                     is_dynamic ? "dynamic" : "static", fd, groups.c_str());
+                     is_dynamic ? "dynamic" : "static", fd, groups.c_str(), exe_path);
 
         // Set the connection fd on the message (-1 on error)
         _LSTransportMessageSetFd(reply_message, fd);
@@ -1385,6 +1565,68 @@ _LSHubSendQueryNameReplyMessage(_LSTransportClient *client, const _LSTransportCl
     return false;
 }
 
+static bool
+_LSHubSendQueryProxyNameReply(_ClientId *id, const char *origin_exe,
+                              const char *origin_id, const char *origin_name,
+                              const _LSTransportClient *origin_client, const _LSTransportMessage *message,
+                              long err_code, const char *service_name, const char *unique_name,
+                              bool is_dynamic, bool is_redirected, LSError *lserror) {
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(service_name != NULL);
+
+    bool ret = true;
+    int socket_vector[2] = { -1, -1 };
+
+    _LSTransportClient *client = _LSTransportMessageGetClient(message);
+    LS_ASSERT(client);
+
+    if (err_code == LS_TRANSPORT_QUERY_NAME_SUCCESS) {
+        if (-1 == socketpair(AF_UNIX, SOCK_STREAM, 0, socket_vector)) {
+            LOG_LS_ERROR(MSGID_LSHUB_SERVICE_CONNECT_ERROR, 3,
+                         PMLOGKS("APP_ID", service_name),
+                         PMLOGKFV("ERROR_CODE", "%d", errno),
+                         PMLOGKS("ERROR", g_strerror(errno)),
+                         "%s: Failed to create sockets for %s service \"%s\": "
+                         "%s", __func__, is_dynamic ? "dynamic" : "static",
+                         service_name, g_strerror(errno));
+
+            // Replace original passed-in error code with this error
+            err_code = LS_TRANSPORT_QUERY_NAME_SERVICE_NOT_AVAILABLE;
+            ret = false;
+        } else {
+            const char *client_name = _LSTransportClientGetServiceName(client);
+            const char *client_app_id =  _LSTransportClientGetApplicationId(client);
+
+            // A unique_name is created here for proxy connection
+            std::string unique_name_proxy = _CreateUniqueName();
+            unique_name_proxy.append("_proxy");
+
+            // Note: Allow only forwarding calls in proxy connection
+            if (!_LSHubSendQueryProxyNameReplyMessage(id->client, client,
+                                                      message->raw->header.is_public_bus,
+                                                      err_code, client_name,
+                                                      unique_name_proxy.c_str(),
+                                                      client_app_id, client->is_dynamic, socket_vector[1],
+                                                      _LSClientAllowInbound,
+                                                      lserror, origin_exe, origin_id, origin_name, origin_client, false)) {
+                err_code = LS_TRANSPORT_QUERY_NAME_SERVICE_NOT_AVAILABLE;
+                ret = false;
+            }
+        }
+    }
+
+    if (!_LSHubSendQueryProxyNameReplyMessage(client, id ? id->client : nullptr,
+                                              message->raw->header.is_public_bus,
+                                              err_code, service_name, unique_name,
+                                              id ? _LSTransportClientGetApplicationId(id->client) : nullptr,
+                                              is_dynamic, socket_vector[0],
+                                              _LSClientAllowOutbound,
+                                              lserror, origin_exe, origin_id, origin_name, nullptr, true)) {
+        ret = false;
+    }
+
+    return ret;
+}
 
 /**
  *******************************************************************************
@@ -1407,7 +1649,7 @@ _LSHubSendQueryNameReplyMessage(_LSTransportClient *client, const _LSTransportCl
 static bool
 _LSHubSendQueryNameReply(_ClientId *id, const _LSTransportMessage *message, long err_code,
                          const char *service_name, const char *unique_name,
-                         bool is_dynamic, bool is_redirected,  LSError *lserror)
+                         bool is_dynamic, bool is_redirected, LSError *lserror)
 {
     LS_ASSERT(message != NULL);
     LS_ASSERT(service_name != NULL);
@@ -1500,16 +1742,12 @@ _LSHubSendQueryNameReply(_ClientId *id, const _LSTransportMessage *message, long
  *******************************************************************************
  */
 static bool
-_LSHubSendServiceWaitListReply(_ClientId *id, bool success, bool is_dynamic, LSError *lserror)
-{
+_LSHubSendServiceWaitListReply(_ClientId *id, bool success, bool is_dynamic, LSError *lserror) {
     long ret_code;
 
-    if (success)
-    {
+    if (success) {
         ret_code = LS_TRANSPORT_QUERY_NAME_SUCCESS;
-    }
-    else
-    {
+    } else {
         ret_code = LS_TRANSPORT_QUERY_NAME_SERVICE_NOT_AVAILABLE;
     }
 
@@ -1519,48 +1757,86 @@ _LSHubSendServiceWaitListReply(_ClientId *id, bool success, bool is_dynamic, LSE
      */
 
     GSList *iter = waiting_for_service;
-    while (iter)
-    {
-        _LSTransportMessage *query_message = (_LSTransportMessage*)iter->data;
-        const char *requested_service = _LSTransportMessageTypeQueryNameGetQueryName(query_message);
+    while (iter) {
+        _LSTransportMessage *query_message = reinterpret_cast<_LSTransportMessage*>(iter->data);
+
+        const char *requested_service = NULL;
+        const char *origin_name = NULL;
+        const char *origin_id = NULL;
+        const char *origin_exe = NULL;
+
+        _LSTransportMessageType message_type = _LSTransportMessageGetType(query_message);
+
+        if (_LSTransportMessageTypeQueryName == message_type) {
+            requested_service = _LSTransportMessageTypeQueryNameGetQueryName(query_message);
+        } else {
+            requested_service = _LSTransportMessageTypeQueryProxyNameGetQueryName(query_message);
+            origin_name = _LSTransportMessageTypeQueryProxyNameGetOriginName(query_message);
+            origin_id = _LSTransportMessageTypeQueryProxyNameGetOriginId(query_message);
+            origin_exe = _LSTransportMessageTypeQueryProxyNameGetOriginExePath(query_message);
+        }
 
         std::string destination_service;
-        if (strcmp(requested_service, id->service_name) == 0)
-        {
+        if (strcmp(requested_service, id->service_name) == 0) {
             destination_service = requested_service;
-        }
-        else
-        {
-            for (const auto& name : GetServiceRedirectionVariants(requested_service))
-            {
-                if (name.compare(id->service_name) == 0)
-                {
+        } else {
+            for (const auto& name : GetServiceRedirectionVariants(requested_service)) {
+                if (name.compare(id->service_name) == 0) {
                     destination_service = name;
                     break;
                 }
             }
         }
 
-        if (!destination_service.empty())
-        {
+        if (!destination_service.empty()) {
             /* we found a client waiting for this service */
 
 #ifdef DEBUG
-            LOG_LS_DEBUG("Sending QueryNameReply for service: \"%s\" to client: \"%s\" (\"%s\")\n", id->service_name, query_message->client->service_name, query_message->client->unique_name);
+            LOG_LS_DEBUG("Sending QueryProxyNameReply for service: \"%s\" to client: \"%s\" (\"%s\")\n",
+                         id->service_name, query_message->client->service_name, query_message->client->unique_name);
 #endif
+
             /* In case we had multiple permissions for the service name, we should check
              * permissions again. This time according to the service exepath */
-            if (!LSHubIsClientAllowedToQueryName(query_message->client, id->client,
-                                                 destination_service.c_str()))
-            {
-                ret_code = LS_TRANSPORT_QUERY_NAME_PERMISSION_DENIED;
+            if (_LSTransportMessageTypeQueryName == message_type) {
+                if (!LSHubIsClientAllowedToQueryName(query_message->client, id->client,
+                                                     destination_service.c_str())) {
+                    ret_code = LS_TRANSPORT_QUERY_NAME_PERMISSION_DENIED;
+                }
+            } else {
+                if (!LSHubIsAllowedToQueryProxyName(origin_exe,
+                                                    origin_id,
+                                                    origin_name,
+                                                    NULL,
+                                                    id->client,
+                                                    destination_service.c_str())) {
+                    ret_code = LS_TRANSPORT_QUERY_NAME_PERMISSION_DENIED;
+                }
             }
 
-            if (!_LSHubSendQueryNameReply(id, query_message, ret_code, requested_service,
-                                          id->local.name, is_dynamic, (destination_service.compare(requested_service) == 0), lserror))
-            {
-                LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, lserror);
-                LSErrorFree(lserror);
+            if (_LSTransportMessageTypeQueryName == message_type) {
+                if (!_LSHubSendQueryNameReply(id, query_message, ret_code, requested_service,
+                                            id->local.name, is_dynamic,
+                                            (destination_service.compare(requested_service) == 0), lserror)) {
+                    LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, lserror);
+                    LSErrorFree(lserror);
+                }
+            } else {
+                if (!_LSHubSendQueryProxyNameReply(id,
+                                                   origin_exe,
+                                                   origin_id,
+                                                   origin_name,
+                                                   NULL,
+                                                   query_message,
+                                                   ret_code,
+                                                   requested_service,
+                                                   id->local.name,
+                                                   is_dynamic,
+                                                   (destination_service.compare(requested_service) == 0),
+                                                   lserror)) {
+                    LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, lserror);
+                    LSErrorFree(lserror);
+                }
             }
 
             /* remove the timeout if there is one */
@@ -1573,9 +1849,7 @@ _LSHubSendServiceWaitListReply(_ClientId *id, bool success, bool is_dynamic, LSE
             iter = g_slist_next(iter);
 
             waiting_for_service = g_slist_delete_link(waiting_for_service, remove_node);
-        }
-        else
-        {
+        } else {
             iter = g_slist_next(iter);
         }
     }
@@ -1768,18 +2042,42 @@ _LSHubHandleQueryNameTimeout(_LSTransportMessage *message)
     /* remove the message from the waiting list */
     waiting_for_service = g_slist_remove(waiting_for_service, message);
 
-    const char *requested_service = _LSTransportMessageTypeQueryNameGetQueryName(message);
+    const char *requested_service = NULL;
 
-    if (!requested_service)
-    {
-        LOG_LS_ERROR(MSGID_LSHUB_NO_SERVICE, 0, "Failed to get service name for timeout message");
+    _LSTransportMessageType message_type = _LSTransportMessageGetType(message);
+
+    if (_LSTransportMessageTypeQueryName == message_type) {
+        requested_service = _LSTransportMessageTypeQueryNameGetQueryName(message);
+    } else {
+        requested_service = _LSTransportMessageTypeQueryProxyNameGetQueryName(message);
     }
-    /* the service didn't come up in time, so send a failure message */
-    else if(!_LSHubSendQueryNameReply(NULL, message, LS_TRANSPORT_QUERY_NAME_TIMEOUT, requested_service,
-                                      NULL, false, false, &lserror))
-    {
-        LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, &lserror);
-        LSErrorFree(&lserror);
+
+    if (!requested_service) {
+        LOG_LS_ERROR(MSGID_LSHUB_NO_SERVICE, 0, "Failed to get service name for timeout message");
+    } else { /* the service didn't come up in time, so send a failure message */
+        if (_LSTransportMessageTypeQueryName == message_type) {
+            if (!_LSHubSendQueryNameReply(NULL, message, LS_TRANSPORT_QUERY_NAME_TIMEOUT, requested_service,
+                                      NULL, false, false, &lserror)) {
+                LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, &lserror);
+                LSErrorFree(&lserror);
+            }
+        } else if (_LSTransportMessageTypeQueryProxyName == message_type) {
+            const char *origin_name = _LSTransportMessageTypeQueryProxyNameGetOriginName(message);
+            const char *origin_id = _LSTransportMessageTypeQueryProxyNameGetOriginId(message);
+            const char *origin_exe = _LSTransportMessageTypeQueryProxyNameGetOriginExePath(message);
+
+            if (!_LSHubSendQueryProxyNameReply(NULL, origin_exe, origin_id,
+                                           origin_name, NULL,
+                                           message,
+                                           LS_TRANSPORT_QUERY_NAME_TIMEOUT,
+                                           requested_service,
+                                           NULL,
+                                           false, false,
+                                           &lserror)) {
+                LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, &lserror);
+                LSErrorFree(&lserror);
+            }
+        }
     }
 
     /* refcount associated with the list */
@@ -1865,7 +2163,8 @@ _LSHubCleanupOutgoingQueue(GQueue *queue)
     while (--len >= 0)
     {
         _LSTransportMessage *message = (_LSTransportMessage *) g_queue_pop_head(queue);
-        if (_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryNameReply)
+        if ((_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryNameReply) ||
+            (_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryProxyNameReply))
         {
             int fd = _LSTransportMessageGetFd(message);
 
@@ -1879,6 +2178,215 @@ _LSHubCleanupOutgoingQueue(GQueue *queue)
             }
         }
         g_queue_push_tail(queue, message);
+    }
+}
+
+static void
+_LSHubHandleQueryProxyName(_LSTransportMessage *message) {
+    LOG_LS_DEBUG("%s\n", __func__);
+
+    LSError lserror;
+    LSErrorInit(&lserror);
+
+#ifdef DEBUG
+    //printf("%s: available_services hash table:\n", __func__);
+    DumpHashTable(available_services);
+#endif
+
+    const char *requested_service_name = _LSTransportMessageTypeQueryProxyNameGetQueryName(message);
+    LS_ASSERT(requested_service_name != NULL);
+
+    /* If the message originated from a application service, we will get a non-NULL appId
+     * from this call. */
+    const char *app_id = _LSTransportMessageTypeQueryProxyNameGetAppId(message);
+
+    // Extract invoker details
+    const char *origin_name = _LSTransportMessageTypeQueryProxyNameGetOriginName(message);
+    const char *origin_id = _LSTransportMessageTypeQueryProxyNameGetOriginId(message);
+    const char *origin_exe = _LSTransportMessageTypeQueryProxyNameGetOriginExePath(message);
+
+    _ClientId *origin_client_id = static_cast<_ClientId *>(g_hash_table_lookup(available_services, origin_name));
+    _LSTransportClient *origin_client = origin_client_id ? origin_client_id->client : nullptr;
+
+    if (!((LSHubClientGetPrivileged(_LSTransportMessageGetClient(message)) ||
+        LSHubClientGetProxy(_LSTransportMessageGetClient(message))) &&
+        (LSHubIsClientProxyAgent(_LSTransportMessageGetClient(message))))) {
+        if (!_LSHubSendQueryProxyNameReply(NULL, origin_exe, origin_id,
+                                           origin_name, origin_client,
+                                           message,
+                                           LS_TRANSPORT_QUERY_NAME_PROXY_AUTH_ERROR,
+                                           requested_service_name,
+                                           NULL,
+                                           false, false,
+                                           &lserror)) {
+            LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, &lserror);
+            LSErrorFree(&lserror);
+        }
+        return;
+    }
+
+    /* Check to see if the service exists */
+    ServiceMap &smap = SecurityData::CurrentSecurityData().services;
+    _Service *service = smap.Lookup(requested_service_name);
+    std::string destination_service_name = requested_service_name;
+
+    if (!service) {
+        for (const auto& name : GetServiceRedirectionVariants(requested_service_name)) {
+            service = smap.Lookup(name);
+            if (service) {
+                destination_service_name = name;
+                break;
+            }
+        }
+    }
+
+    if (!service) {
+        // Requested service as well as possible migration candidate for it haven't been found.
+        G_GNUC_UNUSED const _LSTransportCred *cred = _LSTransportClientGetCred(_LSTransportMessageGetClient(message));
+        LOG_LS_ERROR(MSGID_LSHUB_SERVICE_NOT_LISTED, 4,
+                     PMLOGKS("SERVICE_NAME", requested_service_name),
+                     PMLOGKS("EXE", _LSTransportCredGetExePath(cred)),
+                     PMLOGKS("APP_ID", app_id),
+                     PMLOGKFV("PID", LS_PID_PRINTF_FORMAT, LS_PID_PRINTF_CAST(_LSTransportCredGetPid(cred))),
+                     "Service not listed in service files (cmdline: %s)",
+                     _LSTransportCredGetCmdLine(cred));
+
+        /* The service is not in a service file, so it doesn't exist
+         * in the system and we should return error */
+        if (!_LSHubSendQueryProxyNameReply(NULL, origin_exe, origin_id,
+                                           origin_name, origin_client,
+                                           message,
+                                           LS_TRANSPORT_QUERY_NAME_SERVICE_NOT_EXIST,
+                                           requested_service_name,
+                                           NULL,
+                                           false, false,
+                                           &lserror)) {
+            LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, &lserror);
+            LSErrorFree(&lserror);
+        }
+        return;
+    }
+
+    // Continue with the substituted name.
+    bool service_is_dynamic = service->is_dynamic;
+
+    _ClientId *id = static_cast<_ClientId *>(g_hash_table_lookup(available_services, destination_service_name.c_str()));
+    _LSTransportClient *dest_client = id ? id->client : nullptr;
+
+    // Sometimes if service is hanging out or stopped, we may have invalid
+    // opened file descriptors in an outgoing queue. Socket buffer can contain
+    // about 30 messages. So if we have any messages in an outgoing queue,
+    // socket buffer is full, and service is freezing for a long period of time.
+    // To increase chances for new clients to connect, we may cleanup an outgoing
+    // queue from messages with invalid socket fds.
+    if (dest_client &&
+        dest_client->outgoing->queue &&
+        !g_queue_is_empty(dest_client->outgoing->queue)) {
+        _LSHubCleanupOutgoingQueue(dest_client->outgoing->queue);
+    }
+
+    // We know the service exists, so now we check to see if we have
+    // appropriate permissions to talk to the service.
+    // If we're looking for a service substitute (com.palm -> com.webos.service),
+    // avoid checking inbound/outbound lists, because they're likely to be broken.
+    // API will be restricted with ACG only.
+    if ((requested_service_name == destination_service_name) &&
+        !LSHubIsAllowedToQueryProxyName(origin_exe,
+                                        origin_id,
+                                        origin_name,
+                                        origin_client,
+                                        dest_client,
+                                        requested_service_name)) {
+        if (!_LSHubSendQueryProxyNameReply(id,
+                                           origin_exe,
+                                           origin_id,
+                                           origin_name,
+                                           origin_client,
+                                           message,
+                                           LS_TRANSPORT_QUERY_NAME_PERMISSION_DENIED,
+                                           requested_service_name,
+                                           NULL,
+                                           false, false,
+                                           &lserror)) {
+            LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, &lserror);
+            LSErrorFree(&lserror);
+        }
+        return;
+    }
+
+    if (!id) {
+        id = static_cast<_ClientId *>(g_hash_table_lookup(pending, destination_service_name.c_str()));
+
+        if (!id) {
+            /* Not available or pending. We know that the service *should*
+             * exist because we checked the service files earlier and
+             * found it. */
+            if (service_is_dynamic) {
+                bool launched = _DynamicServiceFindandLaunch(destination_service_name.c_str(),
+                                                             _LSTransportMessageGetClient(message),
+                                                             app_id,
+                                                             &lserror);
+
+                if (!launched) {
+                    LOG_LSERROR(MSGID_LSHUB_SERVICE_LAUNCH_ERR, &lserror);
+                    LSErrorFree(&lserror);
+
+                    /* If we failed to launch, return error */
+                    if (!_LSHubSendQueryProxyNameReply(NULL, origin_exe, origin_id,
+                                                       origin_name, origin_client,
+                                                       message,
+                                                       LS_TRANSPORT_QUERY_NAME_SERVICE_NOT_AVAILABLE,
+                                                       requested_service_name,
+                                                       NULL,
+                                                       false, false,
+                                                       &lserror)) {
+                        LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, &lserror);
+                        LSErrorFree(&lserror);
+                    }
+                    return;
+                }
+            }
+            /* !service->is_dynamic */
+        }
+
+        /*
+         * It's either pending, we just dynamically launched the process that
+         * will provide the service, or it's a static service that currently
+         * isn't up.
+         *
+         * In any of these cases, save the client info so we can send a
+         * response when it actually comes up
+         */
+        _LSHubAddQueryNameMessageTimeout(message);
+
+        return;
+    }
+
+    const char *unique_name = id->local.name;
+
+    LS_ASSERT(unique_name != NULL);
+
+    /* found name; create response and send it off */
+    if (!_LSHubSendQueryProxyNameReply(id, origin_exe, origin_id,
+                                       origin_name, origin_client,
+                                       message,
+                                       LS_TRANSPORT_QUERY_NAME_SUCCESS,
+                                       requested_service_name,
+                                       unique_name,
+                                       service_is_dynamic,
+                                       requested_service_name != destination_service_name,
+                                       &lserror)) {
+        LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, &lserror);
+        LSErrorFree(&lserror);
+
+        if (service_is_dynamic && ECONNREFUSED == lserror.error_code) {
+            /*
+                We caught the dynamic service going down. Retry connecting and sending the reply later when the service comes back up.
+            */
+            service->respawn_on_exit = true;
+
+            _LSHubAddQueryNameMessageTimeout(message);
+        }
     }
 }
 
@@ -1910,7 +2418,7 @@ _LSHubHandleQueryName(_LSTransportMessage *message)
     const char *app_id = _LSTransportMessageTypeQueryNameGetAppId(message);
 
     /* Check to see if the service exists */
-     ServiceMap &smap = SecurityData::CurrentSecurityData().services;
+    ServiceMap &smap = SecurityData::CurrentSecurityData().services;
     _Service *service = smap.Lookup(requested_service_name);
     std::string destination_service_name = requested_service_name;
 
@@ -3261,6 +3769,10 @@ _LSHubHandleMessage(_LSTransportMessage* message, void *context)
 
     case _LSTransportMessageTypeQueryName:
         _LSHubHandleQueryName(message);
+        break;
+
+    case _LSTransportMessageTypeQueryProxyName:
+        _LSHubHandleQueryProxyName(message);
         break;
 
     case _LSTransportMessageTypeSignalRegister:

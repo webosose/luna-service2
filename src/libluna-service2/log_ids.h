@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2019 LG Electronics, Inc.
+// Copyright (c) 2015-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@
 #define MSGID_LSHUB_CLIENT_ERROR                "LSHUB_CLIENT_ERROR"    /** Hub client error */
 #define MSGID_LSHUB_CONF_FILE_ERROR             "LSHUB_CONF"            /** Mandatory configuration file not provided */
 #define MSGID_LSHUB_CONTAINERS_FILE_ERR         "LSHUB_CONTAINERS_FILE" /** Error in container applications file */
+#define MSGID_LSHUB_PROXY_AGENTS_FILE_ERR       "LSHUB_PROXY_AGENTS_FILE" /** Error in proxy agents file */
 #define MSGID_LSHUB_DATA_ERROR                  "LSHUB_DATA"            /** Error in hub data structures */
 #define MSGID_LSHUB_GROUP_FILE_ERR              "LSHUB_GROUP_FILE"      /** Error in group file */
 #define MSGID_LSHUB_DEVMODE                     "LSHUB_DEVMODE"         /** Devmode message */
@@ -40,6 +41,7 @@
 #define MSGID_LSHUB_MKDIR_ERROR                 "LSHUB_MKDIR"           /** Unable to create directory */
 #define MSGID_LSHUB_NO_CLIENT                   "LSHUB_NO_CLIENT"       /** Unable to get client from message */
 #define MSGID_LSHUB_NO_CONTAINERS_DIR           "LSHUB_NO_CONT_DIR"     /** Can not open containers directory */
+#define MSGID_LSHUB_NO_PROXY_AGENTS_DIR         "LSHUB_NO_PROXY_DIR"    /** Can not open proxy agents directory */
 #define MSGID_LSHUB_NO_DYNAMIC_SERVICE          "LSHUB_NO_DYN_SRVS"     /** Service not found in dynamic service set */
 #define MSGID_LSHUB_NO_EXE_PATH                 "LSHUB_NO_EXE_PATH"     /** No executable path for connected client */
 #define MSGID_LSHUB_NO_FD                       "LSHUB_NO_FD"           /** Unable to find fd */
@@ -137,7 +139,7 @@
 #define MSGID_LS_PID_PATH_ERR                   "LS_PID_PATH"           /** Can't get executable for pid */
 #define MSGID_LS_PID_READ_ERR                   "LS_PID_READ"           /** Can't read PID from file */
 #define MSGID_LS_PIPE_ERR                       "LS_PIPE"               /** Pipe error */
-#define MSGID_LS_PRIVILEDGES_ERROR              "LS_PRIV"               /** Not enaugh privileges */
+#define MSGID_LS_PRIVILEGES_ERROR               "LS_PRIV"               /** Not enaugh privileges */
 #define MSGID_LS_QNAME_ERR                      "LS_QNAME"              /** Query name error */
 #define MSGID_LS_QUEUE_ERROR                    "LS_QUEUE"              /** Message queue error */
 #define MSGID_LS_REPLY_TOK                      "LS_REPLY_TOK"          /** Getting reply token for message type */

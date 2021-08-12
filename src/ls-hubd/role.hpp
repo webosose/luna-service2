@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ typedef enum {
     LSHubRoleTypePrivileged         = 2,  //< Privileged (whether new or legacy private)
     LSHubRoleTypePrivilegedPublic   = 4,  //< Privileged legacy public
     LSHubRoleTypeDevmode            = 8,  //< Restricted to the API described in the devmode certificate
+    LSHubRoleTypeProxy              = 16, //< proxy type
 } LSHubRoleType;
 
 /// @brief Executable allowed roles
@@ -157,6 +158,8 @@ LSHubRoleIsPublicAllowed(const LSHubRole *role, const char *service_name);
 
 bool
 LSHubRoleIsPrivileged(const LSHubRole *role, BusTypeRoleFlag bus_flag);
+
+bool LSHubRoleIsProxy(const LSHubRole *role);
 
 inline LSHubRoleType
 LSHubRoleGetType(const LSHubRole *role)

@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2019 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -287,6 +287,43 @@ LSMessageGetSender(LSMessage *message)
     _LSErrorIfFail(NULL != message, NULL, MSGID_LS_MSG_ERR);
 
     const char *sender = _LSTransportMessageGetSenderUniqueName(message->transport_msg);
+
+    return sender;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get the path of the exe that sent the message.
+ *        (Used only by privileged/proxy services)
+ *
+ * @param  message IN message
+ *
+ * @retval const char*, executable path of the sender
+ *******************************************************************************
+ */
+const char *
+LSMessageGetSenderExePath(LSMessage *message) {
+    _LSErrorIfFail(NULL != message, NULL, MSGID_LS_MSG_ERR);
+
+    const char *sender = _LSTransportMessageGetExePath(message->transport_msg);
+
+    return sender;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get the trustLevel of the service that sent the message.
+ *
+ * @param  message IN message
+ *
+ * @retval const char*, Trust level of the sender
+ *******************************************************************************
+ */
+const char *
+LSMessageGetSenderTrustLevel(LSMessage *message) {
+    _LSErrorIfFail(NULL != message, NULL, MSGID_LS_MSG_ERR);
+
+    const char *sender = _LSTransportMessageGetTrustLevel(message->transport_msg);
 
     return sender;
 }

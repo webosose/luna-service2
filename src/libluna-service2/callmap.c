@@ -45,11 +45,15 @@
  * @{
  */
 
-static bool _LSCallFromApplicationCommon(LSHandle *sh, const char *uri,
-       const char *payload,
-       const char *applicationID,
-       LSFilterFunc callback, void *ctx,
-       LSMessageToken *ret_token, bool single, LSError *lserror);
+static bool _LSCallFromApplicationCommon(LSHandle *sh,
+        const char *origin_exe,
+        const char *origin_id,
+        const char *origin_name,
+        const char *uri,
+        const char *payload,
+        const char *applicationID,
+        LSFilterFunc callback, void *ctx,
+        LSMessageToken *ret_token, bool single, LSError *lserror);
 
 typedef GArray _TokenList;
 
@@ -961,6 +965,16 @@ _LSHandleMessageFailure(_LSTransportMessage *message, _LSTransportMessageFailure
             reply->payload = reply->payloadAllocated;
             break;
 
+        case _LSTransportMessageFailureTypeProxyAuthError:
+            reply->category = LUNABUS_ERROR_CATEGORY;
+            reply->method = LUNABUS_ERROR_NOT_AUTHORISED;
+            reply->payloadAllocated = g_strdup_printf(
+                "{\"returnValue\":false,"
+                 "\"errorCode\":-1,"
+                 "\"errorText\":\"Unauthorised to initiate proxy call\"}");
+            reply->payload = reply->payloadAllocated;
+            break;
+
         default:
             LOG_LS_ERROR(MSGID_LS_UNKNOWN_FAILURE, 1,
                          PMLOGKFV("FLR_TYPE", "%d", failure_type),
@@ -1509,18 +1523,21 @@ _send_hub_method_call(LSHandle     *sh,
 
 static bool
 _send_method_call(LSHandle *sh,
-             LSUri      *luri,
-             const char *payload,
-             const char *applicationID,
-             LSFilterFunc    callback,
-             void           *ctx,
-             _Call         **ret_call,
-             LSError *lserror)
+            const char *origin_exe,
+            const char *origin_id,
+            const char *origin_name,
+            LSUri      *luri,
+            const char *payload,
+            const char *applicationID,
+            LSFilterFunc    callback,
+            void           *ctx,
+            _Call         **ret_call,
+            LSError *lserror)
 {
     PMTRACE_CLIENT_PREPARE(sh->name, luri->serviceName, luri->methodName);
 
     LSMessageToken token;
-    if (!LSTransportSend(sh->transport, luri->serviceName, sh->is_public_bus,
+    if (!LSTransportSend(sh->transport, origin_exe, origin_id, origin_name, luri->serviceName, sh->is_public_bus,
                          luri->objectPath, luri->methodName, payload, applicationID, &token, lserror))
     {
         _LSErrorSet(lserror, MSGID_LS_SEND_ERROR, -1,
@@ -1678,8 +1695,48 @@ LSCall(LSHandle *sh, const char *uri, const char *payload,
        LSFilterFunc callback, void *ctx,
        LSMessageToken *ret_token, LSError *lserror)
 {
-    return _LSCallFromApplicationCommon(sh, uri, payload, NULL, /*AppID*/
+    return _LSCallFromApplicationCommon(sh, NULL, NULL, NULL, uri, payload, NULL, /*AppID*/
                 callback, ctx, ret_token, false, lserror);
+}
+
+bool
+LSCallProxy(LSHandle *sh, const char *origin_exe,
+            const char *origin_id, const char *origin_name,
+            const char *uri, const char *payload,
+            LSFilterFunc callback, void *ctx,
+            LSMessageToken *ret_token, LSError *lserror) {
+    return _LSCallFromApplicationCommon(sh, origin_exe, origin_id, origin_name, uri, payload, NULL, /*AppID*/
+                callback, ctx, ret_token, false, lserror);
+}
+
+bool
+LSCallProxyOneReply(LSHandle *sh, const char *origin_exe,
+                    const char *origin_id, const char *origin_name,
+                    const char *uri, const char *payload,
+                    LSFilterFunc callback, void *ctx,
+                    LSMessageToken *ret_token, LSError *lserror) {
+    return _LSCallFromApplicationCommon(sh, origin_exe, origin_id, origin_name, uri, payload, NULL, /*AppID*/
+                callback, ctx, ret_token, true, lserror);
+}
+
+bool LSCallProxyFromApplication(LSHandle *sh, const char *origin_exe,
+                 const char *origin_id, const char *origin_name,
+                 const char *uri, const char *payload,
+                 const char *applicationID,
+                 LSFilterFunc callback, void *ctx,
+                 LSMessageToken *ret_token, LSError *lserror) {
+    return _LSCallFromApplicationCommon(sh, origin_exe, origin_id, origin_name, uri, payload, applicationID, /*AppID*/
+                callback, ctx, ret_token, false, lserror);
+}
+
+bool LSCallProxyFromApplicationOneReply(LSHandle *sh, const char *origin_exe,
+                         const char *origin_id, const char *origin_name,
+                         const char *uri, const char *payload,
+                         const char *applicationID,
+                         LSFilterFunc callback, void *ctx,
+                         LSMessageToken *ret_token, LSError *lserror) {
+    return _LSCallFromApplicationCommon(sh, origin_exe, origin_id, origin_name, uri, payload, applicationID, /*AppID*/
+                callback, ctx, ret_token, true, lserror);
 }
 
 /**
@@ -1721,7 +1778,7 @@ LSCallOneReply(LSHandle *sh, const char *uri, const char *payload,
     }
     j_release(&object);
 #endif
-    return _LSCallFromApplicationCommon(sh, uri, payload, NULL, /*AppID*/
+    return _LSCallFromApplicationCommon(sh, NULL, NULL, NULL, uri, payload, NULL, /*AppID*/
                 callback, ctx, ret_token, true, lserror);
 }
 
@@ -1750,7 +1807,7 @@ LSCallFromApplication(LSHandle *sh, const char *uri, const char *payload,
        LSFilterFunc callback, void *ctx,
        LSMessageToken *ret_token, LSError *lserror)
 {
-    return _LSCallFromApplicationCommon(sh, uri, payload, applicationID,
+    return _LSCallFromApplicationCommon(sh, NULL, NULL, NULL, uri, payload, applicationID,
                 callback, ctx, ret_token, false, lserror);
 }
 
@@ -1779,7 +1836,7 @@ LSCallFromApplicationOneReply(
        LSFilterFunc callback, void *ctx,
        LSMessageToken *ret_token, LSError *lserror)
 {
-    return _LSCallFromApplicationCommon(sh, uri, payload, applicationID,
+    return _LSCallFromApplicationCommon(sh, NULL, NULL, NULL, uri, payload, applicationID,
                 callback, ctx, ret_token, true, lserror);
 }
 
@@ -1816,20 +1873,39 @@ GetLunabusServiceNameRegex(void)
 }
 
 static bool
-_LSCallFromApplicationCommon(LSHandle *sh, const char *uri,
-       const char *payload,
-       const char *applicationID,
-       LSFilterFunc callback, void *ctx,
-       LSMessageToken *ret_token, bool single, LSError *lserror)
+_LSCallFromApplicationCommon(LSHandle *sh,
+                             const char *origin_exe,
+                             const char *origin_id,
+                             const char *origin_name,
+                             const char *uri,
+                             const char *payload,
+                             const char *applicationID,
+                             LSFilterFunc callback, void *ctx,
+                             LSMessageToken *ret_token,
+                             bool single, LSError *lserror)
 {
     _LSErrorIfFail(sh != NULL, lserror, MSGID_LS_INVALID_HANDLE);
     _LSErrorIfFail(uri != NULL, lserror, MSGID_LS_INVALID_URI);
     _LSErrorIfFail(payload != NULL, lserror, MSGID_LS_INVALID_PAYLOAD);
 
-    if (applicationID && !_LSTransportGetPrivileged(sh->transport))
-    {
-        _LSErrorSet(lserror, MSGID_LS_PRIVILEDGES_ERROR, LS_ERROR_CODE_NOT_PRIVILEGED, LS_ERROR_TEXT_NOT_PRIVILEGED, applicationID);
+    if (applicationID && !_LSTransportGetPrivileged(sh->transport)) {
+        _LSErrorSet(lserror, MSGID_LS_PRIVILEGES_ERROR, LS_ERROR_CODE_NOT_PRIVILEGED,
+                    LS_ERROR_TEXT_NOT_PRIVILEGED, applicationID);
         return false;
+    }
+
+    if (origin_exe || origin_name || origin_id) {
+        if (!(_LSTransportGetPrivileged(sh->transport) || _LSTransportGetProxyStatus(sh->transport))) {
+            _LSErrorSet(lserror, MSGID_LS_PRIVILEGES_ERROR,
+                        LS_ERROR_CODE_NOT_PROXY_PRIVILEGED, LS_ERROR_TEXT_NOT_PROXY_PRIVILEGED);
+            return false;
+        }
+        if ((NULL == origin_name) ||
+            ((NULL != origin_name) && (NULL == origin_id) && (NULL == origin_exe))) {
+            _LSErrorSet(lserror, MSGID_LS_PARAMETER_IS_NULL,
+                        LS_ERROR_CODE_NOT_PROXY_PRIVILEGED, LS_ERROR_TEXT_PROXY_NULL_PARAMS);
+            return false;
+        }
     }
 
     LSHANDLE_VALIDATE(sh);
@@ -1865,46 +1941,57 @@ _LSCallFromApplicationCommon(LSHandle *sh, const char *uri,
     _CallMapLock(sh->callmap);
     if (!failure)
     {
-        if (callback)
+        // With proxy destination uri should not be hub
+        if (NULL == origin_name)
         {
-            if (strcmp(luri->objectPath, "/signal") == 0)
+            if (callback)
             {
-                // uri == "luna://com.webos.service.bus/signal/addmatch"
-                if (strcmp(luri->methodName, "addmatch") == 0)
+                if (strcmp(luri->objectPath, "/signal") == 0)
                 {
-                    retVal = _send_match(sh, luri, payload, callback, ctx, &call, lserror);
-                }
-                // uri == "luna://com.webos.service.bus/signal/registerServerStatus"
-                else if (strcmp(luri->methodName, "registerServerStatus") == 0)
-                {
-                    retVal = _send_reg_server_status(sh, luri, payload, callback, ctx, &call, lserror);
-                }
-                // uri == "luna://com.webos.service.bus/signal/registerServiceCategory"
-                else if (strcmp(luri->methodName, "registerServiceCategory") == 0)
-                {
-                    retVal = _send_reg_service_category(sh, luri, payload, callback, ctx, &call, lserror);
+                    // uri == "luna://com.webos.service.bus/signal/addmatch"
+                    if (strcmp(luri->methodName, "addmatch") == 0)
+                    {
+                        retVal = _send_match(sh, luri, payload, callback, ctx, &call, lserror);
+                    }
+                    // uri == "luna://com.webos.service.bus/signal/registerServerStatus"
+                    else if (strcmp(luri->methodName, "registerServerStatus") == 0)
+                    {
+                        retVal = _send_reg_server_status(sh, luri, payload, callback, ctx, &call, lserror);
+                    }
+                    // uri == "luna://com.webos.service.bus/signal/registerServiceCategory"
+                    else if (strcmp(luri->methodName, "registerServiceCategory") == 0)
+                    {
+                        retVal = _send_reg_service_category(sh, luri, payload, callback, ctx, &call, lserror);
+                    }
+                    else
+                    {
+                        char *error = g_strdup_printf("Invalid method \"%s\" to lunabus LSCall.", luri->methodName);
+                        _SendFakeReply(sh, callback, ctx, NULL, error);
+                        g_free(error);
+                    }
                 }
                 else
                 {
-                    char *error = g_strdup_printf("Invalid method \"%s\" to lunabus LSCall.", luri->methodName);
-                    _SendFakeReply(sh, callback, ctx, NULL, error);
-                    g_free(error);
+                    retVal = _send_hub_method_call(sh, luri, payload, callback, ctx, &call, lserror);
                 }
             }
             else
             {
-                retVal = _send_hub_method_call(sh, luri, payload, callback, ctx, &call, lserror);
+                _LSErrorSet(lserror, MSGID_LS_NO_CALLBACK, -EINVAL,
+                    "Invalid parameters to lunabus LSCall. No callback specified.");
             }
         }
         else
         {
-            _LSErrorSet(lserror, MSGID_LS_NO_CALLBACK, -EINVAL,
-                "Invalid parameters to lunabus LSCall. No callback specified.");
+            _LSErrorSet(lserror, MSGID_LS_PRIVILEGES_ERROR,
+                        LS_ERROR_CODE_PERMISSION, LS_ERROR_TEXT_HUB_CALL_NOT_ALLOWED);
+            retVal = false;
         }
     }
     else
     {
-         retVal = _send_method_call(sh, luri, payload, applicationID, callback, ctx, &call, lserror);
+         retVal = _send_method_call(sh, origin_exe, origin_id, origin_name, luri, payload,
+                                    applicationID, callback, ctx, &call, lserror);
     }
 
     if (ret_token)

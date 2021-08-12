@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2015-2019 LG Electronics, Inc.
+# Copyright (c) 2015-2021 LG Electronics, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -396,6 +396,14 @@ api_v2()
 			Exec=$(exeName)
 			Type=$current_launch
 			END
+
+			# install proxy agent
+			proxy_agent="${conf_root}${webos_sysbus_proxyagentdir}/${target_services}.proxy-agent.json"
+			cat > "$proxy_agent" <<-END
+			{
+				"id": ["$(exeName)"]
+			}
+			END
 		done
 	}
 
@@ -466,6 +474,7 @@ install_files()
 	mkdir -p "${conf_root}${webos_sysbus_permissionsdir}"
 	mkdir -p "${conf_root}${webos_sysbus_apipermissionsdir}"
 	mkdir -p "${conf_root}${webos_sysbus_manifestsdir}"
+	mkdir -p "${conf_root}${webos_sysbus_proxyagentdir}"
 
 	get_full_exe_path()
 	{
@@ -519,6 +528,7 @@ spawn_hubd()
 		-e "/^ManifestsDirectories=/s|=.*$|=${conf_root}${webos_sysbus_manifestsdir}|" \
 		-e "/^ManifestsVolatileDirectories=/s|=.*$|=|" \
 		-e "/^DevmodeCertificate=/s|=.*$|=${conf_root}${webos_sysbus_devdatadir}/devmode_certificate.json|" \
+		-e "/^ProxyAgentsDirectories=/s|=.*$|=${conf_root}${webos_sysbus_proxyagentdir}|" \
 		-e "s|ExecPrefix=.*|ExecPrefix=|g" \
 		$hub_conf > $conf \
 		|| die "Failed to prepare ls-hubd.conf"
@@ -561,6 +571,7 @@ main ()
 
 	webos_sysbus_manifestsdir='@WEBOS_INSTALL_SYSBUS_MANIFESTSDIR@'
 	webos_sysbus_devdatadir='@WEBOS_INSTALL_SYSBUS_DEVDATADIR@'
+	webos_sysbus_proxyagentdir='@WEBOS_INSTALL_SYSBUS_PROXYAGENTSDIR@'
 
 	for v in `set | awk 'BEGIN {FS = "="}; /^webos_sysbus_/ {print $1}'`
 	do

@@ -115,13 +115,17 @@ bool _LSTransportProcessIncomingMessages(_LSTransportClient *client, LSError *ls
 bool _LSTransportSendMessageClientInfo(_LSTransportClient *client, const char *service_name, const char *unique_name, bool prepend, LSError *lserror);
 static bool _LSTransportSendMessageMonitor(_LSTransportMessage *message, _LSTransportClient *monitor, _LSMonitorMessageType type, const struct timespec *timestamp, LSError *lserror);
 static bool _LSTransportSendMessageRaw(_LSTransportMessage *message, _LSTransportClient *client, bool set_token, LSMessageToken *token, bool prepend, LSError *lserror);
-bool _LSTransportAddPendingMessageWithToken(_LSTransport *transport, const char *service_name, _LSTransportMessage *message, LSMessageToken msg_token, LSError *lserror);
-bool _LSTransportAddPendingMessage(_LSTransport *transport, const char *service_name, _LSTransportMessage *message, LSMessageToken *token, LSError *lserror);
+bool _LSTransportAddPendingMessageWithToken(_LSTransport *transport, const char *origin_exe, const char *origin_id, const char *origin_name, const char *service_name, _LSTransportMessage *message, LSMessageToken msg_token, LSError *lserror);
+bool _LSTransportAddPendingMessage(_LSTransport *transport, const char *origin_exe, const char *origin_id, const char *origin_name, const char *service_name, _LSTransportMessage *message, LSMessageToken *token, LSError *lserror);
 
 void _LSTransportRemoveClientHash(_LSTransport *transport, _LSTransportClient *client);
 bool _LSTransportRemoveAllConnectionHash(_LSTransport *transport, _LSTransportClient *client);
 
-bool _LSTransportQueryName(_LSTransportClient *hub, _LSTransportMessage *trigger_message, const char *service_name, LSError *lserror);
+bool _LSTransportQueryProxyName(_LSTransportClient *hub, const char *origin_exe, const char *origin_id,
+                           const char *origin_name, _LSTransportMessage *trigger_message,
+                           const char *service_name, LSError *lserror);
+bool _LSTransportQueryName(_LSTransportClient *hub, _LSTransportMessage *trigger_message,
+                      const char *service_name, LSError *lserror);
 
 static void _LSTransportSetTransportFlags(_LSTransport *transport, int32_t transport_flags);
 // Initialize "provides" groups. json - an array of object, each object - category(or pattern) with array of string,each string - security group
@@ -726,7 +730,7 @@ _LSTransportHandleShutdown(_LSTransportMessage *message)
                 {
                     _LSTransportMessageReset(message);
                     /* ref's the message */
-                    if (!_LSTransportAddPendingMessageWithToken(client->transport, client->service_name, message, _LSTransportMessageGetToken(message), &lserror))
+                    if (!_LSTransportAddPendingMessageWithToken(client->transport, NULL, NULL, NULL, client->service_name, message, _LSTransportMessageGetToken(message), &lserror))
                     {
                         LOG_LSERROR(MSGID_LS_QUEUE_ERROR, &lserror);
                         LSErrorFree(&lserror);
@@ -1908,6 +1912,7 @@ _LSTransportRequestName(const char *requested_name,
                         const char *app_id,
                         _LSTransportClient *client,
                         bool *privileged,
+                        bool *proxy,
                         LSError *lserror)
 {
     _LSTransportMessageIter iter;
@@ -1968,6 +1973,10 @@ _LSTransportRequestName(const char *requested_name,
     {
         _LSTransportMessageIterNext(&iter);
         if (!_LSTransportMessageGetBool(&iter, privileged))
+            LS_ASSERT(NULL);
+
+        _LSTransportMessageIterNext(&iter);
+        if (!_LSTransportMessageGetBool(&iter, proxy))
             LS_ASSERT(NULL);
 
         _LSTransportMessageIterNext(&iter);
@@ -2041,6 +2050,82 @@ _LSTransportRequestName(const char *requested_name,
 
 /**
  *******************************************************************************
+ * @brief Send a "QueryProxyName" message to the hub.
+ *
+ * @param  hub                   IN  client info for hub
+ * @param  trigger_message       IN  message that triggered this "QueryName"
+ * @param  service_name          IN  service name to look up
+ * @param  lserror               OUT set on error
+ *
+ * @retval true on success
+ * @retval false on failure
+ *******************************************************************************
+ */
+bool
+_LSTransportQueryProxyName(_LSTransportClient *hub, const char *origin_exe,
+                           const char *origin_id, const char *origin_name,
+                           _LSTransportMessage *trigger_message,
+                           const char *service_name, LSError *lserror) {
+    bool ret = true;
+
+    LOG_LS_DEBUG("%s: service_name %s, hub: %p\n", __func__, service_name, hub);
+
+    const char *app_id = _LSTransportMessageGetAppId(trigger_message);
+    /* if no application Id in trigger message - use application Id from transport */
+    if (NULL == app_id)
+        app_id = hub->transport->app_id;
+
+    const char *l_origin_name = NULL;
+    if ((NULL != origin_name) && ('\0' != origin_name[0])) {
+        l_origin_name = origin_name;
+    }
+
+    const char *l_origin_id = NULL;
+    if ((NULL != origin_id) && ('\0' != origin_id[0])) {
+        l_origin_id = origin_id;
+    }
+
+    const char *l_origin_exe = NULL;
+    if ((NULL != origin_exe) && ('\0' != origin_exe[0])) {
+        l_origin_exe = origin_exe;
+    }
+
+    /* allocate query message */
+    _LSTransportMessage *message = _LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE);
+    if (!message) goto error;
+
+    message->raw->header.is_public_bus = trigger_message->raw->header.is_public_bus;
+    _LSTransportMessageSetType(message, _LSTransportMessageTypeQueryProxyName);
+
+    _LSTransportMessageIter iter;
+    _LSTransportMessageIterInit(message, &iter);
+
+    if (!_LSTransportMessageAppendString(&iter, service_name) ||
+        !_LSTransportMessageAppendString(&iter, app_id) ||
+        !_LSTransportMessageAppendString(&iter, l_origin_name) ||
+        !_LSTransportMessageAppendString(&iter, l_origin_id) ||
+        !_LSTransportMessageAppendString(&iter, l_origin_exe) ||
+        !_LSTransportMessageAppendInvalid(&iter)) {
+        goto error;
+    }
+
+    /* send */
+    if (!_LSTransportSendMessage(message, hub, NULL, lserror)) {
+        ret = false;
+    }
+
+    _LSTransportMessageUnref(message);
+
+    return ret;
+
+error:
+    if (message) _LSTransportMessageUnref(message);
+    _LSErrorSetOOM(lserror);
+    return false;
+}
+
+/**
+ *******************************************************************************
  * @brief Send a "QueryName" message to the hub.
  *
  * @param  hub                   IN  client info for hub
@@ -2053,7 +2138,8 @@ _LSTransportRequestName(const char *requested_name,
  *******************************************************************************
  */
 bool
-_LSTransportQueryName(_LSTransportClient *hub, _LSTransportMessage *trigger_message, const char *service_name, LSError *lserror)
+_LSTransportQueryName(_LSTransportClient *hub, _LSTransportMessage *trigger_message,
+                      const char *service_name, LSError *lserror)
 {
     bool ret = true;
 
@@ -2379,6 +2465,394 @@ _LSTransportQueryNameReplyGetTrustlevelString(_LSTransportMessage *message)
 
 /**
  *******************************************************************************
+ * @brief Get exe_path string from a "QueryName" reply message.
+ *
+ * @warning The returned pointer points inside the message, so you should ref
+ * the message or copy the string if you need it to persist.
+ *
+ * @param  message  IN  message
+ *
+ * @retval exe_path on success
+ * @retval NULL on failure
+ *******************************************************************************
+ */
+const char*
+_LSTransportQueryNameReplyGetExePath(_LSTransportMessage *message)
+{
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryNameReply);
+    _LSTransportMessageIter iter;
+    const char *ret = NULL;
+
+    _LSTransportMessageIterInit(message, &iter);
+    /* move past return code, service name, unique name, dynamic flag, app_id, groups,
+       permissions,required trustlevel, trustlevel string*/
+    _LSTransportMessageIterAdvance(&iter, 9);
+
+    if (_LSTransportMessageGetString(&iter, &ret)) {
+        LOG_LS_DEBUG("[%s] ret: %s \n", __func__, ret);
+        return ret;
+    }
+    return NULL;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get the return value out of a "QueryProxyName" reply message.
+ *
+ * @param  message  IN  query name message
+ *
+ * @retval  return val (numeric value)
+ *******************************************************************************
+ */
+int32_t
+_LSTransportQueryProxyNameReplyGetReturnVal(_LSTransportMessage *message) {
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryProxyNameReply);
+    _LSTransportMessageIter iter;
+    int32_t ret;
+
+    _LSTransportMessageIterInit(message, &iter);
+
+    if (_LSTransportMessageGetInt32(&iter, &ret)) {
+        return ret;
+    }
+    return LS_TRANSPORT_QUERY_NAME_MESSAGE_CONTENT_ERROR;
+}
+
+/* @warn these point inside the message, so you should ref the message or copy the
+ * string if you want it to persist */
+/**
+ *******************************************************************************
+ * @brief Get the service name from a "QueryProxyName" reply message.
+ *
+ * @warning The returned pointer points inside the message so you should ref
+ * the message or copy the string if you want it to persist.
+ *
+ * @param  message  IN  query name message
+ *
+ * @retval name on success
+ * @retval NULL on failure
+ *******************************************************************************
+ */
+const char*
+_LSTransportQueryProxyNameReplyGetServiceName(_LSTransportMessage *message) {
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryProxyNameReply);
+    _LSTransportMessageIter iter;
+    const char *ret = NULL;
+
+    _LSTransportMessageIterInit(message, &iter);
+    /* move past return code */
+    _LSTransportMessageIterAdvance(&iter, 1);
+
+    if (_LSTransportMessageGetString(&iter, &ret)) {
+        return ret;
+    }
+    return NULL;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get the unique name from a message.
+ *
+ * @warning The returned pointer points inside the message, so you should ref
+ * the message or copy the string if you need it to persist.
+ *
+ * @param  message  IN  message
+ *
+ * @retval name on success
+ * @retval NULL on failure
+ *******************************************************************************
+ */
+const char*
+_LSTransportQueryProxyNameReplyGetUniqueName(_LSTransportMessage *message) {
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryProxyNameReply);
+    _LSTransportMessageIter iter;
+    const char *ret = NULL;
+
+    _LSTransportMessageIterInit(message, &iter);
+    /* move past return code and service name */
+    _LSTransportMessageIterAdvance(&iter, 2);
+
+    if (_LSTransportMessageGetString(&iter, &ret)) {
+        return ret;
+    }
+    return NULL;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get is_dynamic boolean out of a "QueryProxyName" reply message.
+ *
+ * @param  message  IN  query name message
+ *
+ * @retval  is_dynamic
+ *******************************************************************************
+ */
+bool
+_LSTransportQueryProxyNameReplyGetIsDynamic(_LSTransportMessage *message) {
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryProxyNameReply);
+    _LSTransportMessageIter iter;
+    int32_t ret = 0;
+
+    _LSTransportMessageIterInit(message, &iter);
+
+    /* move past return code, service name, and unique name */
+    _LSTransportMessageIterAdvance(&iter, 3);
+
+    if (_LSTransportMessageGetInt32(&iter, &ret)) {
+        return ret ? true : false;
+    }
+    return false;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get application id a "QueryProxyName" reply message.
+ *
+ * @warning The returned pointer points inside the message, so you should ref
+ * the message or copy the string if you need it to persist.
+ *
+ * @param  message  IN  message
+ *
+ * @retval id on success
+ * @retval NULL on failure
+ *******************************************************************************
+ */
+const char*
+_LSTransportQueryProxyNameReplyGetOriginName(_LSTransportMessage *message) {
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryProxyNameReply);
+    _LSTransportMessageIter iter;
+    const char *ret = NULL;
+
+    _LSTransportMessageIterInit(message, &iter);
+    /* move past return code, service name, unique name and dynamic flag */
+    _LSTransportMessageIterAdvance(&iter, 4);
+
+    if (_LSTransportMessageGetString(&iter, &ret)) {
+        return ret;
+    }
+    return NULL;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get application id a "QueryProxyName" reply message.
+ *
+ * @warning The returned pointer points inside the message, so you should ref
+ * the message or copy the string if you need it to persist.
+ *
+ * @param  message  IN  message
+ *
+ * @retval id on success
+ * @retval NULL on failure
+ *******************************************************************************
+ */
+const char*
+_LSTransportQueryProxyNameReplyGetOriginExePath(_LSTransportMessage *message) {
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryProxyNameReply);
+    _LSTransportMessageIter iter;
+    const char *ret = NULL;
+
+    _LSTransportMessageIterInit(message, &iter);
+    /* move past return code, service name, unique name, dynamic flag, origin name */
+    _LSTransportMessageIterAdvance(&iter, 5);
+
+    if (_LSTransportMessageGetString(&iter, &ret)) {
+        return ret;
+    }
+    return NULL;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get application id a "QueryProxyName" reply message.
+ *
+ * @warning The returned pointer points inside the message, so you should ref
+ * the message or copy the string if you need it to persist.
+ *
+ * @param  message  IN  message
+ *
+ * @retval id on success
+ * @retval NULL on failure
+ *******************************************************************************
+ */
+const char*
+_LSTransportQueryProxyNameReplyGetOriginId(_LSTransportMessage *message) {
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryProxyNameReply);
+    _LSTransportMessageIter iter;
+    const char *ret = NULL;
+
+    _LSTransportMessageIterInit(message, &iter);
+    /* move past return code, service name, unique name, dynamic flag, origin name, origin exe */
+    _LSTransportMessageIterAdvance(&iter, 6);
+
+    if (_LSTransportMessageGetString(&iter, &ret)) {
+        return ret;
+    }
+    return NULL;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get application id a "QueryProxyName" reply message.
+ *
+ * @warning The returned pointer points inside the message, so you should ref
+ * the message or copy the string if you need it to persist.
+ *
+ * @param  message  IN  message
+ *
+ * @retval id on success
+ * @retval NULL on failure
+ *******************************************************************************
+ */
+const char*
+_LSTransportQueryProxyNameReplyGetAppId(_LSTransportMessage *message) {
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryProxyNameReply);
+    _LSTransportMessageIter iter;
+    const char *ret = NULL;
+
+    _LSTransportMessageIterInit(message, &iter);
+    /* move past return code, service name, unique name, dynamic flag, origin name, origin exe */
+    _LSTransportMessageIterAdvance(&iter, 7);
+
+    if (_LSTransportMessageGetString(&iter, &ret)) {
+        return ret;
+    }
+    return NULL;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get required groups from a "QueryProxyName" reply message.
+ *
+ * @warning The returned pointer points inside the message, so you should ref
+ * the message or copy the string if you need it to persist.
+ *
+ * @param  message  IN  message
+ *
+ * @retval groups on success
+ * @retval NULL on failure
+ *******************************************************************************
+ */
+const char*
+_LSTransportQueryProxyNameReplyGetGroups(_LSTransportMessage *message) {
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryProxyNameReply);
+    _LSTransportMessageIter iter;
+    const char *ret = NULL;
+
+    _LSTransportMessageIterInit(message, &iter);
+    /* move past return code, service name, unique name, dynamic flag, origin name, origin exe, app id*/
+    _LSTransportMessageIterAdvance(&iter, 8);
+
+    if (_LSTransportMessageGetString(&iter, &ret)) {
+        return ret;
+    }
+    return NULL;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get client permissions from a "QueryProxyName" reply message.
+ *
+ * @param  message  IN  message
+ *
+ * @retval permissions on success
+ * @retval NULL on failure
+ *******************************************************************************
+ */
+_LSTransportClientPermissions
+_LSTransportQueryProxyNameReplyGetPermissions(_LSTransportMessage *message) {
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryProxyNameReply);
+    _LSTransportMessageIter iter;
+    int32_t ret = _LSClientAllowBoth;
+
+    _LSTransportMessageIterInit(message, &iter);
+    /* move past return code, service name, unique name, dynamic flag, origin name, origin exe, app id and groups */
+    _LSTransportMessageIterAdvance(&iter, 9);
+
+    if (_LSTransportMessageGetInt32(&iter, &ret)) {
+        return (_LSTransportClientPermissions)ret;
+    }
+
+    return 0;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get required trustlevels from a "QueryProxyName" reply message.
+ *
+ * @warning The returned pointer points inside the message, so you should ref
+ * the message or copy the string if you need it to persist.
+ *
+ * @param  message  IN  message
+ *
+ * @retval trustlevels on success
+ * @retval NULL on failure
+ *******************************************************************************
+ */
+const char*
+_LSTransportQueryProxyNameReplyGetTrustlevels(_LSTransportMessage *message) {
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryProxyNameReply);
+    _LSTransportMessageIter iter;
+    const char *ret = NULL;
+
+    _LSTransportMessageIterInit(message, &iter);
+    /* move past return code, service name, unique name, dynamic flag,
+    origin name, origin exe, app id, groups and permissions*/
+    _LSTransportMessageIterAdvance(&iter, 10);
+
+    if (_LSTransportMessageGetString(&iter, &ret)) {
+        LOG_LS_DEBUG("[%s] ret: %s \n", __func__, ret?ret:"not supported");
+        return ret;
+    }
+    return NULL;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get required trustlevel string from a "QueryProxyName" reply message.
+ *
+ * @warning The returned pointer points inside the message, so you should ref
+ * the message or copy the string if you need it to persist.
+ *
+ * @param  message  IN  message
+ *
+ * @retval trustlevels on success
+ * @retval NULL on failure
+ *******************************************************************************
+ */
+const char*
+_LSTransportQueryProxyNameReplyGetTrustlevelString(_LSTransportMessage *message) {
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryProxyNameReply);
+    _LSTransportMessageIter iter;
+    const char *ret = NULL;
+
+    _LSTransportMessageIterInit(message, &iter);
+    /* move past return code, service name, unique name, dynamic flag,
+    origin name, origin exe, app id, groups, permissions and required trustlevel*/
+    _LSTransportMessageIterAdvance(&iter, 11);
+
+    if (_LSTransportMessageGetString(&iter, &ret)) {
+        LOG_LS_DEBUG("[%s] ret: %s \n", __func__, ret);
+        return ret;
+    }
+    return NULL;
+}
+
+/**
+ *******************************************************************************
  * @brief Helper callback to send a message to a monitor if it's a message
  * that we care about monitoring.
  *
@@ -2414,6 +2888,328 @@ _LSTransportSendPendingMonitorMessages(_LSTransport *transport, _LSTransportClie
     OUTGOING_LOCK(&pending->lock);
     g_queue_foreach(pending->queue, (GFunc)_LSTransportSendMessageMonitorHelper, client);
     OUTGOING_UNLOCK(&pending->lock);
+}
+
+/**
+ *******************************************************************************
+ * @brief Handle a failure reply to a "QueryProxyName" message.
+ *
+ * @attention locks both the transport and outgoing lock
+ *
+ * @param  message          IN  query name reply message
+ * @param  err_code         IN  error code - see @a LunaServiceQueryNameReturnCodes
+ * @param  service_name     IN  service name that we failed to find
+ * @param  is_dynamic       IN  true if the service is dynamic
+ *******************************************************************************
+ */
+void
+_LSTransportHandleQueryProxyNameFailure(_LSTransportMessage *message, long err_code,
+                                        const char *origin_id, const char *origin_exe,
+                                        const char *origin_name, const char *service_name,
+                                        bool is_dynamic) {
+    LS_ASSERT(err_code != LS_TRANSPORT_QUERY_NAME_SUCCESS);
+
+    LSError lserror;
+    LSErrorInit(&lserror);
+
+    if (!service_name) {
+        return;
+    }
+
+    const char *concatenated_name = g_strconcat(origin_name, ":", service_name, NULL);
+
+    /* error case */
+    _LSTransport *transport = _LSTransportMessageGetClient(message)->transport;
+
+    TRANSPORT_LOCK(&transport->lock);
+
+    _LSTransportOutgoing *pending = g_hash_table_lookup(transport->pending, concatenated_name);
+
+    if (!pending) {
+        LOG_LS_ERROR(MSGID_LS_QNAME_ERR, 1,
+                     PMLOGKS("APP_ID", concatenated_name),
+                     "%s: Unable to find service: \"%s\" when processing query name failure",
+                     __func__, concatenated_name);
+        TRANSPORT_UNLOCK(&transport->lock);
+        g_free(concatenated_name);
+        return;
+    }
+
+    OUTGOING_LOCK(&pending->lock);
+
+    /* Grab the first message on the pending queue, since the target that it is
+     * destined for has failed in some manner */
+    _LSTransportMessage *failed_message = g_queue_pop_head(pending->queue);
+
+    LS_ASSERT(failed_message);
+
+    /* At the point where we're querying for a name we should only be
+     * queuing up method calls or canceling method calls
+     * See LSCall_kill_server_continue_sending_messages test for an example of the latter */
+    _LSTransportMessageType msg_type = _LSTransportMessageGetType(failed_message);
+    LS_ASSERT(msg_type == _LSTransportMessageTypeMethodCall
+              || msg_type == _LSTransportMessageTypeCancelMethodCall);
+
+    if (is_dynamic && LS_TRANSPORT_QUERY_NAME_SERVICE_NOT_AVAILABLE == err_code) {
+        if (--failed_message->retries > 0) {
+            g_queue_push_head(pending->queue, failed_message);
+            OUTGOING_UNLOCK(&pending->lock);
+
+            LOG_LS_WARNING(MSGID_LS_MSG_ERR, 1,
+                           PMLOGKS("APP_ID", concatenated_name),
+                           "%s: retrying sending query name to service \"%s\", %d retries remain",
+                           __func__, concatenated_name, failed_message->retries);
+
+            if (!_LSTransportQueryProxyName(transport->hub, origin_exe, origin_id, origin_name,
+                                            failed_message, service_name, &lserror)) {
+                LS_ASSERT(!"_LSTransportQueryName failed");
+            }
+            TRANSPORT_UNLOCK(&transport->lock);
+            g_free(concatenated_name);
+            return;
+        } else {
+            LOG_LS_ERROR(MSGID_LS_MSG_ERR, 1,
+                         PMLOGKS("APP_ID", concatenated_name),
+                         "%s: too many retries sending query name to service \"%s\"", __func__, concatenated_name);
+        }
+    }
+
+    if (msg_type == _LSTransportMessageTypeMethodCall) {
+        _LSTransportSerialRemove(pending->serial, _LSTransportMessageGetToken(failed_message));
+    }
+
+    _LSTransportMessage *next_message = g_queue_peek_head(pending->queue);
+    if (NULL != next_message) {
+        OUTGOING_UNLOCK(&pending->lock);
+
+        LS_ASSERT(transport->hub);
+        /* we still have messages destined for this service, so send another
+         * query message to see if the service has come up since */
+
+        LS_ASSERT(MAX_SEND_RETRIES == next_message->retries);
+
+        if (!_LSTransportQueryProxyName(transport->hub, origin_exe, origin_id, origin_name,
+                                        next_message, service_name, &lserror)) {
+            LS_ASSERT(0);
+        }
+    } else {
+        /* pending queue is empty, so we need to clean up */
+        if (!g_hash_table_remove(transport->pending, concatenated_name)) {
+            LS_ASSERT(0);
+        }
+
+        OUTGOING_UNLOCK(&pending->lock);
+
+        /* the key was free'd, but we need to clean up the value */
+        _LSTransportOutgoingFree(pending);
+    }
+
+    TRANSPORT_UNLOCK(&transport->lock);
+
+    /* call failure handler for this message -- only makes sense for method calls */
+    if (msg_type == _LSTransportMessageTypeMethodCall) {
+        _LSTransportMessageFailureType failure_type;
+
+        switch (err_code) {
+            case LS_TRANSPORT_QUERY_NAME_SERVICE_NOT_AVAILABLE:
+            case LS_TRANSPORT_QUERY_NAME_TIMEOUT:
+            case LS_TRANSPORT_QUERY_NAME_CONNECT_TIMEOUT:
+                failure_type = _LSTransportMessageFailureTypeServiceUnavailable;
+                break;
+            case LS_TRANSPORT_QUERY_NAME_SERVICE_NOT_EXIST:
+                failure_type = _LSTransportMessageFailureTypeServiceNotExist;
+                break;
+            case LS_TRANSPORT_QUERY_NAME_PERMISSION_DENIED:
+                failure_type = _LSTransportMessageFailureTypePermissionDenied;
+                break;
+            case LS_TRANSPORT_QUERY_NAME_MESSAGE_CONTENT_ERROR:
+                failure_type = _LSTransportMessageFailureTypeMessageContentError;
+                break;
+            case LS_TRANSPORT_QUERY_NAME_PROXY_AUTH_ERROR:
+                failure_type = _LSTransportMessageFailureTypeProxyAuthError;
+                break;
+            default:
+                failure_type = _LSTransportMessageFailureTypeUnknown;
+                break;
+        }
+
+        transport->message_failure_handler(failed_message, failure_type, transport->message_failure_context);
+    }
+
+    /* we're done with this message */
+    _LSTransportMessageUnref(failed_message);
+    g_free(concatenated_name);
+}
+
+/**
+ *******************************************************************************
+ * @brief Handle a reply to a "QueryProxyName" message from the hub.
+ *
+ * @attention locks transport lock
+ *
+ * @param  message  IN  query name reply message
+ *******************************************************************************
+ */
+void
+_LSTransportHandleQueryProxyNameReply(_LSTransportMessage *message) {
+    LSError lserror;
+    LSErrorInit(&lserror);
+
+    int32_t ret_code = 0;
+
+    _LSTransport *transport = _LSTransportClientGetTransport(_LSTransportMessageGetClient(message));
+
+    /* check return code */
+    ret_code = _LSTransportQueryProxyNameReplyGetReturnVal(message);
+
+    /* get the service name out of the message -- NULL if anonymous client connection */
+    const char *service_name = _LSTransportQueryProxyNameReplyGetServiceName(message);
+    const char *origin_name = _LSTransportQueryProxyNameReplyGetOriginName(message);
+    const char *origin_id = _LSTransportQueryProxyNameReplyGetOriginId(message);
+    const char *origin_exe = _LSTransportQueryProxyNameReplyGetOriginExePath(message);
+    const char *concatenated_name = NULL;
+
+    // destination Service name will be concatednated with origin name.
+    // This is needed for identifying connection
+    if ((ret_code == LS_TRANSPORT_QUERY_NAME_SUCCESS) &&
+        (_LSClientAllowInbound == _LSTransportQueryProxyNameReplyGetPermissions(message))) {
+        concatenated_name = g_strconcat(origin_name, "_", service_name, "_proxy", NULL);
+    } else {
+        concatenated_name = g_strconcat(origin_name, ":", service_name, NULL);
+    }
+
+    /* Despite we try to establish single connections between a pair of clients,
+     * we may have a scenario with simultaneous connections, because of some compatibility
+     * reasons. Also we may call ourself */
+    if (concatenated_name && g_hash_table_lookup(transport->clients, concatenated_name)) {
+        LOG_LS_DEBUG("Multiple connections between pair of services: %s and %s.",
+                     concatenated_name, message->client->transport->service_name);
+    }
+
+    int message_fd = _LSTransportMessageGetFd(message);
+
+    /* get is_dynamic out of the message */
+    bool is_dynamic = _LSTransportQueryProxyNameReplyGetIsDynamic(message);
+
+    /*
+        Check message and connection consistency.
+    */
+    if (unlikely((ret_code == LS_TRANSPORT_QUERY_NAME_SUCCESS) && (message_fd == -1))) {
+        ret_code = LS_TRANSPORT_QUERY_NAME_SERVICE_NOT_AVAILABLE;
+    }
+
+    if (ret_code != LS_TRANSPORT_QUERY_NAME_SUCCESS) {
+        _LSTransportHandleQueryProxyNameFailure(message, ret_code, origin_id, origin_exe,
+                                                origin_name, service_name, is_dynamic);
+        g_free(concatenated_name);
+        return;
+    }
+
+    /* get the unique name out of the message */
+    const char *unique_name = _LSTransportQueryProxyNameReplyGetUniqueName(message);
+
+    /* make sure we have a valid service_name and unique_name */
+    if (unique_name == NULL) {
+        _LSTransportHandleQueryProxyNameFailure(message, LS_TRANSPORT_QUERY_NAME_MESSAGE_CONTENT_ERROR,
+                                                origin_id, origin_exe, origin_name, service_name, is_dynamic);
+        g_free(concatenated_name);
+        return;
+    }
+
+    LOG_LS_DEBUG("%s: service_name: %s, unique_name: %s, %s\n", __func__, service_name,
+                 unique_name, is_dynamic ? "dynamic" : "static");
+
+    int dup_fd = dup(message_fd);
+    if (-1 == dup_fd) {
+        LOG_LS_ERROR(MSGID_LS_DUP_ERR, 2,
+                     PMLOGKFV("ERROR_CODE", "%d", errno),
+                     PMLOGKS("ERROR", g_strerror(errno)),
+                     "%s: dup() failed", __func__);
+        LS_ASSERT(!"Can't duplicate socket descriptor");
+    }
+
+    /* Atomically move messages from pending queue to hash of available services */
+    TRANSPORT_LOCK(&transport->lock);
+
+    /* move set of messages in pending queue to outbound queue for the now-connected client -- if we were
+     * a connection initiator, there should be at least one message on the queue for this service */
+    _LSTransportOutgoing *pending = concatenated_name ?
+                                    (_LSTransportOutgoing*)g_hash_table_lookup(transport->pending, concatenated_name) :
+                                    NULL;
+
+    /* connect to our new friend */
+    _LSTransportClient *client = _LSTransportConnectClient(transport, concatenated_name,
+                                                           unique_name, dup_fd, pending,
+                                                           _LSTransportQueryProxyNameReplyGetPermissions(message),
+                                                           &lserror);
+
+    if (!client) {
+        LOG_LSERROR(MSGID_LS_TRANSPORT_CONNECT_ERR, &lserror);
+        LSErrorFree(&lserror);
+        TRANSPORT_UNLOCK(&transport->lock);
+        _LSTransportHandleQueryProxyNameFailure(message, LS_TRANSPORT_QUERY_NAME_SERVICE_NOT_AVAILABLE,
+                                                origin_id, origin_exe, origin_name, service_name, is_dynamic);
+        g_free(concatenated_name);
+        return;
+    }
+
+    client->is_dynamic = is_dynamic;
+
+    _LSTransportClientSetApplicationId(client, _LSTransportQueryProxyNameReplyGetAppId(message));
+    _LSTransportClientSetTrustString(client, _LSTransportQueryProxyNameReplyGetTrustlevelString(message));
+    _LSTransportClientInitializeSecurityGroups(client, _LSTransportQueryProxyNameReplyGetGroups(message));
+    //TBD :
+    // Initialize trust level for client
+    _LSTransportClientInitializeTrustLevel(client, _LSTransportQueryProxyNameReplyGetTrustlevelString(message));
+    _LSTransportClientSetExePath(client, NULL);
+    /* We successfully connected to the far side, so remove the service from
+     * the transport lookup queue.
+     *
+     * This frees the key, but not the value due to choice in
+     * g_hash_table_new_full */
+    if (pending && !g_hash_table_remove(transport->pending, concatenated_name)) {
+        LS_ASSERT(0);
+    }
+
+    /* client ref +1 (total = 1) */
+
+    /* If we're not allowed to call the client, do not add it
+     * to the list of connected services
+     * client ref +1 (total = 2) */
+    if (concatenated_name &&
+        _LSTransportClientAllowOutboundCalls(client) &&
+        !_LSTransportAddClientHash(transport, client, concatenated_name))
+    {
+        LS_ASSERT(0);
+    }
+
+    /* client ref +1 (total = 3) */
+    _LSTransportAddAllConnectionHash(transport, client);
+
+    TRANSPORT_UNLOCK(&transport->lock);
+
+    LS_ASSERT(client->transport->mainloop_context);
+
+    /* MONITOR -- send our info to the newly connected client
+     */
+
+    /* kickstart sending to the monitor */
+    if (transport->monitor && pending) {
+        /* MONITOR -- we need to send any pending method calls to the monitor
+         * and add the destination info to the message */
+        _LSTransportSendPendingMonitorMessages(transport, client, pending);
+    }
+
+    /* By definition, when we receive this message, there is at least
+     * one item on the queue to send */
+    _LSTransportChannelAddSendWatch(&client->channel, client->transport->mainloop_context, client);
+
+    _LSTransportChannelAddReceiveWatch(&client->channel, client->transport->mainloop_context, client);
+
+    /* client ref -1 (total = 2) */
+    LOG_LS_DEBUG("%s: unref'ing\n", __func__);
+    _LSTransportClientUnref(client);
+    g_free(concatenated_name);
 }
 
 /**
@@ -2545,23 +3341,23 @@ _LSTransportHandleQueryNameFailure(_LSTransportMessage *message, long err_code, 
 
         switch (err_code)
         {
-        case LS_TRANSPORT_QUERY_NAME_SERVICE_NOT_AVAILABLE:
-        case LS_TRANSPORT_QUERY_NAME_TIMEOUT:
-        case LS_TRANSPORT_QUERY_NAME_CONNECT_TIMEOUT:
-            failure_type = _LSTransportMessageFailureTypeServiceUnavailable;
-            break;
-        case LS_TRANSPORT_QUERY_NAME_SERVICE_NOT_EXIST:
-            failure_type = _LSTransportMessageFailureTypeServiceNotExist;
-            break;
-        case LS_TRANSPORT_QUERY_NAME_PERMISSION_DENIED:
-            failure_type = _LSTransportMessageFailureTypePermissionDenied;
-            break;
-        case LS_TRANSPORT_QUERY_NAME_MESSAGE_CONTENT_ERROR:
-            failure_type = _LSTransportMessageFailureTypeMessageContentError;
-            break;
-        default:
-            failure_type = _LSTransportMessageFailureTypeUnknown;
-            break;
+            case LS_TRANSPORT_QUERY_NAME_SERVICE_NOT_AVAILABLE:
+            case LS_TRANSPORT_QUERY_NAME_TIMEOUT:
+            case LS_TRANSPORT_QUERY_NAME_CONNECT_TIMEOUT:
+                failure_type = _LSTransportMessageFailureTypeServiceUnavailable;
+                break;
+            case LS_TRANSPORT_QUERY_NAME_SERVICE_NOT_EXIST:
+                failure_type = _LSTransportMessageFailureTypeServiceNotExist;
+                break;
+            case LS_TRANSPORT_QUERY_NAME_PERMISSION_DENIED:
+                failure_type = _LSTransportMessageFailureTypePermissionDenied;
+                break;
+            case LS_TRANSPORT_QUERY_NAME_MESSAGE_CONTENT_ERROR:
+                failure_type = _LSTransportMessageFailureTypeMessageContentError;
+                break;
+            default:
+                failure_type = _LSTransportMessageFailureTypeUnknown;
+                break;
         }
 
         transport->message_failure_handler(failed_message, failure_type, transport->message_failure_context);
@@ -2583,7 +3379,6 @@ _LSTransportHandleQueryNameFailure(_LSTransportMessage *message, long err_code, 
 void
 _LSTransportHandleQueryNameReply(_LSTransportMessage *message)
 {
-
     LSError lserror;
     LSErrorInit(&lserror);
 
@@ -2595,7 +3390,7 @@ _LSTransportHandleQueryNameReply(_LSTransportMessage *message)
     const char *service_name = _LSTransportQueryNameReplyGetServiceName(message);
 
     /* Despite we try to establish single connections between a pair of clients,
-     * we may have a scenario with simultenious connections, because of some compatibility
+     * we may have a scenario with simultaneous connections, because of some compatibility
      * reasons. Also we may call ourself */
     if (service_name && g_hash_table_lookup(transport->clients, service_name))
     {
@@ -2679,7 +3474,7 @@ _LSTransportHandleQueryNameReply(_LSTransportMessage *message)
     //TBD :
     // Initialize trust level for client
     _LSTransportClientInitializeTrustLevel(client, _LSTransportQueryNameReplyGetTrustlevelString(message));
-
+    _LSTransportClientSetExePath(client, _LSTransportQueryNameReplyGetExePath(message));
     /* We successfully connected to the far side, so remove the service from
      * the transport lookup queue.
      *
@@ -2831,6 +3626,7 @@ _LSTransportConnect(_LSTransport *transport, LSError *lserror)
                                                      transport->app_id,
                                                      hub,
                                                      &transport->privileged,
+                                                     &transport->proxy,
                                                      lserror);
 
     if (!transport->unique_name)
@@ -3709,7 +4505,7 @@ bool
 _LSTransportSendMessageListServiceMethods(_LSTransport *transport, const char *service_name, bool is_public_bus, LSError *lserror)
 {
     LSMessageToken token;
-    return LSTransportSend(transport, service_name, is_public_bus,
+    return LSTransportSend(transport, NULL, NULL, NULL, service_name, is_public_bus,
                            "/com/palm/luna/private", "introspection",
                            "{\"type\":\"description\"}", NULL, &token, lserror);
 }
@@ -4397,6 +5193,9 @@ error:
  */
 bool
 _LSTransportAddPendingMessageWithToken(_LSTransport *transport,
+                                       const char *origin_exe,
+                                       const char *origin_id,
+                                       const char *origin_name,
                                        const char *service_name,
                                        _LSTransportMessage *message,
                                        LSMessageToken msg_token,
@@ -4405,7 +5204,18 @@ _LSTransportAddPendingMessageWithToken(_LSTransport *transport,
     /* check to see if we already have a pending queue for this service name */
     TRANSPORT_LOCK(&transport->lock);
 
-    _LSTransportOutgoing *pending = g_hash_table_lookup(transport->pending, service_name);
+    bool status = true;
+
+    const char *concatenated_name = NULL;
+
+    if ((NULL == origin_name) || ('\0' == origin_name[0])) {
+        concatenated_name = service_name;
+    } else {
+        concatenated_name = g_strconcat(origin_name, ":", service_name, NULL);
+    }
+
+    // Note: lookup using origin_name:service_name in case of proxycall
+    _LSTransportOutgoing *pending = g_hash_table_lookup(transport->pending, concatenated_name);
 
     if (pending)
     {
@@ -4428,44 +5238,59 @@ _LSTransportAddPendingMessageWithToken(_LSTransport *transport,
     }
     else
     {
-        /* no existing queue, create one and push message on it */
-        _LSTransportOutgoing *out = _LSTransportOutgoingNew();
+        do {
+            /* no existing queue, create one and push message on it */
+            _LSTransportOutgoing *out = _LSTransportOutgoingNew();
 
-        if (!out)
-        {
-            /* LOCKED */
+            if (!out)
+            {
+                /* LOCKED */
+                TRANSPORT_UNLOCK(&transport->lock);
+                _LSErrorSet(lserror, MSGID_LS_TRANSPORT_INIT_ERR, -1, "Could not initialize outgoing transport");
+                status = false;
+                break;
+            }
+
+            _LSTransportMessageSetToken(message, msg_token);
+
+            _LSTransportMessageType type = _LSTransportMessageGetType(message);
+
+            if (type == _LSTransportMessageTypeMethodCall)
+            {
+                _LSTransportSerialSave(out->serial, message, lserror);
+            }
+
+            LOG_LS_DEBUG("%s: adding message to new pending: %p, serial: %d\n", __func__, out, (int)msg_token);
+            _LSTransportMessageRef(message);
+            g_queue_push_tail(out->queue, message);
+
+            LOG_LS_DEBUG("%s: inserting \"%s\" into pending: %p\n", __func__, concatenated_name, transport->pending);
+            g_hash_table_insert(transport->pending, g_strdup(concatenated_name), out);
+
             TRANSPORT_UNLOCK(&transport->lock);
-            _LSErrorSet(lserror, MSGID_LS_TRANSPORT_INIT_ERR, -1, "Could not initialize outgoing transport");
-            return false;
-        }
 
-        _LSTransportMessageSetToken(message, msg_token);
+            LS_ASSERT(transport->hub != NULL);
 
-        _LSTransportMessageType type = _LSTransportMessageGetType(message);
+            if ((NULL == origin_name) || ('\0' == origin_name[0])) {
+                if (!_LSTransportQueryName(transport->hub, message, service_name, lserror)) {
+                    status = false;
+                    break;
+                }
+            } else {
+                if (!_LSTransportQueryProxyName(transport->hub, origin_exe, origin_id, origin_name, message, service_name, lserror)) {
+                    status = false;
+                    break;
+                }
+            }
 
-        if (type == _LSTransportMessageTypeMethodCall)
-        {
-            _LSTransportSerialSave(out->serial, message, lserror);
-        }
-
-        LOG_LS_DEBUG("%s: adding message to new pending: %p, serial: %d\n", __func__, out, (int)msg_token);
-        _LSTransportMessageRef(message);
-        g_queue_push_tail(out->queue, message);
-
-        LOG_LS_DEBUG("%s: inserting \"%s\" into pending: %p\n", __func__, service_name, transport->pending);
-        g_hash_table_insert(transport->pending, g_strdup(service_name), out);
-
-        TRANSPORT_UNLOCK(&transport->lock);
-
-        LS_ASSERT(transport->hub != NULL);
-
-        if (!_LSTransportQueryName(transport->hub, message, service_name, lserror))
-        {
-            return false;
-        }
+        } while (false);
     }
 
-    return true;
+    if ((NULL != origin_name) && ('\0' != origin_name[0])) {
+        g_free(concatenated_name);
+    }
+
+    return status;
 }
 
 /**
@@ -4485,11 +5310,17 @@ _LSTransportAddPendingMessageWithToken(_LSTransport *transport,
  *******************************************************************************
  */
 bool
-_LSTransportAddPendingMessage(_LSTransport *transport, const char *service_name, _LSTransportMessage *message, LSMessageToken *token, LSError *lserror)
+_LSTransportAddPendingMessage(_LSTransport *transport, const char *origin_exe,
+                              const char *origin_id, const char *origin_name,
+                              const char *service_name, _LSTransportMessage *message,
+                              LSMessageToken *token, LSError *lserror)
 {
     LSMessageToken msg_token = _LSTransportGetNextToken(transport);
 
-    bool retVal = _LSTransportAddPendingMessageWithToken(transport, service_name, message, msg_token, lserror);
+    bool retVal = _LSTransportAddPendingMessageWithToken(transport, origin_exe,
+                                                         origin_id, origin_name,
+                                                         service_name, message,
+                                                         msg_token, lserror);
 
     if (retVal && token)
     {
@@ -4518,7 +5349,9 @@ _LSTransportAddPendingMessage(_LSTransport *transport, const char *service_name,
  *******************************************************************************
  */
 bool
-LSTransportSend(_LSTransport *transport, const char *service_name, bool is_public_bus,
+LSTransportSend(_LSTransport *transport, const char *origin_exe,
+                const char *origin_id, const char *origin_name,
+                const char *service_name, bool is_public_bus,
                 const char *category, const char *method,
                 const char *payload, const char* applicationId,
                 LSMessageToken *token, LSError *lserror)
@@ -4572,128 +5405,143 @@ LSTransportSend(_LSTransport *transport, const char *service_name, bool is_publi
     header.type = _LSTransportMessageTypeMethodCall;
     header.is_public_bus = is_public_bus;
 
+    // Note: lookup for proxy connection: origin_name:service_name
     /* Look up destination and connect to it if we haven't already */
     TRANSPORT_LOCK(&transport->lock);
-    _LSTransportClient *client = g_hash_table_lookup(transport->clients, service_name);
+
+    const char *concatenated_name = NULL;
+    bool status = true;
+
+    // destination Service name will be concatednated with origin name.
+    // This is needed for identifying connection
+    if ((NULL == origin_name) || ('\0' == origin_name[0])) {
+        concatenated_name = service_name;
+    } else {
+        concatenated_name = g_strconcat(origin_name, ":", service_name, NULL);
+    }
+
+    _LSTransportClient *client = g_hash_table_lookup(transport->clients, concatenated_name);
 
     TRANSPORT_UNLOCK(&transport->lock);
 
-    if (!client)
-    {
-        /* NOTE: timeout is on the server side */
+    do {
+        if (!client) {
+            /* NOTE: timeout is on the server side */
 
-        /* build up the message */
-        message = _LSTransportMessageFromVectorNewRef(iov, ARRAY_SIZE(iov), total_size);
+            /* build up the message */
+            message = _LSTransportMessageFromVectorNewRef(iov, ARRAY_SIZE(iov), total_size);
 
-        if (!message)
-        {
-            return false;
+            if (!message) {
+                status = false;
+                break;
+            }
+
+            const char *app_id_in_raw_msg = _LSTransportMessageGetBody(message) + app_id_offset;
+            _LSTransportMessageSetAppId(message, app_id_in_raw_msg);
+
+            /* ref's the message */
+            if (!_LSTransportAddPendingMessage(transport, origin_exe, origin_id, origin_name, service_name, message, token, lserror)) {
+                _LSTransportMessageUnref(message);
+                status = false;
+                break;
+            }
+
+            LOG_LS_DEBUG("method call: token: %d, category: %s, method: %s, payload: %s\n", (int)_LSTransportMessageGetToken(message), _LSTransportMessageGetCategory(message), _LSTransportMessageGetMethod(message), _LSTransportMessageGetPayload(message));
+        } else {
+            /* *WARN*: if this function is ever changed to be called for anything
+            * but method call */
+
+            /* we have to set the token here SendVector doesn't know which vector
+            * has the token */
+
+            LS_ASSERT(token != NULL);
+            LS_ASSERT(_LSTransportClientAllowOutboundCalls(client));
+
+            LSMessageToken msg_token = _LSTransportGetNextToken(transport);
+
+            _LSTransportMonitorSerial monitor_serial = 0;
+            if (transport->monitor) {
+                monitor_serial = _LSTransportShmGetSerial(client->transport->shm);
+                ClockGetTime(&now);
+            }
+
+            LOG_LS_DEBUG("method call: token: %d, category: %s, method: %s, payload: %s\n", (int)msg_token, category, method, payload);
+
+            header.token = msg_token;
+
+            message = _LSTransportSendVectorRet(iov, ARRAY_SIZE(iov), total_size, app_id_offset, client, lserror);
+            if (!message) {
+                status = false;
+                break;
+            }
+
+            /* Successfully sent the message so save the serial and set the
+            * return token val */
+            *token = msg_token;
+
+            /* MONITOR */
+            if (transport->monitor) {
+                /*
+                * Add destination service name and destination unique name
+                * so that the monitor knows where this message was going. It
+                * knows the source since it receives it directly from the
+                * source (i.e., not through the hub)
+                */
+                struct iovec iov_monitor[ARRAY_SIZE(iov) + 4];
+                memcpy(iov_monitor, iov, sizeof(iov));
+
+                LS_ASSERT(client->service_name != NULL);
+                LS_ASSERT(client->unique_name != NULL);
+
+                _LSMonitorMessageData message_data;
+                message_data.serial = monitor_serial;
+                message_data.type = _LSMonitorMessageTypeTx;
+                message_data.timestamp = now;
+
+                unsigned long message_data_size = sizeof(_LSMonitorMessageData);
+
+                unsigned long dest_service_name_len = strlen(client->service_name) + 1;
+                unsigned long dest_unique_name_len = strlen(client->unique_name) + 1;
+                unsigned long monitor_total_size = total_size + dest_service_name_len + dest_unique_name_len;
+
+                unsigned long padding_bytes = PADDING_BYTES_TYPE(void *, monitor_total_size);
+                char padding[padding_bytes];
+                memset(padding, 0, padding_bytes);
+
+                monitor_total_size += padding_bytes + message_data_size;
+
+                /* Set the new header size
+                *
+                * Note that monitor_total_size includes the size of the header
+                * itself and this doesn't */
+                header.len += dest_service_name_len + dest_unique_name_len + padding_bytes + message_data_size;
+
+                iov_monitor[ARRAY_SIZE(iov)].iov_base = client->service_name;
+                iov_monitor[ARRAY_SIZE(iov)].iov_len = dest_service_name_len;
+
+                iov_monitor[ARRAY_SIZE(iov) + 1].iov_base = client->unique_name;
+                iov_monitor[ARRAY_SIZE(iov) + 1].iov_len = dest_unique_name_len;
+
+                iov_monitor[ARRAY_SIZE(iov) + 2].iov_base = padding;
+                iov_monitor[ARRAY_SIZE(iov) + 2].iov_len = padding_bytes;
+
+                iov_monitor[ARRAY_SIZE(iov) + 3].iov_base = &message_data;
+                iov_monitor[ARRAY_SIZE(iov) + 3].iov_len = message_data_size;
+
+                /* We don't really care if this fails and it may fail when the
+                * monitor goes down */
+                (void)_LSTransportSendVector(iov_monitor, ARRAY_SIZE(iov_monitor), monitor_total_size, app_id_offset, transport->monitor, lserror);
+            }
         }
+        _LSTransportMessageUnref(message);
 
-        const char *app_id_in_raw_msg = _LSTransportMessageGetBody(message) + app_id_offset;
-        _LSTransportMessageSetAppId(message, app_id_in_raw_msg);
+    } while (false);
 
-        /* ref's the message */
-        if (!_LSTransportAddPendingMessage(transport, service_name, message, token, lserror))
-        {
-            _LSTransportMessageUnref(message);
-            return false;
-        }
-
-        LOG_LS_DEBUG("method call: token: %d, category: %s, method: %s, payload: %s\n", (int)_LSTransportMessageGetToken(message), _LSTransportMessageGetCategory(message), _LSTransportMessageGetMethod(message), _LSTransportMessageGetPayload(message));
+    if ((NULL != origin_name) && ('\0' != origin_name[0])) {
+        g_free(concatenated_name);
     }
-    else
-    {
-        /* *WARN*: if this function is ever changed to be called for anything
-         * but method call */
 
-        /* we have to set the token here SendVector doesn't know which vector
-         * has the token */
-
-        LS_ASSERT(token != NULL);
-        LS_ASSERT(_LSTransportClientAllowOutboundCalls(client));
-
-        LSMessageToken msg_token = _LSTransportGetNextToken(transport);
-
-        _LSTransportMonitorSerial monitor_serial = 0;
-        if (transport->monitor)
-        {
-            monitor_serial = _LSTransportShmGetSerial(client->transport->shm);
-            ClockGetTime(&now);
-        }
-
-        LOG_LS_DEBUG("method call: token: %d, category: %s, method: %s, payload: %s\n", (int)msg_token, category, method, payload);
-
-        header.token = msg_token;
-
-        message = _LSTransportSendVectorRet(iov, ARRAY_SIZE(iov), total_size, app_id_offset, client, lserror);
-        if (!message)
-        {
-            return false;
-        }
-
-        /* Successfully sent the message so save the serial and set the
-         * return token val */
-        *token = msg_token;
-
-        /* MONITOR */
-        if (transport->monitor)
-        {
-            /*
-             * Add destination service name and destination unique name
-             * so that the monitor knows where this message was going. It
-             * knows the source since it receives it directly from the
-             * source (i.e., not through the hub)
-             */
-            struct iovec iov_monitor[ARRAY_SIZE(iov) + 4];
-            memcpy(iov_monitor, iov, sizeof(iov));
-
-            LS_ASSERT(client->service_name != NULL);
-            LS_ASSERT(client->unique_name != NULL);
-
-            _LSMonitorMessageData message_data;
-            message_data.serial = monitor_serial;
-            message_data.type = _LSMonitorMessageTypeTx;
-            message_data.timestamp = now;
-
-            unsigned long message_data_size = sizeof(_LSMonitorMessageData);
-
-            unsigned long dest_service_name_len = strlen(client->service_name) + 1;
-            unsigned long dest_unique_name_len = strlen(client->unique_name) + 1;
-            unsigned long monitor_total_size = total_size + dest_service_name_len + dest_unique_name_len;
-
-            unsigned long padding_bytes = PADDING_BYTES_TYPE(void *, monitor_total_size);
-            char padding[padding_bytes];
-            memset(padding, 0, padding_bytes);
-
-            monitor_total_size += padding_bytes + message_data_size;
-
-            /* Set the new header size
-             *
-             * Note that monitor_total_size includes the size of the header
-             * itself and this doesn't */
-            header.len += dest_service_name_len + dest_unique_name_len + padding_bytes + message_data_size;
-
-            iov_monitor[ARRAY_SIZE(iov)].iov_base = client->service_name;
-            iov_monitor[ARRAY_SIZE(iov)].iov_len = dest_service_name_len;
-
-            iov_monitor[ARRAY_SIZE(iov) + 1].iov_base = client->unique_name;
-            iov_monitor[ARRAY_SIZE(iov) + 1].iov_len = dest_unique_name_len;
-
-            iov_monitor[ARRAY_SIZE(iov) + 2].iov_base = padding;
-            iov_monitor[ARRAY_SIZE(iov) + 2].iov_len = padding_bytes;
-
-            iov_monitor[ARRAY_SIZE(iov) + 3].iov_base = &message_data;
-            iov_monitor[ARRAY_SIZE(iov) + 3].iov_len = message_data_size;
-
-            /* We don't really care if this fails and it may fail when the
-             * monitor goes down */
-            (void)_LSTransportSendVector(iov_monitor, ARRAY_SIZE(iov_monitor), monitor_total_size, app_id_offset, transport->monitor, lserror);
-        }
-    }
-    _LSTransportMessageUnref(message);
-
-    return true;
+    return status;
 }
 
 /**
@@ -5114,49 +5962,53 @@ _LSTransportProcessIncomingMessages(_LSTransportClient *client, LSError *lserror
 
         switch (_LSTransportMessageGetType(tmsg))
         {
-        case _LSTransportMessageTypeQueryNameReply:
-            _LSTransportHandleQueryNameReply(tmsg);
-            break;
+            case _LSTransportMessageTypeQueryNameReply:
+                _LSTransportHandleQueryNameReply(tmsg);
+                break;
 
-        case _LSTransportMessageTypeShutdown:
-            _LSTransportHandleShutdown(tmsg);
-            break;
+            case _LSTransportMessageTypeQueryProxyNameReply:
+                _LSTransportHandleQueryProxyNameReply(tmsg);
+                break;
 
-        case _LSTransportMessageTypeError:
-        case _LSTransportMessageTypeErrorUnknownMethod:
-        case _LSTransportMessageTypeReply:
-        case _LSTransportMessageTypeReplyWithFd:
-            /* FIXME -- signal replies currently have this same type,
-             * but signals are not in the serial hash
-             * -- see _LSHubHandleSignalRegister */
-            LOG_LS_DEBUG("%s: removing reply serial: %d, message serial: %d\n",
-                         __func__, (int)_LSTransportMessageGetReplyToken(tmsg), (int)_LSTransportMessageGetToken(tmsg));
-            _LSTransportSerialRemove(client->outgoing->serial, _LSTransportMessageGetReplyToken(tmsg));
-            _LSTransportHandleUserMessageHandler(tmsg);
-            //client->transport->msg_handler(tmsg, client->transport->prv_msg_context);
-            break;
+            case _LSTransportMessageTypeShutdown:
+                _LSTransportHandleShutdown(tmsg);
+                break;
 
-        case _LSTransportMessageTypeMonitorConnected:
-        case _LSTransportMessageTypeMonitorNotConnected:
-            _LSTransportHandleMonitor(tmsg);
-            break;
+            case _LSTransportMessageTypeError:
+            case _LSTransportMessageTypeErrorUnknownMethod:
+            case _LSTransportMessageTypeReply:
+            case _LSTransportMessageTypeReplyWithFd:
+                /* FIXME -- signal replies currently have this same type,
+                * but signals are not in the serial hash
+                * -- see _LSHubHandleSignalRegister */
+                LOG_LS_DEBUG("%s: removing reply serial: %d, message serial: %d\n",
+                            __func__, (int)_LSTransportMessageGetReplyToken(tmsg), (int)_LSTransportMessageGetToken(tmsg));
+                _LSTransportSerialRemove(client->outgoing->serial, _LSTransportMessageGetReplyToken(tmsg));
+                _LSTransportHandleUserMessageHandler(tmsg);
+                //client->transport->msg_handler(tmsg, client->transport->prv_msg_context);
+                break;
 
-        case _LSTransportMessageTypeMonitorAcceptClient:
-            _LSTransportHandleMonitorAcceptClient(tmsg);
-            break;
+            case _LSTransportMessageTypeMonitorConnected:
+            case _LSTransportMessageTypeMonitorNotConnected:
+                _LSTransportHandleMonitor(tmsg);
+                break;
 
-        case _LSTransportMessageTypeClientInfo:
-            _LSTransportHandleClientInfo(tmsg);
-            break;
+            case _LSTransportMessageTypeMonitorAcceptClient:
+                _LSTransportHandleMonitorAcceptClient(tmsg);
+                break;
 
-        case _LSTransportMessageTypeMethodCall:
-            /* Save message serial so we know what has been processed */
-            incoming->last_serial_processed = _LSTransportMessageGetToken(tmsg);
-            /* fallthrough */
+            case _LSTransportMessageTypeClientInfo:
+                _LSTransportHandleClientInfo(tmsg);
+                break;
 
-        default:
-            _LSTransportHandleUserMessageHandler(tmsg);
-            break;
+            case _LSTransportMessageTypeMethodCall:
+                /* Save message serial so we know what has been processed */
+                incoming->last_serial_processed = _LSTransportMessageGetToken(tmsg);
+                /* fallthrough */
+
+            default:
+                _LSTransportHandleUserMessageHandler(tmsg);
+                break;
         }
 
         _LSTransportMessageUnref(tmsg);
@@ -5484,6 +6336,13 @@ _LSTransportGetPrivileged(const _LSTransport *transport)
 {
     LS_ASSERT(transport != NULL);
     return transport->privileged;
+}
+
+bool
+_LSTransportGetProxyStatus(const _LSTransport *transport)
+{
+    LS_ASSERT(transport != NULL);
+    return transport->proxy;
 }
 
 /* NOTE: This is a blocking call */

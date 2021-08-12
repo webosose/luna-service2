@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 #define ROLE_TYPE_DEVMODE       "devmode"       // Can only call method allowed by devmode certificate
 #define ROLE_TYPE_REGULAR       "regular"       // Complies with ACG
 #define ROLE_TYPE_PRIVILEGED    "privileged"    // Can push roles and send with application id
+#define ROLE_TYPE_PROXY         "proxy"         // indirect call
 
 /// @brief Create new role for given executable
 ///
@@ -323,6 +324,11 @@ LSHubRoleIsPrivileged(const LSHubRole *role, BusTypeRoleFlag bus_flag)
             role->type & LSHubRoleTypePrivilegedPublic);
 }
 
+bool LSHubRoleIsProxy(const LSHubRole *role) {
+    LS_ASSERT(role != NULL);
+    return (role->type & LSHubRoleTypeProxy);
+}
+
 LSHubRoleType
 _LSHubRoleTypeStringToType(const std::string &type, uint32_t flags)
 {
@@ -345,6 +351,10 @@ _LSHubRoleTypeStringToType(raw_buffer type, uint32_t flags)
     else if (buffer_eq_cstr(type, ROLE_TYPE_PRIVILEGED))
     {
         return (flags & PUBLIC_BUS_ROLE) ? LSHubRoleTypePrivilegedPublic : LSHubRoleTypePrivileged;
+    }
+    else if (buffer_eq_cstr(type, ROLE_TYPE_PROXY))
+    {
+        return LSHubRoleTypeProxy;
     }
     else
     {

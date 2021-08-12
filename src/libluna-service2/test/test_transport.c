@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -621,9 +621,13 @@ test_LSTransportSend_execute(const char *service_name, const char *category, con
     LSError error;
     LSErrorInit(&error);
 
+    const char *origin_id = NULL;
+    const char *origin_name = NULL;
+    const char *origin_exe = NULL;
+
     /* Test: Call LSTransportSend and see what happens. */
     bool is_public_bus = false; // the value does not matter
-    gboolean function_success = LSTransportSend(transport, service_name, is_public_bus, category, method, payload, applicationId, &token, &error);
+    gboolean function_success = LSTransportSend(transport, origin_exe, origin_id, origin_name, service_name, is_public_bus, category, method, payload, applicationId, &token, &error);
     g_assert(function_success == expected_success);
 
     /* Cleanup. */

@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -263,6 +263,12 @@ static _ConfigDOM _ConfigCreateDOM(SecurityData *security_data)
                         .get_value = _ConfigKeyGetString,
                         .user_cb = (_ConfigKeyUser*) _ConfigKeySetString,
                         .user_ctxt = &g_conf_default_devmode_certificate,
+                    },
+                    {
+                        .key = "ProxyAgentsDirectories",
+                        .get_value = _ConfigKeyGetStringList,
+                        .user_cb = (_ConfigKeyUser*) ProcessProxyAgentsDirectories,
+                        .user_ctxt = security_data,
                     },
                     { NULL }
                 }

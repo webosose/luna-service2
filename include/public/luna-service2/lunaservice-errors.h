@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,15 +23,16 @@
  */
 #define _LS_ERROR_CODE_OFFSET           1024    /**< Try to avoid colliding with errno.h. See _LSErrorSetFromErrno() */
 
-#define LS_ERROR_CODE_UNKNOWN_ERROR     (-1 - _LS_ERROR_CODE_OFFSET)    /**< unknown */
-#define LS_ERROR_CODE_OOM               (-2 - _LS_ERROR_CODE_OFFSET)    /**< out of memory */
-#define LS_ERROR_CODE_PERMISSION        (-3 - _LS_ERROR_CODE_OFFSET)    /**< permissions */
-#define LS_ERROR_CODE_DUPLICATE_NAME    (-4 - _LS_ERROR_CODE_OFFSET)    /**< duplicate name */
-#define LS_ERROR_CODE_CONNECT_FAILURE   (-5 - _LS_ERROR_CODE_OFFSET)    /**< connection failure */
-#define LS_ERROR_CODE_DEPRECATED        (-6 - _LS_ERROR_CODE_OFFSET)    /**< API is deprecated */
-#define LS_ERROR_CODE_NOT_PRIVILEGED    (-7 - _LS_ERROR_CODE_OFFSET)    /**< service is not privileged */
-#define LS_ERROR_CODE_PROTOCOL_VERSION  (-8 - _LS_ERROR_CODE_OFFSET)    /**< protocol version mismatch */
-#define LS_ERROR_CODE_EAGAIN            (-9 - _LS_ERROR_CODE_OFFSET)    /**< try again */
+#define LS_ERROR_CODE_UNKNOWN_ERROR          (-1 - _LS_ERROR_CODE_OFFSET)    /**< unknown */
+#define LS_ERROR_CODE_OOM                    (-2 - _LS_ERROR_CODE_OFFSET)    /**< out of memory */
+#define LS_ERROR_CODE_PERMISSION             (-3 - _LS_ERROR_CODE_OFFSET)    /**< permissions */
+#define LS_ERROR_CODE_DUPLICATE_NAME         (-4 - _LS_ERROR_CODE_OFFSET)    /**< duplicate name */
+#define LS_ERROR_CODE_CONNECT_FAILURE        (-5 - _LS_ERROR_CODE_OFFSET)    /**< connection failure */
+#define LS_ERROR_CODE_DEPRECATED             (-6 - _LS_ERROR_CODE_OFFSET)    /**< API is deprecated */
+#define LS_ERROR_CODE_NOT_PRIVILEGED         (-7 - _LS_ERROR_CODE_OFFSET)    /**< service is not privileged */
+#define LS_ERROR_CODE_NOT_PROXY_PRIVILEGED   (-8 - _LS_ERROR_CODE_OFFSET)    /**< service is not privileged */
+#define LS_ERROR_CODE_PROTOCOL_VERSION       (-9 - _LS_ERROR_CODE_OFFSET)    /**< protocol version mismatch */
+#define LS_ERROR_CODE_EAGAIN                 (-10 - _LS_ERROR_CODE_OFFSET)    /**< try again */
 
 /**
  * @} LunaServiceErrorCodes
@@ -70,6 +71,9 @@
 
 /** Badly formatted message */
 #define LUNABUS_ERROR_BAD_MESSAGE       "BadMessage"
+
+/** Not authorise make proxy calls */
+#define LUNABUS_ERROR_NOT_AUTHORISED    "UnAuthorised"
 
 /** Out of memory */
 #define LUNABUS_ERROR_OOM "OutOfMemory"

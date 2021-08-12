@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2019 LG Electronics, Inc.
+// Copyright (c) 2008-2021 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -403,6 +403,9 @@ const char * LSMessageGetApplicationID(LSMessage *message);
 
 const char * LSMessageGetSender(LSMessage *message);
 const char * LSMessageGetSenderServiceName(LSMessage *message);
+const char * LSMessageGetSenderExePath(LSMessage *message);
+const char * LSMessageGetSenderTrustLevel(LSMessage *message);
+
 const char * LSMessageGetCategory(LSMessage *message);
 const char * LSMessageGetMethod(LSMessage *message);
 
@@ -500,6 +503,32 @@ bool LSCall(LSHandle *sh, const char *uri, const char *payload,
 bool LSCallOneReply(LSHandle *sh, const char *uri, const char *payload,
        LSFilterFunc callback, void *ctx,
        LSMessageToken *ret_token, LSError *lserror);
+
+bool LSCallProxy(LSHandle *sh, const char *origin_exe,
+                 const char *origin_id, const char *origin_name,
+                 const char *uri, const char *payload,
+                 LSFilterFunc callback, void *ctx,
+                 LSMessageToken *ret_token, LSError *lserror);
+
+bool LSCallProxyOneReply(LSHandle *sh, const char *origin_exe,
+                         const char *origin_id, const char *origin_name,
+                         const char *uri, const char *payload,
+                         LSFilterFunc callback, void *ctx,
+                         LSMessageToken *ret_token, LSError *lserror);
+
+bool LSCallProxyFromApplication(LSHandle *sh, const char *origin_exe,
+                                const char *origin_id, const char *origin_name,
+                                const char *uri, const char *payload,
+                                const char *applicationID,
+                                LSFilterFunc callback, void *ctx,
+                                LSMessageToken *ret_token, LSError *lserror);
+
+bool LSCallProxyFromApplicationOneReply(LSHandle *sh, const char *origin_exe,
+                                        const char *origin_id, const char *origin_name,
+                                        const char *uri, const char *payload,
+                                        const char *applicationID,
+                                        LSFilterFunc callback, void *ctx,
+                                        LSMessageToken *ret_token, LSError *lserror);
 
 bool LSCallFromApplication(LSHandle *sh, const char *uri, const char *payload,
        const char *applicationID,
