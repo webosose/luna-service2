@@ -5463,6 +5463,18 @@ _LSTransportDeinit(_LSTransport *transport)
         g_free(transport->app_id);
         transport->app_id = NULL;
 
+        if(transport->provided_trust_level_map)
+        {
+            g_hash_table_destroy(transport->provided_trust_level_map);
+            transport->provided_trust_level_map = NULL;
+        }
+        if(transport->provided_trust_level_to_group_map)
+        {
+            g_slist_free_full(transport->provided_trust_level_to_group_map, (GDestroyNotify) LSTransportTrustLevelGroupBitmaskFree);
+            transport->provided_trust_level_to_group_map = NULL;
+        }
+        transport->monitor=NULL;
+
         g_free(transport);
     }
 }

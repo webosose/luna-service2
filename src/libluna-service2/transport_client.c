@@ -91,6 +91,7 @@ _LSTransportClientNew(_LSTransport* transport, int fd, const char *service_name,
     new_client->service_name = g_strdup(service_name);
     new_client->unique_name = g_strdup(unique_name);
     new_client->app_id = NULL;
+    new_client->trust_level_string = NULL;
     new_client->transport = transport;
     new_client->state = _LSTransportClientStateInvalid;
     new_client->is_dynamic = false;
@@ -168,6 +169,7 @@ _LSTransportClientFree(_LSTransportClient* client)
     g_free(client->service_name);
     g_free(client->app_id);
     g_free(client->security_required_groups);
+    g_free(client->trust_level_string);
     _LSTransportCredFree(client->cred);
     _LSTransportOutgoingFree(client->outgoing);
     _LSTransportIncomingFree(client->incoming);
@@ -533,6 +535,7 @@ bool _LSTransportClientInitializeTrustLevel(_LSTransportClient *client, const ch
 
     LS_ASSERT(client);
     LS_ASSERT(trust_level);
+    g_free(client->trust_level_string);
     client->trust_level_string = g_strdup(trust_level);
     return true;
 }
