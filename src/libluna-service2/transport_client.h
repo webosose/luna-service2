@@ -93,6 +93,8 @@ void _LSTransportClientSetApplicationId(_LSTransportClient *client, const char *
 const char* _LSTransportClientGetServiceName(const _LSTransportClient *client);
 const char*  _LSTransportClientGetTrustString(const _LSTransportClient *client);
 const char* _LSTransportClientGetTrust(const _LSTransportClient *client);
+const char* _LSTransportClientGetExePath(const _LSTransportClient *client);
+const char* _LSTransportClientTrustLevel(const _LSTransportClient *client);
 _LSTransportChannel* _LSTransportClientGetChannel(_LSTransportClient *client);
 _LSTransport* _LSTransportClientGetTransport(const _LSTransportClient *client);
 const _LSTransportCred* _LSTransportClientGetCred(const _LSTransportClient *client);

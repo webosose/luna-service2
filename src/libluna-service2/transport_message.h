@@ -272,6 +272,8 @@ const char* _LSTransportMessageGetSenderUniqueName(const _LSTransportMessage *me
 const char* _LSTransportMessageGetDestServiceName(_LSTransportMessage *message);
 const char* _LSTransportMessageGetDestUniqueName(_LSTransportMessage *message);
 const char* _LSTransportMessageGetError(const _LSTransportMessage *message);
+const char* _LSTransportMessageGetExePath(const _LSTransportMessage *message);
+const char* _LSTransportMessageGetTrustLevel(const _LSTransportMessage *message);
 
 const _LSMonitorMessageData *_LSTransportMessageGetMonitorMessageData(_LSTransportMessage *message);
 
