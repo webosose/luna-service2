@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2021 LG Electronics, Inc.
+// Copyright (c) 2008-2022 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -3179,6 +3179,13 @@ _LSTransportHandleQueryProxyNameReply(_LSTransportMessage *message) {
     if (concatenated_name &&
         _LSTransportClientAllowOutboundCalls(client) &&
         !_LSTransportAddClientHash(transport, client, concatenated_name))
+    {
+        LS_ASSERT(0);
+    }
+    // fix for proxy call cancel
+    if (concatenated_name &&
+        _LSTransportClientAllowOutboundCalls(client) &&
+        !_LSTransportAddClientHash(transport, client, service_name))
     {
         LS_ASSERT(0);
     }
