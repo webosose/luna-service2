@@ -3175,17 +3175,12 @@ _LSTransportHandleQueryProxyNameReply(_LSTransportMessage *message) {
 
     /* If we're not allowed to call the client, do not add it
      * to the list of connected services
-     * client ref +1 (total = 2) */
+     * client ref +1 (total = 2)
+     * adding service name in transport for proxy call cancel*/
     if (concatenated_name &&
         _LSTransportClientAllowOutboundCalls(client) &&
+        !_LSTransportAddClientHash(transport, client, service_name) &&
         !_LSTransportAddClientHash(transport, client, concatenated_name))
-    {
-        LS_ASSERT(0);
-    }
-    // fix for proxy call cancel
-    if (concatenated_name &&
-        _LSTransportClientAllowOutboundCalls(client) &&
-        !_LSTransportAddClientHash(transport, client, service_name))
     {
         LS_ASSERT(0);
     }
