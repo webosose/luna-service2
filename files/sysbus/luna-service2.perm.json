@@ -1,5 +1,8 @@
 {
-  "*": ["service.communication", "servicebus.communication", "servicebus.signal"],
+  "*": ["service.communication", "servicebus.communication"],
   "com.webos.monitor*": ["service.monitor"],
+  "com.webos.*": ["servicebus.signal"],
+  "com.palm.*":  ["servicebus.signal"],
+  "com.lge.*":   ["servicebus.signal"],
   "com.webos.lunasend-*": ["all"]
 }
