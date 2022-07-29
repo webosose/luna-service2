@@ -3179,9 +3179,12 @@ _LSTransportHandleQueryProxyNameReply(_LSTransportMessage *message) {
      * adding service name in transport for proxy call cancel*/
     if (concatenated_name &&
         _LSTransportClientAllowOutboundCalls(client) &&
-        !_LSTransportAddClientHash(transport, client, service_name) &&
         !_LSTransportAddClientHash(transport, client, concatenated_name))
     {
+        LS_ASSERT(0);
+    }
+
+    if (!_LSTransportAddClientHash(transport, client, service_name) ){
         LS_ASSERT(0);
     }
 
