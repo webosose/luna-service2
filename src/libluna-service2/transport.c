@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2022 LG Electronics, Inc.
+// Copyright (c) 2008-2023 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,6 +54,7 @@ typedef struct _LSTransportMessageFailureItem
     _LSTransportMessageFailureType failure_type;    /**< type of failure */
 } _LSTransportMessageFailureItem;
 
+#ifdef DEBUG
 void DumpToFile(const char* filename, const char* dump, _LSTransport *transport)
 {
     if (!filename) return;
@@ -95,11 +96,11 @@ void DumpToFile(const char* filename, const char* dump, _LSTransport *transport)
     }
 
     FILE *fp;
-    // open file for writing 
-    fp = fopen (full_path, "w"); 
-    if (fp == NULL) 
-    { 
-        //fprintf(stderr, "\nError opend file\n"); 
+    // open file for writing
+    fp = fopen (full_path, "w");
+    if (fp == NULL)
+    {
+        //fprintf(stderr, "\nError opend file\n");
         return;
     }
     fprintf(fp, "%s", title);
@@ -108,6 +109,7 @@ void DumpToFile(const char* filename, const char* dump, _LSTransport *transport)
     fprintf(fp, "\n");
     fclose(fp);
 }
+#endif
 
 bool _LSTransportProcessIncomingMessages(_LSTransportClient *client, LSError *lserror);
 
@@ -2012,9 +2014,11 @@ _LSTransportRequestName(const char *requested_name,
             _LSTransportInitializeTrustLevel(client->transport, trust_provided_map_json, strlen(trust_provided_map_json)
                                                              , trust_required_map_json, strlen(trust_required_map_json)
                                                              , trust_level_string, strlen(trust_level_string));
-            DumpToFile("transport_c__LSTransportRequestName_trust_provided_map_json", trust_provided_map_json, client->transport);
-            DumpToFile("transport_c__LSTransportRequestName_trust_required_map_json", trust_required_map_json, client->transport);
-            //DumpToFile("transport_c__LSTransportRequestName_trust_level_string", trust_level_string, client->transport);
+#ifdef DEBUG
+        DumpToFile("transport_c__LSTransportRequestName_trust_provided_map_json", trust_provided_map_json, client->transport);
+        DumpToFile("transport_c__LSTransportRequestName_trust_required_map_json", trust_required_map_json, client->transport);
+        //DumpToFile("transport_c__LSTransportRequestName_trust_level_string", trust_level_string, client->transport);
+#endif
         }
 
         /* need copy since iterator points inside message */
@@ -6454,8 +6458,10 @@ bool _LSTransportInitializeTrustLevel(_LSTransport *transport, const char * prov
     if ((required_map_json && strlen(required_map_json) > 0)
          && (provided_map_json && strlen(provided_map_json) > 0))
     {
+#ifdef DEBUG
         DumpToFile("transport_c_LSTransportInitializeTrustLevel_provided", provided_map_json, transport);//DEBUG
         DumpToFile("transport_c_LSTransportInitializeTrustLevel_required", required_map_json, transport);//DEBUG
+#endif
     }
     else
         return true; // Always true currently
