@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2021 LG Electronics, Inc.
+// Copyright (c) 2008-2023 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -595,7 +595,7 @@ LSCategoryMethodCall(LSHandle *sh, LSCategoryTable *category,
     {
         ClockGetTime(&end_time);
         ClockDiff(&gap_time, &end_time, &start_time);
-        LOG_LS_DEBUG("TYPE=service handler execution time | TIME=%lld | SERVICE=%s | CATEGORY=%s | METHOD=%s",
+        LOG_LS_DEBUG("TYPE=service handler execution time | TIME=%ld | SERVICE=%s | CATEGORY=%s | METHOD=%s",
                 ClockGetMs(&gap_time), receiver, LSMessageGetCategory(message), method_name);
     }
 

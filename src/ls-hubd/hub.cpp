@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2021 LG Electronics, Inc.
+// Copyright (c) 2008-2023 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -867,6 +867,7 @@ _LSHubSendRequestNameReply(_LSTransportClient *client, const char *unique_name, 
     if (g_conf_security_enabled)
     {
         LSHubPermission *active_perm = LSHubActivePermissionMapLookup(unique_name);
+        LS_ASSERT(active_perm);
         if (active_perm)
         {
             service_name = LSHubPermissionGetServiceName(active_perm);
