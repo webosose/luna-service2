@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2018 LG Electronics, Inc.
+// Copyright (c) 2015-2023 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -129,6 +129,7 @@ std::string HubService::IsCallAllowed(_LSTransportMessage *message, const char *
 
     LS::Error error;
     auto lsuri = mk_ptr(LSUriParse(object["uri"].asString().c_str(), error.get()), LSUriFree);
+    assert(lsuri);
     if (error.isSet())
     {
         return make_error(error->error_code, error->message);
