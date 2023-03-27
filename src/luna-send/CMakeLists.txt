@@ -16,7 +16,7 @@
 
 project(luna-send)
 
-webos_add_compiler_flags(ALL --std=c++11)
+webos_add_compiler_flags(ALL --std=c++14)
 
 add_executable(${PROJECT_NAME} luna-send.cpp)
 target_link_libraries(${PROJECT_NAME} ${CMAKE_PROJECT_NAME})

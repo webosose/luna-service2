@@ -45,7 +45,7 @@ set(PROJECT_SOURCES
     service_map.cpp
     )
 
-webos_add_compiler_flags(ALL --std=c++11)
+webos_add_compiler_flags(ALL --std=c++14)
 
 # The following definitions avoid the need to configure any source files
 add_definitions(-DDEFAULT_MONITOR_EXE_PATH="${WEBOS_INSTALL_SBINDIR}/ls-monitor")

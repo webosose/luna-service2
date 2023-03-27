@@ -25,7 +25,7 @@ pkg_check_modules(LS2++ REQUIRED luna-service2++>=3)
 include_directories(${LS2++_INCLUDE_DIRS})
 webos_add_compiler_flags(ALL ${LS2++_CFLAGS})
 
-webos_add_compiler_flags(ALL -std=c++11 -Wall)
+webos_add_compiler_flags(ALL -std=c++14 -Wall)
 
 webos_include_install_paths()
 

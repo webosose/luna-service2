@@ -146,9 +146,6 @@ webos_add_compiler_flags(ALL -DUSE_PMLOG_DECLARATION)
 # Debug definitions
 webos_add_compiler_flags(ALL -DMEMCHECK -DLSHANDLE_CHECK)
 
-# Specifying this causes "inline function '<function>' declared but never defined" errors.
-# webos_add_compiler_flags(ALL -std=c99)
-
 # Turn on all warnings
 webos_add_compiler_flags(ALL -Wall -Werror=switch)
 

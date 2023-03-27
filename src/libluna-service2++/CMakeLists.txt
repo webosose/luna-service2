@@ -41,7 +41,7 @@ set(HEADERS
 
 include_directories(${PUBLIC_INCLUDES}/luna-service2++)
 
-webos_add_compiler_flags(ALL -Wall -std=c++11)
+webos_add_compiler_flags(ALL -Wall -std=c++14)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES} ${HEADERS})
 target_link_libraries(${PROJECT_NAME} luna-service2 ${PBNJSON_CXX_LIBRARIES})
