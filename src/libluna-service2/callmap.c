@@ -416,6 +416,9 @@ _CallAcquireEx(_CallMap *map, LSMessageToken token, bool lock)
 {
     _Call *call;
 
+    if(!map)
+        return NULL;
+
     _CallMapLock(map);
 
     call = g_hash_table_lookup(map->tokenMap, (gpointer)token);
