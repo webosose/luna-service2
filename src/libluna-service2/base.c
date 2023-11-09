@@ -488,6 +488,24 @@ _LSSecurityCheckTrustLevel(const char* provided_trust_level_string,
     return false;
 }
 
+static inline gchar *
+_LSSecurityGetGroupsStringFromMask(_LSTransport *transport, LSTransportBitmaskWord *mask)
+{
+    GHashTableIter iter_groups;
+    gpointer group, bit;
+    GString *groups = g_string_new(NULL);
+
+    g_hash_table_iter_init(&iter_groups, transport->group_code_map);
+    while (g_hash_table_iter_next(&iter_groups, &group, &bit)) {
+        if (BitMaskTestBit(mask, GPOINTER_TO_INT(bit))) {
+            g_string_append(groups, group);
+            g_string_append(groups, " ");
+        }
+    }
+
+    return g_string_free(groups, FALSE);
+}
+
 static inline LSMessageHandlerResult
 LSCategoryMethodCall(LSHandle *sh, LSCategoryTable *category,
                      _LSTransportClient *client, LSMessage *message)
@@ -518,11 +536,23 @@ LSCategoryMethodCall(LSHandle *sh, LSCategoryTable *category,
                                client->security_required_groups,
                                LSTransportGetSecurityMaskSize(sh->transport)))
     {
-        LOG_LS_WARNING(MSGID_LS_REQUIRES_SECURITY, 3,
-                       PMLOGKS("SERVICE", sender ? sender : "(null)"),
+        const char *service_name = LSHandleGetName(sh);
+        gchar *provided_groups = _LSSecurityGetGroupsStringFromMask(sh->transport, method->security_provided_groups);
+        gchar *required_groups = _LSSecurityGetGroupsStringFromMask(sh->transport, client->security_required_groups);
+        LOG_LS_WARNING(MSGID_LS_REQUIRES_SECURITY, 4,
+                       PMLOGKS("CLIENT", sender ? sender : "(null)"),
+                       PMLOGKS("SERVICE", service_name ? service_name : "(null)"),
                        PMLOGKS("CATEGORY", LSMessageGetCategory(message)),
                        PMLOGKS("METHOD", method_name),
-                      "Service security groups don't allow method call.");
+                       "Service security groups don't allow method call.\n"
+                       "provided_groups: %s\n"
+                       "required_groups: %s\n",
+                       provided_groups ? provided_groups : "(null)",
+                       required_groups ? required_groups : "(null)");
+        if (provided_groups)
+            g_free(provided_groups);
+        if (required_groups)
+            g_free(required_groups);
         return LSMessageHandlerResultPermissionDenied;
     }
 
