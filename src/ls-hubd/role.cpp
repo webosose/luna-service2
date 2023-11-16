@@ -272,7 +272,7 @@ LSHubRoleGetServiceFlags(const LSHubRole *role, const char *service_name)
         return 0;
 
     uint32_t ret(0);
-    for (auto v: role->flags)
+    for (const auto& v: role->flags)
     {
         if (std::string::npos == v.first.find_first_of("*?"))
             continue;
