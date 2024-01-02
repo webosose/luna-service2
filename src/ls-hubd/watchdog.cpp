@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2018 LG Electronics, Inc.
+// Copyright (c) 2008-2024 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@
 static gint last_count_seen = 0;
 static gint watchdog_count = 0;
 
-#if !(defined WEBOS_TARGET_MACHINE_IMPL_GUEST)
+#if !defined(BUILD_FOR_DESKTOP)
 /* Can't use librdx because it creates a circular build dependency */
 
 static void
@@ -78,7 +78,7 @@ _WatchdogSignalTimeout(int signal)
             LS_ASSERT(0);
             break;
         case LSHubWatchdogFailureModeRdx:
-#if !(defined WEBOS_TARGET_MACHINE_IMPL_GUEST)
+#if !defined(BUILD_FOR_DESKTOP)
             /* Generate rdx report. This isn't really safe because it's
              * most certainly calling non async-signal-safe functions (see
              * man 7 signal). The only way to get around that would be to make

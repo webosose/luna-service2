@@ -1,4 +1,4 @@
-# Copyright (c) 2008-2018 LG Electronics, Inc.
+# Copyright (c) 2008-2024 LG Electronics, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,9 +54,6 @@ include_directories(${PMLOGLIB_INCLUDE_DIRS})
 link_directories(${PMLOGLIB_LIBRARY_DIRS})
 webos_add_compiler_flags(ALL ${PMLOGLIB_CFLAGS_OTHER})
 
-webos_machine_impl_dep()
-include(webOS/LegacyDefines)
-
 webos_include_install_paths()
 
 set(LS2_PERMS "")
@@ -69,6 +66,9 @@ if(WEBOS_TARGET_MACHINE_IMPL STREQUAL hardware)
 	# XXX Convert this to VERY_RESTRICTED_PERMISSIONS
 	# once it is implemented.
 	set(LS2_RESTRICTED RESTRICTED_PERMISSIONS)
+endif()
+if (NOT DEFINED WEBOS_TARGET_MACHINE_IMPL OR WEBOS_TARGET_MACHINE_IMPL STREQUAL guest)
+	add_definitions(-DBUILD_FOR_DESKTOP)
 endif()
 
 if("${WEBOS_DISTRO_PRERELEASE}" STREQUAL "")

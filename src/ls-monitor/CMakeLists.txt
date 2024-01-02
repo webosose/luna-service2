@@ -1,4 +1,4 @@
-# Copyright (c) 2008-2018 LG Electronics, Inc.
+# Copyright (c) 2008-2024 LG Electronics, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ set(PROJECT_SOURCES
 
 webos_add_compiler_flags(ALL --std=c++14)
 
-if(WEBOS_TARGET_MACHINE_IMPL STREQUAL guest)
+if (NOT DEFINED WEBOS_TARGET_MACHINE_IMPL OR WEBOS_TARGET_MACHINE_IMPL STREQUAL guest)
 	add_definitions(-DPID_DIR="/tmp")
 else()
 	add_definitions(-DPID_DIR="${WEBOS_INSTALL_RUNTIMEINFODIR}/ls2")
