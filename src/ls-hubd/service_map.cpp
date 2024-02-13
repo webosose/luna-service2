@@ -51,7 +51,7 @@ void ServiceMap::Add(ServicePtr service)
             if (it == _services.end())
             {
                 _ServiceRef(service.get());
-                _services.emplace(service_name, service.get());
+                _services.emplace(service_name, std::move(service.get()));
             }
         }
         else
@@ -60,7 +60,7 @@ void ServiceMap::Add(ServicePtr service)
             if (!node->service)
             {
                 _ServiceRef(service.get());
-                node->service.reset(service.get());
+                node->service.reset(std::move(service.get()));
             }
         }
     }

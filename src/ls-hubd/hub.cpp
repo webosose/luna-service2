@@ -413,26 +413,20 @@ _DynamicServiceLaunch(_Service *service, LSError *lserror)
         service_names_str += ";";
     }
 
-    std::string service_names_env = "LS_SERVICE_NAMES=" + service_names_str;
-    std::string service_file_name_env = std::string("LS_SERVICE_FILE_NAME=") + service->service_file_name;
-
     /* Append to the hub's environment. There could be an issue if you set
      * either of the above env variables in the hub itself (duplicate keys),
      * but that shouldn't happen  */
-    int env_size = g_strv_length(environ);
-    auto new_env = mk_ptr(static_cast<const char **>(g_malloc(sizeof(char*) * (env_size + 3))), g_free);
-    memcpy(new_env.get(), environ, sizeof(char*) * env_size);
-
-    int offset = env_size;
-    new_env.get()[offset++] = service_names_env.c_str();
-    new_env.get()[offset++] = service_file_name_env.c_str();
-    new_env.get()[offset] = nullptr;
-
+    gchar **envp = g_get_environ ();
+    if(envp != NULL)
+    {
+        envp = g_environ_setenv(envp,"LS_SERVICE_NAMES",service_names_str.c_str(),TRUE);
+        envp = g_environ_setenv(envp,"LS_SERVICE_FILE_NAME",service->service_file_name,TRUE);
+    }
 
     /* TODO: modify arguments, esp. stdin, stdout, stderr */
     bool ret = g_spawn_async_with_pipes(NULL,  /* inherit parent's working dir */
                              *argv.get(), /* argv */
-                             (char **)new_env.get(), /* environment -- NULL means inherit parent's env */
+                             envp, /* environment -- NULL means inherit parent's env */
                              G_SPAWN_DO_NOT_REAP_CHILD, /* flags */
                              NULL, /* child_setup */
                              NULL, /* user_data */
@@ -454,7 +448,7 @@ _DynamicServiceLaunch(_Service *service, LSError *lserror)
     /* set up child watch so we can reap the child */
     _ServiceRef(service);
     g_child_watch_add(service->pid, (GChildWatchFunc)_DynamicServiceReap, service);
-
+    g_strfreev(envp);
     return ret;
 }
 

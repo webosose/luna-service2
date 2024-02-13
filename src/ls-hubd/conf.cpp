@@ -385,11 +385,11 @@ ConfigInotifyCallback(GIOChannel *channel, GIOCondition condition, gpointer data
     GError *error = NULL;
 
     gsize bytes_read;
-    gchar event_buf[256];
+    gchar event_buf[256] = {'\0'};
 
-    GIOStatus status = g_io_channel_read_chars(channel, event_buf, sizeof(event_buf), &bytes_read, &error);
+    GIOStatus status = g_io_channel_read_chars(channel, event_buf, sizeof(event_buf)-1, &bytes_read, &error);
 
-    if (status != G_IO_STATUS_NORMAL)
+    if (status != G_IO_STATUS_NORMAL || bytes_read > sizeof(event_buf))
     {
         LOG_LS_ERROR(MSGID_LSHUB_INOTIFY_ERR, 2,
                      PMLOGKFV("ERROR_CODE", "%d", error->code),
@@ -401,7 +401,7 @@ ConfigInotifyCallback(GIOChannel *channel, GIOCondition condition, gpointer data
 
     size_t offset = 0;
 
-    while (offset < bytes_read)
+    while (offset < bytes_read - sizeof(struct inotify_event))
     {
         struct inotify_event *event = (struct inotify_event*)&event_buf[offset];
 
@@ -420,8 +420,9 @@ ConfigInotifyCallback(GIOChannel *channel, GIOCondition condition, gpointer data
                              PMLOGKS("ERROR", g_strerror(errno)),
                              "Error sending SIGHUP: %d", errno);
             }
+            break;
         }
-        offset += sizeof(struct inotify_event) + event->len;
+        offset = offset + sizeof(struct inotify_event) + event->len;
     }
 
     return TRUE;    /* FALSE means remove */

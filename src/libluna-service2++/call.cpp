@@ -119,7 +119,6 @@ Message Call::waitOnMainLoop(long unsigned int msTimeout)
 
 bool Call::handleReply(LSHandle* sh, LSMessage* reply)
 {
-    std::unique_lock < std::mutex > lockg { _mutex };
     if (LSMESSAGE_TOKEN_INVALID == _token)
         return false;
 
@@ -130,14 +129,13 @@ bool Call::handleReply(LSHandle* sh, LSMessage* reply)
     {
         auto cb = _callCB;
         auto ctx = _callCtx;
-        lockg.unlock();
 
         (cb)(sh, reply, ctx);
     }
     else
     {
+        std::unique_lock < std::mutex > lockg { _mutex };
         _queue.push(reply);
-        lockg.unlock();
         _cv.notify_one();
     }
     return true;

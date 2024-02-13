@@ -130,7 +130,7 @@ LSIsRunning(const char *pid_dir, const char *pid_file_name)
     }
 
     g_free(lock_file);
-
+    close(fd);
     return false;
 }
 

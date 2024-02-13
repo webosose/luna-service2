@@ -1053,7 +1053,11 @@ LSSubscriptionAcquire(LSHandle *sh, const char *key,
     {
         *ret_iter = iter;
     }
-
+    else
+    {
+        g_free(iter);
+        return false;
+    }
     return true;
 }
 

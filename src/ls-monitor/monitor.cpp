@@ -379,23 +379,51 @@ _LSMonitorListMessageHandler(_LSTransportMessage *message, void *context)
     {
         _LSMonitorListInfo *info = static_cast<_LSMonitorListInfo *>(g_malloc(sizeof(_LSMonitorListInfo)));
 
-        if (!_LSTransportMessageGetString(&iter, &unique_name)) break;
+        if (!_LSTransportMessageGetString(&iter, &unique_name))
+        {
+            g_free(info);
+            break;
+        }
         info->unique_name = g_strdup(unique_name);
         _LSTransportMessageIterNext(&iter);
 
-        if (!_LSTransportMessageGetString(&iter, &service_name)) break;
+        if (!_LSTransportMessageGetString(&iter, &service_name))
+        {
+            g_free(info->unique_name);
+            g_free(info);
+            break;
+        }
         info->service_name = g_strdup(service_name);
         _LSTransportMessageIterNext(&iter);
 
-        if (!_LSTransportMessageGetInt32(&iter, &pid)) break;
+        if (!_LSTransportMessageGetInt32(&iter, &pid))
+        {
+            g_free(info->service_name);
+            g_free(info->unique_name);
+            g_free(info);
+            break;
+        }
         info->pid = pid;
         _LSTransportMessageIterNext(&iter);
 
-        if (!_LSTransportMessageGetString(&iter, &exe_path)) break;
+        if (!_LSTransportMessageGetString(&iter, &exe_path))
+        {
+            g_free(info->service_name);
+            g_free(info->unique_name);
+            g_free(info);
+            break;
+        }
         info->exe_path = g_strdup(exe_path);
         _LSTransportMessageIterNext(&iter);
 
-        if (!_LSTransportMessageGetString(&iter, &service_type)) break;
+        if (!_LSTransportMessageGetString(&iter, &service_type))
+        {
+            g_free(info->service_name);
+            g_free(info->unique_name);
+            g_free(info->exe_path);
+            g_free(info);
+            break;
+        }
         info->service_type = g_strdup(service_type);
         _LSTransportMessageIterNext(&iter);
 
