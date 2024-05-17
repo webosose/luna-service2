@@ -1770,7 +1770,7 @@ _LSHubSendServiceWaitListReply(_ClientId *id, bool success, bool is_dynamic, LSE
             origin_id = _LSTransportMessageTypeQueryProxyNameGetOriginId(query_message);
             origin_exe = _LSTransportMessageTypeQueryProxyNameGetOriginExePath(query_message);
         }
-
+        LS_ASSERT(requested_service != NULL);
         std::string destination_service;
         if (strcmp(requested_service, id->service_name) == 0) {
             destination_service = requested_service;
@@ -2199,7 +2199,11 @@ _LSHubHandleQueryProxyName(_LSTransportMessage *message) {
     const char *origin_name = _LSTransportMessageTypeQueryProxyNameGetOriginName(message);
     const char *origin_id = _LSTransportMessageTypeQueryProxyNameGetOriginId(message);
     const char *origin_exe = _LSTransportMessageTypeQueryProxyNameGetOriginExePath(message);
-
+    if (!origin_name)
+    {
+        LOG_LS_ERROR(MSGID_LS_NOT_AN_ERROR,0,"%s - Proxy message origin_name is NULL. Not proceeding further.",__func__);
+        return;
+    }
     _ClientId *origin_client_id = static_cast<_ClientId *>(g_hash_table_lookup(available_services, origin_name));
     _LSTransportClient *origin_client = origin_client_id ? origin_client_id->client : nullptr;
 

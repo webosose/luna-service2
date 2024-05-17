@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2023 LG Electronics, Inc.
+// Copyright (c) 2008-2024 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -3072,6 +3072,9 @@ _LSTransportHandleQueryProxyNameReply(_LSTransportMessage *message) {
     const char *origin_id = _LSTransportQueryProxyNameReplyGetOriginId(message);
     const char *origin_exe = _LSTransportQueryProxyNameReplyGetOriginExePath(message);
     const char *concatenated_name = NULL;
+
+    LS_ASSERT(origin_name != NULL);
+    LS_ASSERT(service_name != NULL);
 
     // destination Service name will be concatednated with origin name.
     // This is needed for identifying connection
