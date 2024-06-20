@@ -659,7 +659,7 @@ LSMessageHandlerResult _LSCheckProvidedTrustedGroups(LSHandle *sh,
         jvalue_ref providedGroupTrustLevel = NULL;
         jvalue_ref providedGroupsRef = NULL;
 
-        LOG_LS_INFO(MSGID_LS_NOT_AN_ERROR, 0,"Enhanced ACG \n");
+        LOG_LS_DEBUG(MSGID_LS_NOT_AN_ERROR, 0,"Enhanced ACG \n");
         // prepare full methods name for pattern matching
         //char *full_name = g_build_path("/", category_path, m->name, NULL);
         const LSTransportTrustLevelGroupBitmask *TrustLevel_bitmask = NULL;
@@ -688,7 +688,7 @@ LSMessageHandlerResult _LSCheckProvidedTrustedGroups(LSHandle *sh,
                     {
                         if(TrustLevel_bitmask->trustLevel_group_bitmask)
                         {
-                            LOG_LS_INFO(MSGID_LS_NOT_AN_ERROR, 0, "[%s] found group bit mask : %d \n", __func__,
+                            LOG_LS_DEBUG(MSGID_LS_NOT_AN_ERROR, 0, "[%s] found group bit mask : %d \n", __func__,
                                                *TrustLevel_bitmask->trustLevel_group_bitmask);
                             providedGroupTrustLevel = LSTransportGetTrustFromMask(sh->transport,
                                                           TrustLevel_bitmask->trustLevel_group_bitmask);
