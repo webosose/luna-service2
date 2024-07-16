@@ -136,6 +136,50 @@ _LSTransportCredGetGid(const _LSTransportCred *cred)
     return cred->gid;
 }
 
+#ifdef UNIT_TESTS
+/**
+ *******************************************************************************
+ * @brief Set the PID.
+ *
+ * @param  cred     IN  credentials
+ * $param  pid      IN  process id
+ *******************************************************************************
+ */
+void _LSTransportCredSetPid(_LSTransportCred *cred, pid_t pid)
+{
+    if (cred != NULL)
+    cred->pid = pid;
+}
+
+/**
+ *******************************************************************************
+ * @brief Set the UID.
+ *
+ * @param  cred     IN  credentials
+ * $param  uid      IN  user id
+ *******************************************************************************
+ */
+void _LSTransportCredSetUid(_LSTransportCred *cred, uid_t uid)
+{
+    if (cred != NULL)
+    cred->uid = uid;
+}
+
+/**
+ *******************************************************************************
+ * @brief Set the GID.
+ *
+ * @param  cred     IN  credentials
+ * $param  gid      IN  group id
+ *******************************************************************************
+ */
+void _LSTransportCredSetGid(_LSTransportCred *cred, gid_t gid)
+{
+    if (cred != NULL)
+    cred->gid = gid;
+}
+#endif
+
 /**
  *******************************************************************************
  * @brief Get the full path to executable.
@@ -355,10 +399,6 @@ void _LSTransportCredSetExePath(_LSTransportCred *cred, char const *exe_path)
     cred->exe_path = g_strdup(exe_path);
 }
 
-void _LSTransportCredSetPid(_LSTransportCred *cred, pid_t pid)
-{
-    cred->pid = pid;
-}
 
 /**
  * @} END OF LunaServiceTransportSecurity

@@ -351,6 +351,81 @@ LSMessageGetSenderServiceName(LSMessage *message)
 
 /**
  *******************************************************************************
+ * @brief Get the process id that sent the message.
+ *
+ * @param message IN message
+ *
+ * @retval pid_t, process id of the sender
+ * @retval -1 otherwise
+ *******************************************************************************
+ */
+pid_t LSMessageGetSenderPid(LSMessage *message)
+{
+    LS_ASSERT(message != NULL);
+
+    pid_t process_id = _LSTransportMessageGetSenderPid(message->transport_msg);
+
+    return process_id;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get the user id that sent the message.
+ *
+ * @param message IN message
+ *
+ * @retval uid_t, user id of the sender
+ * @retval -1 otherwise
+ *******************************************************************************
+ */
+uid_t LSMessageGetSenderUid(LSMessage *message)
+{
+    LS_ASSERT(message != NULL);
+
+    uid_t user_id = _LSTransportMessageGetSenderUid(message->transport_msg);
+
+    return user_id;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get the group id that sent the message.
+ *
+ * @param message IN message
+ *
+ * @retval gid_t, user id of the sender
+ * @retval -1 otherwise
+ *******************************************************************************
+ */
+gid_t LSMessageGetSenderGid(LSMessage *message)
+{
+    LS_ASSERT(message != NULL);
+
+    gid_t group_id = _LSTransportMessageGetSenderGid(message->transport_msg);
+
+    return group_id;
+}
+
+/**
+ *******************************************************************************
+ * @brief Get the process info including pid/uid/gid that sent the message.
+ *
+ * @param message IN message
+ *
+ * @return true on success
+ * @return false otherwise
+ *******************************************************************************
+ */
+bool LSMessageGetSenderProcessInfo(LSMessage *message, LSProcessInfo* proc_info)
+{
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(proc_info != NULL);
+
+    return _LSTransportMessageGetSenderProcessInfo(message->transport_msg, proc_info);
+}
+
+/**
+ *******************************************************************************
  * @brief Get the unique serial of this message. Do not confuse with
  *        LSMessageGetResponseToken().
  *

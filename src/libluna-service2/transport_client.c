@@ -306,6 +306,25 @@ _LSTransportClientTrustLevel(const _LSTransportClient *client) {
     return client->trust_level_string;
 }
 
+pid_t
+_LSTransportClientGetPid(const _LSTransportClient *client) {
+    LS_ASSERT(client != NULL);
+    return _LSTransportCredGetPid(_LSTransportClientGetCred(client));
+}
+
+uid_t
+_LSTransportClientGetUid(const _LSTransportClient *client) {
+    LS_ASSERT(client != NULL);
+    return _LSTransportCredGetUid(_LSTransportClientGetCred(client));
+
+}
+
+gid_t
+_LSTransportClientGetGid(const _LSTransportClient *client) {
+    LS_ASSERT(client != NULL);
+    return _LSTransportCredGetGid(_LSTransportClientGetCred(client));
+}
+
 /**
  *******************************************************************************
  * @brief Set a client's unique name.

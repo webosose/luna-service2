@@ -1592,3 +1592,13 @@ LSMessageMarkInactive(LSMessage *message)
 }
 
 /** @} END OF LunaServiceGlobal */
+
+bool
+LSProcessInfoInit(LSProcessInfo *proc_info)
+{
+    if (proc_info == NULL)
+        return false;
+
+    memset(proc_info, 0, sizeof (LSProcessInfo));
+    return true;
+}

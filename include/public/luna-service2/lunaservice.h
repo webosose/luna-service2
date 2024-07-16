@@ -294,6 +294,12 @@ typedef struct {
 	LSPropertyFlags flags;	/**<Property flags */
 } LSProperty;
 
+typedef struct {
+    pid_t pid; /**<Process pid */
+    uid_t uid; /**<Process uid */
+    gid_t gid; /**<Process gid */
+} LSProcessInfo;
+
 /** @} END OF LunaService */
 
 /**
@@ -405,6 +411,10 @@ const char * LSMessageGetSender(LSMessage *message);
 const char * LSMessageGetSenderServiceName(LSMessage *message);
 const char * LSMessageGetSenderExePath(LSMessage *message);
 const char * LSMessageGetSenderTrustLevel(LSMessage *message);
+pid_t LSMessageGetSenderPid(LSMessage *message);
+uid_t LSMessageGetSenderUid(LSMessage *message);
+gid_t LSMessageGetSenderGid(LSMessage *message);
+bool LSMessageGetSenderProcessInfo(LSMessage *message, LSProcessInfo* proc_info);
 
 const char * LSMessageGetCategory(LSMessage *message);
 const char * LSMessageGetMethod(LSMessage *message);

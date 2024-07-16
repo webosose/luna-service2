@@ -70,7 +70,9 @@ test_LSHubPermissionMapLookupOldFormat(TestData *fixture, gconstpointer user_dat
 
     _LSTransportCred *sender_cred = _LSTransportCredNew();
     g_assert(sender_cred);
+#ifdef UNIT_TESTS
     _LSTransportCredSetPid(sender_cred, sender_pid);
+#endif // UNIT_TESTS
     _LSTransport *sender_transport = NULL;
     g_assert(_LSTransportInit(&sender_transport, "com.webos.foo", nullptr, &test_handlers, NULL));
 
@@ -81,7 +83,9 @@ test_LSHubPermissionMapLookupOldFormat(TestData *fixture, gconstpointer user_dat
 
     _LSTransportCred *dest_cred = _LSTransportCredNew();
     g_assert(dest_cred);
+#ifdef UNIT_TESTS
     _LSTransportCredSetPid(dest_cred, dest_pid);
+#endif // UNIT_TESTS
     _LSTransport *dest_transport = NULL;
     g_assert(_LSTransportInit(&dest_transport, "com.webos.bar", nullptr, &test_handlers, NULL));
 

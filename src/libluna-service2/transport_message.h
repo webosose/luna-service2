@@ -85,6 +85,14 @@ typedef enum LSTransportMessageType
     _LSTransportMessageTypeDumpHubDataReply,         /**< reply with the hub data (the data may come in chunks) */
     _LSTransportMessageTypeQueryProxyName,           /**< look up a service name from the hub as proxy (on behalf)*/
     _LSTransportMessageTypeQueryProxyNameReply,
+    _LSTransportMessageTypeQueryPid,                 /**< message to hub to get connected client's process id */
+    _LSTransportMessageTypeQueryPidReply,            /**< reply from hub with connected client's process id */
+    _LSTransportMessageTypeQueryUid,                 /**< message to hub to get connected client's user id */
+    _LSTransportMessageTypeQueryUidReply,            /**< reply from hub with connected client's user id */
+    _LSTransportMessageTypeQueryGid,                 /**< message to hub to get connected client's group id */
+    _LSTransportMessageTypeQueryGidReply,            /**< reply from hub with connected client's group id */
+    _LSTransportMessageTypeQueryProcessInfo,         /**< message to hub to get connected client's process information(pid,uid,gid) */
+    _LSTransportMessageTypeQueryProcessInfoReply,    /**< reply from hub with connected client's group id */
 
 } _LSTransportMessageType;
 
@@ -104,6 +112,24 @@ typedef enum LSTransportMessageType
 
 /**
  * @} END OF LSTransportQueryNameReturnCodes
+ */
+
+/**
+ * @defgroup LSTransportQueryPid/Uid/Gid/ProcessInfoReturnCodes LSTransportQueryPid/Uid/Gid/ProcessInfoReturnCodes
+ * @{
+ */
+
+#define LS_TRANSPORT_QUERY_PID_SUCCESS                       0  /**< success pid query*/
+#define LS_TRANSPORT_QUERY_PID_PROCESS_NOT_EXIST            -1  /**< process does not exist */
+#define LS_TRANSPORT_QUERY_UID_SUCCESS                       0  /**< success uid query*/
+#define LS_TRANSPORT_QUERY_UID_PROCESS_NOT_EXIST            -1  /**< process does not exist */
+#define LS_TRANSPORT_QUERY_GID_SUCCESS                       0  /**< success gid query*/
+#define LS_TRANSPORT_QUERY_GID_PROCESS_NOT_EXIST            -1  /**< process does not exist */
+#define LS_TRANSPORT_QUERY_PROCESS_INFO_SUCCESS              0  /**< success process info query*/
+#define LS_TRANSPORT_QUERY_PROCESS_INFO_PROCESS_NOT_EXIST   -1  /**< process does not exist */
+
+/**
+ * @} END OF LSTransportQueryPid/Uid/GidReturnCodes
  */
 
 /**
@@ -269,6 +295,10 @@ void _LSTransportMessageSetAppId(_LSTransportMessage *message, const char *app_i
 const char* _LSTransportMessageGetAppId(_LSTransportMessage *message);
 const char* _LSTransportMessageGetSenderServiceName(const _LSTransportMessage *message);
 const char* _LSTransportMessageGetSenderUniqueName(const _LSTransportMessage *message);
+pid_t _LSTransportMessageGetSenderPid(const _LSTransportMessage *message);
+uid_t _LSTransportMessageGetSenderUid(const _LSTransportMessage *message);
+gid_t _LSTransportMessageGetSenderGid(const _LSTransportMessage *message);
+bool _LSTransportMessageGetSenderProcessInfo(const _LSTransportMessage *message, LSProcessInfo *proc_info);
 const char* _LSTransportMessageGetDestServiceName(_LSTransportMessage *message);
 const char* _LSTransportMessageGetDestUniqueName(_LSTransportMessage *message);
 const char* _LSTransportMessageGetError(const _LSTransportMessage *message);

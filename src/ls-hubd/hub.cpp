@@ -1852,6 +1852,122 @@ _LSHubSendServiceWaitListReply(_ClientId *id, bool success, bool is_dynamic, LSE
     return true;
 }
 
+static bool
+_LSHubSendQueryPidReply(const _LSTransportMessage *message, const pid_t pid) {
+    _LSTransportClient *reply_client = _LSTransportMessageGetClient(message);
+    auto reply_message = mk_ptr(_LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE), _LSTransportMessageUnref);
+    if (reply_message.get() == nullptr) {
+        LOG_LS_ERROR(MSGID_LS_OOM_ERR, 0, "%s", LS_ERROR_TEXT_OOM);
+        return false;
+    }
+
+    _LSTransportMessageSetType(reply_message.get(), _LSTransportMessageTypeQueryPidReply);
+
+    _LSTransportMessageIter iter;
+    _LSTransportMessageIterInit(reply_message.get(), &iter);
+    if (!_LSTransportMessageAppendInt32(&iter, pid) ||
+        !_LSTransportMessageAppendInvalid(&iter)) {
+        LOG_LS_ERROR(MSGID_LS_OOM_ERR, 0, "%s", LS_ERROR_TEXT_OOM);
+        return false;
+    }
+
+    LS::Error lserror;
+    if (!_LSTransportSendMessage(reply_message.get(), reply_client, NULL, lserror.get())) {
+        LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, lserror);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+_LSHubSendQueryUidReply(const _LSTransportMessage *message, const uid_t uid) {
+    _LSTransportClient *reply_client = _LSTransportMessageGetClient(message);
+
+    auto reply_message = mk_ptr(_LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE), _LSTransportMessageUnref);
+    if (reply_message.get() == nullptr) {
+        LOG_LS_ERROR(MSGID_LS_OOM_ERR, 0, "%s", LS_ERROR_TEXT_OOM);
+        return false;
+    }
+
+    _LSTransportMessageSetType(reply_message.get(), _LSTransportMessageTypeQueryUidReply);
+
+    _LSTransportMessageIter iter;
+    _LSTransportMessageIterInit(reply_message.get(), &iter);
+    if (!_LSTransportMessageAppendInt32(&iter, uid) ||
+        !_LSTransportMessageAppendInvalid(&iter)) {
+        LOG_LS_ERROR(MSGID_LS_OOM_ERR, 0, "%s", LS_ERROR_TEXT_OOM);
+        return false;
+    }
+
+    LS::Error lserror;
+    if (!_LSTransportSendMessage(reply_message.get(), reply_client, NULL, lserror.get())) {
+        LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, lserror);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+_LSHubSendQueryGidReply(const _LSTransportMessage *message, const gid_t gid) {
+    _LSTransportClient *reply_client = _LSTransportMessageGetClient(message);
+    auto reply_message = mk_ptr(_LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE), _LSTransportMessageUnref);
+    if (reply_message.get() == nullptr) {
+        LOG_LS_ERROR(MSGID_LS_OOM_ERR, 0, "%s", LS_ERROR_TEXT_OOM);
+        return false;
+    }
+
+    _LSTransportMessageSetType(reply_message.get(), _LSTransportMessageTypeQueryGidReply);
+
+    _LSTransportMessageIter iter;
+    _LSTransportMessageIterInit(reply_message.get(), &iter);
+    if (!_LSTransportMessageAppendInt32(&iter, gid) ||
+        !_LSTransportMessageAppendInvalid(&iter)) {
+        LOG_LS_ERROR(MSGID_LS_OOM_ERR, 0, "%s", LS_ERROR_TEXT_OOM);
+        return false;
+    }
+
+    LS::Error lserror;
+    if (!_LSTransportSendMessage(reply_message.get(), reply_client, NULL, lserror.get())) {
+        LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, lserror);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+_LSHubSendQueryProcessInfoReply(const _LSTransportMessage *message, const pid_t pid,
+                                const uid_t uid, const gid_t gid) {
+    _LSTransportClient *reply_client = _LSTransportMessageGetClient(message);
+    auto reply_message = mk_ptr(_LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE), _LSTransportMessageUnref);
+    if (reply_message.get() == nullptr) {
+        LOG_LS_ERROR(MSGID_LS_OOM_ERR, 0, "%s", LS_ERROR_TEXT_OOM);
+        return false;
+    }
+
+    _LSTransportMessageSetType(reply_message.get(), _LSTransportMessageTypeQueryProcessInfoReply);
+
+    _LSTransportMessageIter iter;
+    _LSTransportMessageIterInit(reply_message.get(), &iter);
+    if (!_LSTransportMessageAppendInt32(&iter, pid) ||
+        !_LSTransportMessageAppendInt32(&iter, uid) ||
+        !_LSTransportMessageAppendInt32(&iter, gid) ||
+        !_LSTransportMessageAppendInvalid(&iter)) {
+        LOG_LS_ERROR(MSGID_LS_OOM_ERR, 0, "%s", LS_ERROR_TEXT_OOM);
+        return false;
+    }
+
+    LS::Error lserror;
+    if (!_LSTransportSendMessage(reply_message.get(), reply_client, NULL, lserror.get())) {
+        LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, lserror);
+        return false;
+    }
+
+    return true;
+}
+
 void
 DumpHashItem(gpointer key, gpointer value, gpointer user_data)
 {
@@ -3186,6 +3302,207 @@ _LSHubSendMonitorStatus(_LSTransportMessage *message)
     _LSHubSendMonitorMessage(-1, id, monitor);
 }
 
+const _LSTransportCred*
+GetCredentialInfo(const _LSTransportMessage *message)
+{
+    _LSTransportMessageIter iter;
+    const char *service_name = nullptr;
+    const char *unique_name = nullptr;
+    const _LSTransportCred* cred = nullptr;
+
+    // get the service name and unique name from transport message
+    _LSTransportMessageIterInit((_LSTransportMessage*)message, &iter);
+    _LSTransportMessageGetString(&iter, &service_name);
+    _LSTransportMessageIterNext(&iter);
+    _LSTransportMessageGetString(&iter, &unique_name);
+
+    // find the client which has service name or unique name.
+    _ClientId* id = AvailableMapLookup(service_name);
+    if (!id) {
+        LOG_LS_WARNING(MSGID_LSHUB_NO_CLIENT, 0, "Unable to find client in available services map.\
+                trying to find client in connected client map");
+        id = AvailableMapLookupByUniqueName(unique_name);
+    }
+
+    if (!id) {
+        LOG_LS_ERROR(MSGID_LSHUB_NO_CLIENT, 0, "Failed to get client in connected client map");
+        return nullptr;
+    }
+
+    return _LSTransportClientGetCred(id->client);
+}
+
+/**
+ *******************************************************************************
+ * @brief Send an query error reply to a request query message.
+ *
+ * @param  client   IN  client to send reply
+ * @param  msg_type IN  message type reply
+ * @param  err_code IN  numeric error code
+ *
+ *******************************************************************************
+ */
+static void
+_LSHubSendQueryError(_LSTransportClient *client, _LSTransportMessageType msg_type, long err_code)
+{
+    LS_ASSERT(client);
+
+    auto reply = mk_ptr(_LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE), _LSTransportMessageUnref);
+    _LSTransportMessageSetType(reply.get(), msg_type);
+
+    _LSTransportMessageIter iter;
+    _LSTransportMessageIterInit(reply.get(), &iter);
+
+    switch (msg_type) {
+    case _LSTransportMessageTypeQueryPidReply:
+    case _LSTransportMessageTypeQueryUidReply:
+    case _LSTransportMessageTypeQueryGidReply: {
+        if (!_LSTransportMessageAppendInt32(&iter, err_code) ||
+            !_LSTransportMessageAppendInvalid(&iter)) {
+            LOG_LS_ERROR(MSGID_LS_OOM_ERR, 0, "%s", LS_ERROR_TEXT_OOM);
+            return;
+        }
+        break;
+    }
+    case _LSTransportMessageTypeQueryProcessInfoReply: {
+        if (!_LSTransportMessageAppendInt32(&iter, LS_TRANSPORT_QUERY_PID_PROCESS_NOT_EXIST) ||
+            !_LSTransportMessageAppendInt32(&iter, LS_TRANSPORT_QUERY_UID_PROCESS_NOT_EXIST) ||
+            !_LSTransportMessageAppendInt32(&iter, LS_TRANSPORT_QUERY_GID_PROCESS_NOT_EXIST) ||
+            !_LSTransportMessageAppendInt32(&iter, err_code) ||
+            !_LSTransportMessageAppendInvalid(&iter)) {
+            LOG_LS_ERROR(MSGID_LS_OOM_ERR, 0, "%s", LS_ERROR_TEXT_OOM);
+            return;
+        }
+        break;
+    }
+    default:
+        break;
+    }
+
+    LS::Error lserror;
+    if (!_LSTransportSendMessage(reply.get(), client, NULL, lserror.get())) {
+        LOG_LSERROR(MSGID_LSHUB_SENDMSG_ERROR, lserror);
+    }
+}
+
+/**
+ *******************************************************************************
+ * @brief Process a "QueryPid" message and send a reply with the process id.
+ *
+ * @param  message  IN  query pid message
+ *******************************************************************************
+ */
+static void
+_LSHubHandleQueryPid(const _LSTransportMessage *message)
+{
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryPid);
+
+    const _LSTransportCred* cred = GetCredentialInfo(message);
+    if (!cred) {
+        LOG_LS_ERROR(MSGID_LSHUB_NO_CLIENT, 0, "Failed to get client pid");
+        return;
+    }
+    const pid_t pid = _LSTransportCredGetPid(cred);
+
+    if (!_LSHubSendQueryPidReply(message, pid)) {
+        LOG_LS_ERROR(MSGID_LSHUB_SENDMSG_ERROR, 0, "Failed to send message");
+        _LSTransportClient *client = _LSTransportMessageGetClient(message);
+        _LSHubSendQueryError(client, _LSTransportMessageTypeQueryPidReply,
+                             LS_TRANSPORT_QUERY_PID_PROCESS_NOT_EXIST);
+    }
+    LOG_LS_DEBUG("%s: pid: %d\n", __func__, static_cast<int32_t>(pid));
+}
+
+/**
+ *******************************************************************************
+ * @brief Process a "QueryUid" message and send a reply with the user id.
+ *
+ * @param  message  IN  query uid message
+ *******************************************************************************
+ */
+static void
+_LSHubHandleQueryUid(const _LSTransportMessage *message)
+{
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryUid);
+
+    const _LSTransportCred* cred = GetCredentialInfo(message);
+    if (!cred) {
+        LOG_LS_ERROR(MSGID_LSHUB_NO_CLIENT, 0, "Failed to get client uid");
+        return;
+    }
+    const uid_t uid = _LSTransportCredGetUid(cred);
+
+    if (!_LSHubSendQueryUidReply(message, uid)) {
+        LOG_LS_ERROR(MSGID_LSHUB_SENDMSG_ERROR, 0, "Failed to send message");
+        _LSTransportClient *client = _LSTransportMessageGetClient(message);
+        _LSHubSendQueryError(client, _LSTransportMessageTypeQueryUidReply,
+                             LS_TRANSPORT_QUERY_UID_PROCESS_NOT_EXIST);
+    }
+    LOG_LS_DEBUG("%s: uid: %d\n", __func__, static_cast<int32_t>(uid));
+}
+
+/**
+ *******************************************************************************
+ * @brief Process a "QueryGid" message and send a reply with the group id.
+ *
+ * @param  message  IN  query gid message
+ *******************************************************************************
+ */
+static void
+_LSHubHandleQueryGid(const _LSTransportMessage *message)
+{
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryGid);
+
+    const _LSTransportCred* cred = GetCredentialInfo(message);
+    if (!cred) {
+        LOG_LS_ERROR(MSGID_LSHUB_NO_CLIENT, 0, "Failed to get client gid");
+        return;
+    }
+    const gid_t gid = _LSTransportCredGetGid(cred);
+
+    if (!_LSHubSendQueryGidReply(message, gid)) {
+        LOG_LS_ERROR(MSGID_LSHUB_SENDMSG_ERROR, 0, "Failed to send message");
+        _LSTransportClient *client = _LSTransportMessageGetClient(message);
+        _LSHubSendQueryError(client, _LSTransportMessageTypeQueryGidReply,
+                             LS_TRANSPORT_QUERY_GID_PROCESS_NOT_EXIST);
+    }
+    LOG_LS_DEBUG("%s: gid: %d\n", __func__, static_cast<int32_t>(gid));
+}
+
+/**
+ *******************************************************************************
+ * @brief Process a "QueryProcessInfo" message and send a reply with the
+ * process id, user id and group id.
+ *
+ * @param  message  IN  query process info message
+ *******************************************************************************
+ */
+static void
+_LSHubHandleQueryProcessInfo(const _LSTransportMessage *message)
+{
+    LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryProcessInfo);
+
+    const _LSTransportCred* cred = GetCredentialInfo(message);
+    if (!cred) {
+        LOG_LS_ERROR(MSGID_LSHUB_NO_CLIENT, 0, "Failed to get client info");
+        return;
+    }
+
+    pid_t pid = _LSTransportCredGetPid(cred);
+    uid_t uid = _LSTransportCredGetUid(cred);
+    gid_t gid = _LSTransportCredGetGid(cred);
+
+    if (!_LSHubSendQueryProcessInfoReply(message, pid, uid, gid)) {
+        LOG_LS_ERROR(MSGID_LSHUB_SENDMSG_ERROR, 0, "Failed to send message");
+        // fallback
+        _LSTransportClient *client = _LSTransportMessageGetClient(message);
+        _LSHubSendQueryError(client, _LSTransportMessageTypeQueryProcessInfoReply,
+                             LS_TRANSPORT_QUERY_PROCESS_INFO_PROCESS_NOT_EXIST);
+    }
+    LOG_LS_DEBUG("%s: client pid: %d, client uid: %d, client gid: %d\n", __func__,
+            static_cast<int32_t>(pid),static_cast<int32_t>(uid), static_cast<int32_t>(gid));
+}
+
 /**
  *******************************************************************************
  * @brief Process a "QueryServiceStatus" message and send a reply with the
@@ -3808,6 +4125,19 @@ _LSHubHandleMessage(_LSTransportMessage* message, void *context)
 
     case _LSTransportMessageTypeHubMethodCall:
         HubService::instance().HandleMethodCall(message);
+        break;
+
+    case _LSTransportMessageTypeQueryPid:
+        _LSHubHandleQueryPid(message);
+        break;
+    case _LSTransportMessageTypeQueryUid:
+        _LSHubHandleQueryUid(message);
+        break;
+    case _LSTransportMessageTypeQueryGid:
+        _LSHubHandleQueryGid(message);
+        break;
+    case _LSTransportMessageTypeQueryProcessInfo:
+        _LSHubHandleQueryProcessInfo(message);
         break;
 
     case _LSTransportMessageTypeMethodCall:

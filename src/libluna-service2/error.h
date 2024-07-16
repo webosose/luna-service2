@@ -50,7 +50,15 @@ extern "C" {
 #define LS_ERROR_TEXT_PROTOCOL_VERSION      "Protocol version (%d) does not match the hub"
 #define LS_ERROR_TEXT_EAGAIN                "Try again later"
 
-#define LS__FILE__BASENAME (strrchr("/" __FILE__, '/') + 1)
+inline const char* getBaseFileName_() {
+    const char *pch = strrchr("/" __FILE__, '/');
+    return (NULL != pch) ? (pch + 1) : __FILE__;
+}
+
+#define LS__FILE__BASENAME() ({\
+    getBaseFileName_(); \
+})
+
 
 /*
     We don't want the LS_ASSERT macro to evaluate the "cond" expression twice since it may have side-effects.
@@ -64,7 +72,7 @@ do {                    \
         LOG_LS_ERROR(MSGID_LS_ASSERT, 4,                  \
                      PMLOGKS("COND", #cond),              \
                      PMLOGKS("FUNC", __FUNCTION__),       \
-                     PMLOGKS("FILE" , LS__FILE__BASENAME),\
+                     PMLOGKS("FILE" , LS__FILE__BASENAME()),\
                      PMLOGKFV("LINE", "%d", __LINE__),    \
                      "%s: failed", #cond);                \
         assert(!#cond);  \
@@ -123,10 +131,10 @@ do {                                                                  \
         LOG_LS_ERROR(message_id, 4,                                   \
                      PMLOGKS("COND", #cond),                          \
                      PMLOGKS("FUNC", __FUNCTION__),                   \
-                     PMLOGKS("FILE" , LS__FILE__BASENAME),            \
+                     PMLOGKS("FILE" , LS__FILE__BASENAME()),            \
                      PMLOGKFV("LINE", "%d", __LINE__),                \
                      "%s: failed", #cond);                            \
-        _LSErrorSetFunc(lserror, LS__FILE__BASENAME, __LINE__, __FUNCTION__,\
+        _LSErrorSetFunc(lserror, LS__FILE__BASENAME(), __LINE__, __FUNCTION__,\
             -1,                                                       \
             #cond );                                                  \
         return false;                                                 \
@@ -142,7 +150,7 @@ do {                                                                  \
                      PMLOGKS("FILE", __FILE__),                       \
                      #cond ": failed. " __VA_ARGS__);                 \
                                                                       \
-        _LSErrorSetFunc(lserror, LS__FILE__BASENAME, __LINE__, __FUNCTION__, \
+        _LSErrorSetFunc(lserror, LS__FILE__BASENAME(), __LINE__, __FUNCTION__, \
             error_code,                                               \
             #cond ": "                                                \
             __VA_ARGS__);                                             \
@@ -159,7 +167,7 @@ do {                                                                  \
                      PMLOGKS("FILE", __FILE__),                       \
                      #cond ": failed. " __VA_ARGS__);                 \
                                                                       \
-        _LSErrorSetFunc(lserror, LS__FILE__BASENAME, __LINE__, __FUNCTION__, \
+        _LSErrorSetFunc(lserror, LS__FILE__BASENAME(), __LINE__, __FUNCTION__, \
             error_code,                                               \
             #cond ": "                                                \
             __VA_ARGS__);                                             \
@@ -169,14 +177,14 @@ do {                                                                  \
 
 #define _LSErrorSetNoPrint(lserror, error_code, ...)              \
 do {                                                              \
-    _LSErrorSetFunc(lserror, LS__FILE__BASENAME, __LINE__, __FUNCTION__, \
+    _LSErrorSetFunc(lserror, LS__FILE__BASENAME(), __LINE__, __FUNCTION__, \
              error_code,                                          \
              __VA_ARGS__);                                        \
 } while (0)
 
 #define _LSErrorSetNoPrintLiteral(lserror, error_code, error_message)   \
 do {                                                                    \
-    _LSErrorSetFunc(lserror, LS__FILE__BASENAME, __LINE__, __FUNCTION__,\
+    _LSErrorSetFunc(lserror, LS__FILE__BASENAME(), __LINE__, __FUNCTION__,\
                     error_code, error_message);                         \
 } while (0)
 
@@ -193,7 +201,7 @@ do {                                                                    \
 #define _LSErrorSet(lserror, message_id, error_code, ...) \
 do {                                                      \
     LOG_LS_ERROR(message_id, 2,                           \
-                 PMLOGKS("FILE", LS__FILE__BASENAME),     \
+                 PMLOGKS("FILE", LS__FILE__BASENAME()),     \
                  PMLOGKFV("LINE", "%d", __LINE__),        \
                  __VA_ARGS__);                            \
     _LSErrorSetNoPrint(lserror, error_code, __VA_ARGS__); \
@@ -255,7 +263,7 @@ static inline void _LSErrorSetFromGErrorFunc(const char *file,
  *******************************************************************************
  */
 #define _LSErrorSetFromGError(lserror, message_id, gerror)             \
-    _LSErrorSetFromGErrorFunc(LS__FILE__BASENAME, __LINE__, lserror, message_id, gerror)
+    _LSErrorSetFromGErrorFunc(LS__FILE__BASENAME(), __LINE__, lserror, message_id, gerror)
 
 
 /**
@@ -273,7 +281,7 @@ do {                                                                \
     LOG_LS_ERROR(message_id, 4,                                     \
                  PMLOGKFV("ERROR_CODE", "%d", error_code),          \
                  PMLOGKS("ERROR", g_strerror(error_code)),          \
-                 PMLOGKS("FILE", LS__FILE__BASENAME),               \
+                 PMLOGKS("FILE", LS__FILE__BASENAME()),               \
                  PMLOGKFV("LINE", "%d", __LINE__),                  \
                  "GLIB Error");                                     \
     _LSErrorSetFromErrnoFunc(lserror, __FILE__, __LINE__,           \

@@ -122,6 +122,7 @@ target_link_libraries(${PROJECT_NAME} ${LIBRARIES})
 webos_add_linker_options(ALL ${LIBRARIES_LDFLAGS})
 
 if (WEBOS_CONFIG_BUILD_TESTS)
+    add_definitions(-DUNIT_TESTS)
     add_subdirectory(test)
 else()
     message(STATUS "libluna-service2: skipping automatic tests")

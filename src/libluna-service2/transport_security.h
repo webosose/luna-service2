@@ -50,6 +50,8 @@ const char* _LSTransportCredGetCmdLine(const _LSTransportCred *cred);
 #ifdef UNIT_TESTS
 void _LSTransportCredSetExePath(_LSTransportCred *cred, char const *exe_path);
 void _LSTransportCredSetPid(_LSTransportCred *cred, pid_t pid);
+void _LSTransportCredSetUid(_LSTransportCred *cred, uid_t uid);
+void _LSTransportCredSetGid(_LSTransportCred *cred, gid_t gid);
 #endif //UNIT_TESTS
 
 /** @endcond */

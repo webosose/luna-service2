@@ -371,7 +371,7 @@ bool ParseOldRoleFile(const std::string &path, const std::string &prefix, uint32
 {
     LOG_LS_DEBUG("%s: parsing JSON from file: \"%s\"", __func__, path.c_str());
     LOG_LS_WARNING(MSGID_LSHUB_ROLE_DEPRECATED, 2
-                   , PMLOGKS("FILE", LS__FILE__BASENAME)
+                   , PMLOGKS("FILE", LS__FILE__BASENAME())
                    , PMLOGKFV("LINE", "%d", __LINE__)
                    , "Deprecated ls2 permissions model is used (separated role files for public/private bus). Role file:\"%s\""
                    , path.c_str());

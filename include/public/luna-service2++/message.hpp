@@ -138,6 +138,22 @@ public:
         return LSMessageGetSenderTrustLevel(_message);
     }
 
+    pid_t getSenderPid() const {
+        return LSMessageGetSenderPid(_message);
+    }
+
+    uid_t getSenderUid() const {
+        return LSMessageGetSenderUid(_message);
+    }
+
+    gid_t getSenderGid() const {
+        return LSMessageGetSenderGid(_message);
+    }
+
+    bool getSenderProcessInfo(LSProcessInfo* proc_info) const {
+        return LSMessageGetSenderProcessInfo(_message, proc_info);
+    }
+
     const char *getCategory() const
     {
         return LSMessageGetCategory(_message);

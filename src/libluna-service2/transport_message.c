@@ -448,6 +448,10 @@ _LSTransportMessageTypeIsReplyType(_LSTransportMessageType type)
     case _LSTransportMessageTypeReply:
     case _LSTransportMessageTypeReplyWithFd:
     case _LSTransportMessageTypeQueryServiceStatusReply:
+    case _LSTransportMessageTypeQueryPidReply:    
+    case _LSTransportMessageTypeQueryUidReply:    
+    case _LSTransportMessageTypeQueryGidReply:    
+    case _LSTransportMessageTypeQueryProcessInfoReply:
         return true;
 
     default:
@@ -1227,6 +1231,73 @@ _LSTransportMessageGetSenderUniqueName(const _LSTransportMessage *message)
     LS_ASSERT(message != NULL);
 
     return _LSTransportClientGetUniqueName(_LSTransportMessageGetClient(message));
+}
+
+/**
+ *******************************************************************************
+ * @brief Get process id of the sender
+ *
+ * @param  message  IN  message
+ *
+ * @retval pid_t
+ *******************************************************************************
+ */
+pid_t
+_LSTransportMessageGetSenderPid(const _LSTransportMessage *message)
+{
+    LS_ASSERT(message != NULL);
+    return _LSTransportSendQueryPid(message);
+}
+
+/**
+ *******************************************************************************
+ * @brief Get user id of the sender
+ *
+ * @param  message  IN  message
+ *
+ * @retval uid_t
+ *******************************************************************************
+ */
+uid_t
+_LSTransportMessageGetSenderUid(const _LSTransportMessage *message)
+{
+    LS_ASSERT(message != NULL);
+    return _LSTransportSendQueryUid(message);
+}
+
+/**
+ *******************************************************************************
+ * @brief Get group id of the sender
+ *
+ * @param  message  IN  message
+ *
+ * @retval gid_t
+ *******************************************************************************
+ */
+gid_t
+_LSTransportMessageGetSenderGid(const _LSTransportMessage *message)
+{
+    LS_ASSERT(message != NULL);
+    return _LSTransportSendQueryGid(message);
+}
+
+/**
+ *******************************************************************************
+ * @brief Get process info(pid,uid,gid) of the sender
+ * 
+ * @param  message  IN  message
+ * @param  ret   OUT result int
+ *
+ * @retval  true on success
+ * @retval  false on failure (ret is meaningless)
+ *******************************************************************************
+ */
+bool
+_LSTransportMessageGetSenderProcessInfo(const _LSTransportMessage *message, LSProcessInfo *proc_info)
+{
+    LS_ASSERT(message != NULL);
+    LS_ASSERT(proc_info != NULL);
+    return _LSTransportSendQueryProcessInfo(message, proc_info);
 }
 
 /**

@@ -3538,6 +3538,341 @@ _LSTransportHandleQueryNameReply(_LSTransportMessage *message)
     _LSTransportClientUnref(client);
 }
 
+int32_t
+_LSTransportHandleQueryPidReply(_LSTransportMessage *reply_message) {
+    LS_ASSERT(reply_message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(reply_message) == _LSTransportMessageTypeQueryPidReply);
+    _LSTransportMessageIter iter;
+    int32_t pid = LS_TRANSPORT_QUERY_PID_PROCESS_NOT_EXIST;
+
+    _LSTransportMessageIterInit(reply_message, &iter);
+
+    if (!_LSTransportMessageGetInt32(&iter, &pid)) {
+        LOG_LS_WARNING(MSGID_LS_NULL_CLIENT, 0, "%s: Failed to get process id", __func__);
+        return LS_TRANSPORT_QUERY_PID_PROCESS_NOT_EXIST;
+    }
+
+    return pid;
+}
+
+int32_t
+_LSTransportHandleQueryUidReply(_LSTransportMessage *reply_message) {
+    LS_ASSERT(reply_message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(reply_message) == _LSTransportMessageTypeQueryUidReply);
+    _LSTransportMessageIter iter;
+    int32_t uid = LS_TRANSPORT_QUERY_UID_PROCESS_NOT_EXIST;
+
+    _LSTransportMessageIterInit(reply_message, &iter);
+
+    if (!_LSTransportMessageGetInt32(&iter, &uid)) {
+        LOG_LS_WARNING(MSGID_LS_NULL_CLIENT, 0, "%s: Failed to get user id", __func__);
+        return LS_TRANSPORT_QUERY_UID_PROCESS_NOT_EXIST;
+    }
+
+    return uid;
+}
+
+int32_t
+_LSTransportHandleQueryGidReply(_LSTransportMessage *reply_message) {
+    LS_ASSERT(reply_message != NULL);
+    LS_ASSERT(_LSTransportMessageGetType(reply_message) == _LSTransportMessageTypeQueryGidReply);
+    _LSTransportMessageIter iter;
+    int32_t gid = LS_TRANSPORT_QUERY_GID_PROCESS_NOT_EXIST;
+
+    _LSTransportMessageIterInit(reply_message, &iter);
+
+    if (!_LSTransportMessageGetInt32(&iter, &gid)) {
+        LOG_LS_WARNING(MSGID_LS_NULL_CLIENT, 0, "%s: Failed to get group id", __func__);
+        return LS_TRANSPORT_QUERY_GID_PROCESS_NOT_EXIST;
+    }
+
+    return gid;
+}
+
+void
+_LSTransportHandleQueryProcessInfoReply(_LSTransportMessage *reply_message, LSProcessInfo *proc_info) {
+    LS_ASSERT(reply_message != NULL);
+    LS_ASSERT(proc_info != NULL);
+
+    LS_ASSERT(_LSTransportMessageGetType(reply_message) == _LSTransportMessageTypeQueryProcessInfoReply);
+
+    _LSTransportMessageIter iter;
+    _LSTransportMessageIterInit(reply_message, &iter);
+
+    if (!_LSTransportMessageGetInt32(&iter, &proc_info->pid)) {
+        LOG_LS_WARNING(MSGID_LS_NULL_CLIENT, 0, "%s: Failed to get process id", __func__);
+        proc_info->pid = LS_TRANSPORT_QUERY_PID_PROCESS_NOT_EXIST;
+    }
+    _LSTransportMessageIterNext(&iter);
+    if (!_LSTransportMessageGetInt32(&iter, &proc_info->uid)) {
+        LOG_LS_WARNING(MSGID_LS_NULL_CLIENT, 0, "%s: Failed to get user id", __func__);
+        proc_info->uid = LS_TRANSPORT_QUERY_UID_PROCESS_NOT_EXIST;
+    }
+    _LSTransportMessageIterNext(&iter);
+    if (!_LSTransportMessageGetInt32(&iter, &proc_info->gid)) {
+        LOG_LS_WARNING(MSGID_LS_NULL_CLIENT, 0, "%s: Failed to get group id", __func__);
+        proc_info->gid = LS_TRANSPORT_QUERY_GID_PROCESS_NOT_EXIST;
+    }
+    LOG_LS_DEBUG("%s: pid : %d, uid : %d, gid : %d\n", __func__, proc_info->pid, proc_info->uid, proc_info->gid);
+}
+
+/**
+ *******************************************************************************
+ * @brief Send messages with given message type to the hub.
+ *
+ * @param  message  IN  query name reply message
+ * @param  msg_type  IN  message type
+ *
+ * @retval  true on success
+ * @retval  false on failure
+ *******************************************************************************
+ */
+bool
+_LSTransportSendQuery(_LSTransportMessage *message, _LSTransportMessageType msg_type)
+{
+    LSError lserror;
+    LSErrorInit( &lserror );
+    bool ret = false;
+
+    _LSTransportClient* client = _LSTransportMessageGetClient(message);
+    /* get service, unique name of sender */
+    const char* client_service_name = _LSTransportClientGetServiceName(client);
+    const char* client_unique_name = _LSTransportClientGetUniqueName(client);
+    _LSTransport *transport = _LSTransportClientGetTransport(_LSTransportMessageGetClient(message));
+
+    _LSTransportMessageIter iter;
+    _LSTransportMessage *send_message = _LSTransportMessageNewRef(LS_TRANSPORT_MESSAGE_DEFAULT_PAYLOAD_SIZE);
+    _LSTransportMessageSetType(send_message, msg_type);
+    send_message->raw->header.is_public_bus = message->raw->header.is_public_bus;
+
+    _LSTransportMessageIterInit(send_message, &iter);
+    if (!_LSTransportMessageAppendString(&iter, client_service_name) ||
+        !_LSTransportMessageAppendString(&iter, client_unique_name)  ||
+        !_LSTransportMessageAppendInvalid(&iter)) {
+        LOG_LS_ERROR(MSGID_LS_OOM_ERR, 0, "%s", LS_ERROR_TEXT_OOM);
+        return ret;
+    }
+
+    /* Blocking send a "QueryPid/Uid/Gid/ProcessInfo" message to the hub */
+    ret = _LSTransportSendMessageBlocking(send_message, transport->hub, true, NULL, &lserror);
+    if (!ret) {
+        LOG_LSERROR(MSGID_LS_TRANSPORT_NETWORK_ERR, &lserror);
+        LSErrorFree(&lserror);
+        return ret;
+    }
+
+    /* send a query message to the hub */
+    _LSTransportSendMessage(send_message, transport->hub, NULL, &lserror);
+    _LSTransportMessageUnref(send_message);
+
+    return ret;
+}
+
+/**
+ *******************************************************************************
+ * @brief Handle a reply to a "QueryPid/Uid/Gid" message from the hub.
+ *
+ * @param  message  IN  message
+ * @param  msg_type IN  reply message type
+ *
+ * @retval process id or user id or group id on success
+ * @retval -1 on failure
+ *******************************************************************************
+ */
+int32_t
+_LSTransportHandleQueryResponse(_LSTransportMessage *message, _LSTransportMessageType msg_type)
+{
+    int32_t ret = -1;
+
+    LSError lserror;
+    LSErrorInit( &lserror );
+
+    _LSTransport *transport = _LSTransportClientGetTransport(_LSTransportMessageGetClient(message));
+    LS_ASSERT(transport != NULL);
+    LS_ASSERT(transport->hub != NULL);
+
+    /* get the response */
+    _LSTransportMessage *reply_message = _LSTransportRecvMessageBlocking(transport->hub, &msg_type, 1, -1, &lserror);
+    if (LSErrorIsSet(&lserror)) {
+        LOG_LS_ERROR(MSGID_LS_MSG_ERR, 0, "LSError message : %s", lserror.message);
+        LSErrorFree(&lserror);
+        return ret;
+    }
+
+    if (reply_message == NULL) {
+        LOG_LS_WARNING(MSGID_LSHUB_NO_CLIENT, 0, "%s: Unable to get client from message", __func__);
+        return ret;
+    }
+
+    switch (_LSTransportMessageGetType(reply_message)) {
+    case _LSTransportMessageTypeQueryPidReply:
+        ret = _LSTransportHandleQueryPidReply(reply_message);
+        break;
+    case _LSTransportMessageTypeQueryUidReply:
+        ret = _LSTransportHandleQueryUidReply(reply_message);
+        break;
+    case _LSTransportMessageTypeQueryGidReply:
+        ret = _LSTransportHandleQueryGidReply(reply_message);
+        break;
+    default:
+        LOG_LS_ERROR(MSGID_LSHUB_MEMORY_ERR, 0, "Received unhandled message type: %d", _LSTransportMessageGetType(reply_message));
+        break;
+    }
+    _LSTransportMessageUnref(reply_message);
+    return ret;
+}
+
+/**
+ *******************************************************************************
+ * @brief Handle a reply to a "QueryProcessInfo" message from the hub.
+ *
+ * @param  message    IN  query process info reply message
+ * @param  proc_info  IN  process info of sender
+ *
+ * @retval  true on success
+ * @retval  false on failure
+ *******************************************************************************
+ */
+bool
+_LSTransportHandleQueryProcessInfoResponse(_LSTransportMessage *message, LSProcessInfo *proc_info)
+{
+    LSError lserror;
+    LSErrorInit( &lserror );
+
+    _LSTransport *transport = _LSTransportClientGetTransport(_LSTransportMessageGetClient(message));
+
+    LS_ASSERT(transport != NULL);
+    LS_ASSERT(transport->hub != NULL);
+
+    /* get the response */
+    _LSTransportMessageType msg_type = _LSTransportMessageTypeQueryProcessInfoReply;
+    _LSTransportMessage *reply_message = _LSTransportRecvMessageBlocking(transport->hub, &msg_type, 1, -1, &lserror);
+    if (LSErrorIsSet(&lserror)) {
+        LOG_LS_ERROR(MSGID_LS_MSG_ERR, 0, "LSError message : %s", lserror.message);
+        LSErrorFree(&lserror);
+        return false;
+    }
+
+    if (reply_message == NULL) {
+        LOG_LS_WARNING(MSGID_LSHUB_NO_CLIENT, 0, "%s: Unable to get client from message", __func__);
+        return false;
+    }
+
+    if (_LSTransportMessageGetType(reply_message) != _LSTransportMessageTypeQueryProcessInfoReply) {
+        LOG_LS_ERROR(MSGID_LSHUB_MEMORY_ERR, 0, "Received unhandled message type: %d", _LSTransportMessageGetType(reply_message));
+        _LSTransportMessageUnref(reply_message);
+        return false;
+    }
+
+    _LSTransportHandleQueryProcessInfoReply(reply_message, proc_info);
+    _LSTransportMessageUnref(reply_message);
+    return true;
+}
+
+/**
+ *******************************************************************************
+ * @brief Send messages to a "QueryPid" message to the hub.
+ *        Handle a reply to a "QueryPid" message from the hub.
+ *
+ * @param  message  IN  message
+ *
+ * @retval  process id on success
+ * @retval  -1 on failure
+ *******************************************************************************
+ */
+pid_t
+_LSTransportSendQueryPid(_LSTransportMessage *message)
+{
+    int32_t pid = LS_TRANSPORT_QUERY_PID_PROCESS_NOT_EXIST;
+    bool ret = _LSTransportSendQuery(message, _LSTransportMessageTypeQueryPid);
+    if (!ret) {
+        LOG_LS_WARNING(MSGID_LSHUB_SENDMSG_ERROR, 0, "%s: Failed to send query(pid) to hub", __func__);
+        return pid;
+    }
+    pid = _LSTransportHandleQueryResponse(message, _LSTransportMessageTypeQueryPidReply);
+    LOG_LS_DEBUG("%s: pid[%d]\n", __func__, pid);
+    return (pid_t)pid;
+}
+
+/**
+ *******************************************************************************
+ * @brief Send messages to a "QueryUid" message to the hub.
+ *        Handle a reply to a "QueryUid" message from the hub.
+ *
+ * @param  message  IN  message
+ *
+ * @retval  user id on success
+ * @retval  -1 on failure
+ *******************************************************************************
+ */
+uid_t
+_LSTransportSendQueryUid(_LSTransportMessage *message)
+{
+    int32_t uid = LS_TRANSPORT_QUERY_UID_PROCESS_NOT_EXIST;
+    bool ret = _LSTransportSendQuery(message, _LSTransportMessageTypeQueryUid);
+    if (!ret) {
+        LOG_LS_WARNING(MSGID_LSHUB_SENDMSG_ERROR, 0, "%s: Failed to send query(uid) to hub", __func__);
+        return uid;
+    }
+    uid = _LSTransportHandleQueryResponse(message, _LSTransportMessageTypeQueryUidReply);
+    LOG_LS_DEBUG("%s: uid[%d]\n", __func__, uid);
+    return (uid_t)uid;
+}
+
+/**
+ *******************************************************************************
+ * @brief Send messages to a "QueryGid" message to the hub.
+ *        Handle a reply to a "QueryGid" message from the hub.
+ *
+ * @param  message  IN  message
+ *
+ * @retval  group id on success
+ * @retval  -1 on failure
+ *******************************************************************************
+ */
+gid_t
+_LSTransportSendQueryGid(_LSTransportMessage *message)
+{
+    int32_t gid = LS_TRANSPORT_QUERY_GID_PROCESS_NOT_EXIST;
+    bool ret = _LSTransportSendQuery(message, _LSTransportMessageTypeQueryGid);
+    if (!ret) {
+        LOG_LS_WARNING(MSGID_LSHUB_SENDMSG_ERROR, 0, "%s: Failed to send query(gid) to hub", __func__);
+        return gid;
+    }
+    gid = _LSTransportHandleQueryResponse(message, _LSTransportMessageTypeQueryGidReply);
+    LOG_LS_DEBUG("%s: gid[%d]\n", __func__, gid);
+    return (gid_t)gid;
+}
+
+/**
+ *******************************************************************************
+ * @brief Send messages to a "QueryProcessInfo" message to the hub.
+ *        Handle a reply to a "QueryProcessInfo" message from the hub.
+ *
+ * @param  message  IN  query name reply message
+ * @param  proc_info  IN process info of sender
+ *
+ * @retval  true on success
+ * @retval  false on failure
+ *******************************************************************************
+ */
+bool
+_LSTransportSendQueryProcessInfo(_LSTransportMessage *message, LSProcessInfo *proc_info)
+{
+    bool ret = _LSTransportSendQuery(message, _LSTransportMessageTypeQueryProcessInfo);
+    if (!ret) {
+        LOG_LS_WARNING(MSGID_LSHUB_SENDMSG_ERROR, 0, "%s: Failed to send query(process info) to hub", __func__);
+        return false;
+    }
+    ret = _LSTransportHandleQueryProcessInfoResponse(message, proc_info);
+    if (!ret) {
+        LOG_LS_WARNING(MSGID_LSHUB_SENDMSG_ERROR, 0, "%s: Failed to get response(process info) from hub", __func__);
+        return false;
+    }
+    LOG_LS_DEBUG("%s: process info pid[%d], uid[%d], gid[%d]\n", __func__, proc_info->pid, proc_info->uid, proc_info->gid);
+    return ret;
+}
+
 /**
  *******************************************************************************
  * @brief Tell the hub (using transport) that we're up
