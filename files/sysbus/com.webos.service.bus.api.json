@@ -3,14 +3,8 @@
     "com.webos.service.bus/addManifestsDir",
     "com.webos.service.bus/removeManifestsDir",
     "com.webos.service.bus/addOneManifest",
-    "com.webos.service.bus/removeOneManifest",
-    "com.webos.service.bus/updateOneManifest"
+    "com.webos.service.bus/removeOneManifest"
   ],
-  "servicebus.management": [
-    "com.webos.service.bus/lockService",
-    "com.webos.service.bus/unlockService",
-    "com.webos.service.bus/closeService"
-   ],
   "servicebus.signal": [
     "com.webos.service.bus/signal/*"
   ],
