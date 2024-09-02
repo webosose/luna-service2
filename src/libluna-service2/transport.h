@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2021 LG Electronics, Inc.
+// Copyright (c) 2008-2024 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -183,7 +183,7 @@ typedef struct LSTransportTrustLevelGroupBitmask {
 
 LSTransportCategoryBitmask *LSTransportCategoryBitmaskNew(const char *pattern,
                                                           LSTransportBitmaskWord *bitmask);
-LSTransportCategoryBitmask *LSTransportTrustLevelBitmaskNew(const char *pattern,
+LSTransportTrustLevelGroupBitmask *LSTransportTrustLevelBitmaskNew(const char *pattern,
                                                           LSTransportBitmaskWord *bitmask);
 
 void LSTransportCategoryBitmaskFree(LSTransportCategoryBitmask *v);

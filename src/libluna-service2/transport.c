@@ -1923,7 +1923,7 @@ _LSTransportRequestName(const char *requested_name,
     const char *trust_provided_map_json = NULL;
     const char *trust_required_map_json = NULL;
     char *unique_name = NULL;
-    char *trust_level_string = NULL;
+    const char *trust_level_string = NULL;
     int32_t transport_flags = _LSTransportFlagNoFlags;
 
     LOG_LS_DEBUG("%s: requested_name: %s, app_id: %s, client: %p\n", __func__, requested_name, app_id, client);
@@ -6728,13 +6728,13 @@ LSTransportCategoryBitmask *LSTransportCategoryBitmaskNew(const char *pattern,
     return v;
 }
 
-/** @brief Compile category pattern and remember bit set of provided ACG
+/** @brief Compile trustlevel pattern and remember bit set of provided ACG
  *
  * @param[in] pattern Category/method pattern
  * @param[in] bitmask provided ACG bit set (moved in)
  * @return newly allocated instance of the pattern-bitmask tuple
  */
-LSTransportCategoryBitmask *LSTransportTrustLevelBitmaskNew(const char *pattern,
+LSTransportTrustLevelGroupBitmask *LSTransportTrustLevelBitmaskNew(const char *pattern,
                                                           LSTransportBitmaskWord *bitmask)
 {
     LSTransportTrustLevelGroupBitmask *v = g_slice_new0(LSTransportTrustLevelGroupBitmask);
