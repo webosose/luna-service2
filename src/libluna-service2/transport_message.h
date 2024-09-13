@@ -119,13 +119,9 @@ typedef enum LSTransportMessageType
  * @{
  */
 
-#define LS_TRANSPORT_QUERY_PID_SUCCESS                       0  /**< success pid query*/
 #define LS_TRANSPORT_QUERY_PID_PROCESS_NOT_EXIST            -1  /**< process does not exist */
-#define LS_TRANSPORT_QUERY_UID_SUCCESS                       0  /**< success uid query*/
-#define LS_TRANSPORT_QUERY_UID_PROCESS_NOT_EXIST            -1  /**< process does not exist */
-#define LS_TRANSPORT_QUERY_GID_SUCCESS                       0  /**< success gid query*/
-#define LS_TRANSPORT_QUERY_GID_PROCESS_NOT_EXIST            -1  /**< process does not exist */
-#define LS_TRANSPORT_QUERY_PROCESS_INFO_SUCCESS              0  /**< success process info query*/
+#define LS_TRANSPORT_QUERY_UID_PROCESS_NOT_EXIST             0  /**< process does not exist */
+#define LS_TRANSPORT_QUERY_GID_PROCESS_NOT_EXIST             0  /**< process does not exist */
 #define LS_TRANSPORT_QUERY_PROCESS_INFO_PROCESS_NOT_EXIST   -1  /**< process does not exist */
 
 /**

@@ -260,7 +260,7 @@ timingServiceResponse(LSHandle *sh, LSMessage *reply, void *ctx)
     sentBytes += url ? strlen(url) : 0;
     sentBytes += message ? strlen(message) : 0;
 
-    g_message("%s Got response: duration %.02f ms, token %ld, payload %s", __FUNCTION__, duration * 1000.0, token, payload);
+    g_message("%s Got response: duration %.02f ms, token %ld, payload %s", __func__, duration * 1000.0, token, payload);
 
     if (--count > 0)
     {

@@ -2968,6 +2968,7 @@ _LSTransportHandleQueryProxyNameFailure(_LSTransportMessage *message, long err_c
                                             failed_message, service_name, &lserror)) {
                 LS_ASSERT(!"_LSTransportQueryName failed");
             }
+            LSErrorFree(&lserror);
             TRANSPORT_UNLOCK(&transport->lock);
             g_free(concatenated_name);
             return;
@@ -2996,6 +2997,7 @@ _LSTransportHandleQueryProxyNameFailure(_LSTransportMessage *message, long err_c
                                         next_message, service_name, &lserror)) {
             LS_ASSERT(0);
         }
+        LSErrorFree(&lserror);
     } else {
         /* pending queue is empty, so we need to clean up */
         if (!g_hash_table_remove(transport->pending, concatenated_name)) {
@@ -3298,6 +3300,7 @@ _LSTransportHandleQueryNameFailure(_LSTransportMessage *message, long err_code, 
             {
                 LS_ASSERT(!"_LSTransportQueryName failed");
             }
+            LSErrorFree(&lserror);
             TRANSPORT_UNLOCK(&transport->lock);
             return;
         }
@@ -3329,6 +3332,7 @@ _LSTransportHandleQueryNameFailure(_LSTransportMessage *message, long err_code, 
         {
             LS_ASSERT(0);
         }
+        LSErrorFree(&lserror);
     }
     else
     {
@@ -3599,17 +3603,17 @@ _LSTransportHandleQueryProcessInfoReply(_LSTransportMessage *reply_message, LSPr
     _LSTransportMessageIter iter;
     _LSTransportMessageIterInit(reply_message, &iter);
 
-    if (!_LSTransportMessageGetInt32(&iter, &proc_info->pid)) {
+    if (!_LSTransportMessageGetInt32(&iter, (int32_t*)(&proc_info->pid))) {
         LOG_LS_WARNING(MSGID_LS_NULL_CLIENT, 0, "%s: Failed to get process id", __func__);
         proc_info->pid = LS_TRANSPORT_QUERY_PID_PROCESS_NOT_EXIST;
     }
     _LSTransportMessageIterNext(&iter);
-    if (!_LSTransportMessageGetInt32(&iter, &proc_info->uid)) {
+    if (!_LSTransportMessageGetInt32(&iter, (int32_t*)(&proc_info->uid))) {
         LOG_LS_WARNING(MSGID_LS_NULL_CLIENT, 0, "%s: Failed to get user id", __func__);
         proc_info->uid = LS_TRANSPORT_QUERY_UID_PROCESS_NOT_EXIST;
     }
     _LSTransportMessageIterNext(&iter);
-    if (!_LSTransportMessageGetInt32(&iter, &proc_info->gid)) {
+    if (!_LSTransportMessageGetInt32(&iter, (int32_t*)(&proc_info->gid))) {
         LOG_LS_WARNING(MSGID_LS_NULL_CLIENT, 0, "%s: Failed to get group id", __func__);
         proc_info->gid = LS_TRANSPORT_QUERY_GID_PROCESS_NOT_EXIST;
     }
@@ -3628,7 +3632,7 @@ _LSTransportHandleQueryProcessInfoReply(_LSTransportMessage *reply_message, LSPr
  *******************************************************************************
  */
 bool
-_LSTransportSendQuery(_LSTransportMessage *message, _LSTransportMessageType msg_type)
+_LSTransportSendQuery(const _LSTransportMessage *message, _LSTransportMessageType msg_type)
 {
     LSError lserror;
     LSErrorInit( &lserror );
@@ -3658,6 +3662,7 @@ _LSTransportSendQuery(_LSTransportMessage *message, _LSTransportMessageType msg_
     if (!ret) {
         LOG_LSERROR(MSGID_LS_TRANSPORT_NETWORK_ERR, &lserror);
         LSErrorFree(&lserror);
+        _LSTransportMessageUnref(send_message);
         return ret;
     }
 
@@ -3680,7 +3685,7 @@ _LSTransportSendQuery(_LSTransportMessage *message, _LSTransportMessageType msg_
  *******************************************************************************
  */
 int32_t
-_LSTransportHandleQueryResponse(_LSTransportMessage *message, _LSTransportMessageType msg_type)
+_LSTransportHandleQueryResponse(const _LSTransportMessage *message, _LSTransportMessageType msg_type)
 {
     int32_t ret = -1;
 
@@ -3699,6 +3704,7 @@ _LSTransportHandleQueryResponse(_LSTransportMessage *message, _LSTransportMessag
         return ret;
     }
 
+    LSErrorFree(&lserror);
     if (reply_message == NULL) {
         LOG_LS_WARNING(MSGID_LSHUB_NO_CLIENT, 0, "%s: Unable to get client from message", __func__);
         return ret;
@@ -3734,7 +3740,7 @@ _LSTransportHandleQueryResponse(_LSTransportMessage *message, _LSTransportMessag
  *******************************************************************************
  */
 bool
-_LSTransportHandleQueryProcessInfoResponse(_LSTransportMessage *message, LSProcessInfo *proc_info)
+_LSTransportHandleQueryProcessInfoResponse(const _LSTransportMessage *message, LSProcessInfo *proc_info)
 {
     LSError lserror;
     LSErrorInit( &lserror );
@@ -3753,6 +3759,7 @@ _LSTransportHandleQueryProcessInfoResponse(_LSTransportMessage *message, LSProce
         return false;
     }
 
+    LSErrorFree(&lserror);
     if (reply_message == NULL) {
         LOG_LS_WARNING(MSGID_LSHUB_NO_CLIENT, 0, "%s: Unable to get client from message", __func__);
         return false;
@@ -3781,15 +3788,14 @@ _LSTransportHandleQueryProcessInfoResponse(_LSTransportMessage *message, LSProce
  *******************************************************************************
  */
 pid_t
-_LSTransportSendQueryPid(_LSTransportMessage *message)
+_LSTransportSendQueryPid(const _LSTransportMessage *message)
 {
-    int32_t pid = LS_TRANSPORT_QUERY_PID_PROCESS_NOT_EXIST;
     bool ret = _LSTransportSendQuery(message, _LSTransportMessageTypeQueryPid);
     if (!ret) {
         LOG_LS_WARNING(MSGID_LSHUB_SENDMSG_ERROR, 0, "%s: Failed to send query(pid) to hub", __func__);
-        return pid;
+        return LS_TRANSPORT_QUERY_PID_PROCESS_NOT_EXIST;
     }
-    pid = _LSTransportHandleQueryResponse(message, _LSTransportMessageTypeQueryPidReply);
+    int32_t pid = _LSTransportHandleQueryResponse(message, _LSTransportMessageTypeQueryPidReply);
     LOG_LS_DEBUG("%s: pid[%d]\n", __func__, pid);
     return (pid_t)pid;
 }
@@ -3802,19 +3808,18 @@ _LSTransportSendQueryPid(_LSTransportMessage *message)
  * @param  message  IN  message
  *
  * @retval  user id on success
- * @retval  -1 on failure
+ * @retval  0 on failure
  *******************************************************************************
  */
 uid_t
-_LSTransportSendQueryUid(_LSTransportMessage *message)
+_LSTransportSendQueryUid(const _LSTransportMessage *message)
 {
-    int32_t uid = LS_TRANSPORT_QUERY_UID_PROCESS_NOT_EXIST;
     bool ret = _LSTransportSendQuery(message, _LSTransportMessageTypeQueryUid);
     if (!ret) {
         LOG_LS_WARNING(MSGID_LSHUB_SENDMSG_ERROR, 0, "%s: Failed to send query(uid) to hub", __func__);
-        return uid;
+        return LS_TRANSPORT_QUERY_UID_PROCESS_NOT_EXIST;
     }
-    uid = _LSTransportHandleQueryResponse(message, _LSTransportMessageTypeQueryUidReply);
+    int32_t uid = _LSTransportHandleQueryResponse(message, _LSTransportMessageTypeQueryUidReply);
     LOG_LS_DEBUG("%s: uid[%d]\n", __func__, uid);
     return (uid_t)uid;
 }
@@ -3827,19 +3832,18 @@ _LSTransportSendQueryUid(_LSTransportMessage *message)
  * @param  message  IN  message
  *
  * @retval  group id on success
- * @retval  -1 on failure
+ * @retval  0 on failure
  *******************************************************************************
  */
 gid_t
-_LSTransportSendQueryGid(_LSTransportMessage *message)
+_LSTransportSendQueryGid(const _LSTransportMessage *message)
 {
-    int32_t gid = LS_TRANSPORT_QUERY_GID_PROCESS_NOT_EXIST;
     bool ret = _LSTransportSendQuery(message, _LSTransportMessageTypeQueryGid);
     if (!ret) {
         LOG_LS_WARNING(MSGID_LSHUB_SENDMSG_ERROR, 0, "%s: Failed to send query(gid) to hub", __func__);
-        return gid;
+        return LS_TRANSPORT_QUERY_GID_PROCESS_NOT_EXIST;
     }
-    gid = _LSTransportHandleQueryResponse(message, _LSTransportMessageTypeQueryGidReply);
+    int32_t gid = _LSTransportHandleQueryResponse(message, _LSTransportMessageTypeQueryGidReply);
     LOG_LS_DEBUG("%s: gid[%d]\n", __func__, gid);
     return (gid_t)gid;
 }
@@ -3857,7 +3861,7 @@ _LSTransportSendQueryGid(_LSTransportMessage *message)
  *******************************************************************************
  */
 bool
-_LSTransportSendQueryProcessInfo(_LSTransportMessage *message, LSProcessInfo *proc_info)
+_LSTransportSendQueryProcessInfo(const _LSTransportMessage *message, LSProcessInfo *proc_info)
 {
     bool ret = _LSTransportSendQuery(message, _LSTransportMessageTypeQueryProcessInfo);
     if (!ret) {
@@ -4448,6 +4452,7 @@ _LSTransportSendVector(const struct iovec *iov, int iovcnt, unsigned long total_
         //int total_bytes = 0;
 
         /* writev -- send as much of the message as possible without blocking */
+        errno = 0;
         bytes_written = writev(client->channel.fd, iov, iovcnt);
 
         if (bytes_written < 0)

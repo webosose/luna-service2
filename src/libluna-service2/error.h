@@ -50,8 +50,10 @@ extern "C" {
 #define LS_ERROR_TEXT_PROTOCOL_VERSION      "Protocol version (%d) does not match the hub"
 #define LS_ERROR_TEXT_EAGAIN                "Try again later"
 
-inline const char* getBaseFileName_() {
-    const char *pch = strrchr("/" __FILE__, '/');
+typedef char _char8_t;
+
+inline const _char8_t* getBaseFileName_() {
+    const _char8_t *pch = strrchr("/" __FILE__, '/');
     return (NULL != pch) ? (pch + 1) : __FILE__;
 }
 

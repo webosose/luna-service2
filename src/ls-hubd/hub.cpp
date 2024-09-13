@@ -1852,6 +1852,17 @@ _LSHubSendServiceWaitListReply(_ClientId *id, bool success, bool is_dynamic, LSE
     return true;
 }
 
+/**
+ *******************************************************************************
+ * @brief Send a reply to a "QueryPid" message.
+ *
+ * @param  message       IN     query name message to which we are replying
+ * @param  pid           IN     process id
+ *
+ * @retval  true on success
+ * @retval  false on failure
+ *******************************************************************************
+ */
 static bool
 _LSHubSendQueryPidReply(const _LSTransportMessage *message, const pid_t pid) {
     _LSTransportClient *reply_client = _LSTransportMessageGetClient(message);
@@ -1865,7 +1876,7 @@ _LSHubSendQueryPidReply(const _LSTransportMessage *message, const pid_t pid) {
 
     _LSTransportMessageIter iter;
     _LSTransportMessageIterInit(reply_message.get(), &iter);
-    if (!_LSTransportMessageAppendInt32(&iter, pid) ||
+    if (!_LSTransportMessageAppendInt32(&iter, static_cast<int32_t>(pid)) ||
         !_LSTransportMessageAppendInvalid(&iter)) {
         LOG_LS_ERROR(MSGID_LS_OOM_ERR, 0, "%s", LS_ERROR_TEXT_OOM);
         return false;
@@ -1880,6 +1891,17 @@ _LSHubSendQueryPidReply(const _LSTransportMessage *message, const pid_t pid) {
     return true;
 }
 
+/**
+ *******************************************************************************
+ * @brief Send a reply to a "QueryUid" message.
+ *
+ * @param  message       IN     query name message to which we are replying
+ * @param  uid           IN     user id
+ *
+ * @retval  true on success
+ * @retval  false on failure
+ *******************************************************************************
+ */
 static bool
 _LSHubSendQueryUidReply(const _LSTransportMessage *message, const uid_t uid) {
     _LSTransportClient *reply_client = _LSTransportMessageGetClient(message);
@@ -1894,7 +1916,13 @@ _LSHubSendQueryUidReply(const _LSTransportMessage *message, const uid_t uid) {
 
     _LSTransportMessageIter iter;
     _LSTransportMessageIterInit(reply_message.get(), &iter);
-    if (!_LSTransportMessageAppendInt32(&iter, uid) ||
+
+    if (uid >= INT_MAX) {
+	LOG_LS_WARNING(MSGID_LSHUB_NO_CLIENT, 0, "value of uid is bigger then INT_MAX!");
+	return false;
+    }
+
+    if (!_LSTransportMessageAppendInt32(&iter, static_cast<int32_t>(uid)) ||
         !_LSTransportMessageAppendInvalid(&iter)) {
         LOG_LS_ERROR(MSGID_LS_OOM_ERR, 0, "%s", LS_ERROR_TEXT_OOM);
         return false;
@@ -1909,6 +1937,17 @@ _LSHubSendQueryUidReply(const _LSTransportMessage *message, const uid_t uid) {
     return true;
 }
 
+/**
+ *******************************************************************************
+ * @brief Send a reply to a "QueryGid" message.
+ *
+ * @param  message       IN     query name message to which we are replying
+ * @param  gid           IN     group id
+ *
+ * @retval  true on success
+ * @retval  false on failure
+ *******************************************************************************
+ */
 static bool
 _LSHubSendQueryGidReply(const _LSTransportMessage *message, const gid_t gid) {
     _LSTransportClient *reply_client = _LSTransportMessageGetClient(message);
@@ -1922,7 +1961,13 @@ _LSHubSendQueryGidReply(const _LSTransportMessage *message, const gid_t gid) {
 
     _LSTransportMessageIter iter;
     _LSTransportMessageIterInit(reply_message.get(), &iter);
-    if (!_LSTransportMessageAppendInt32(&iter, gid) ||
+
+    if (gid >= INT_MAX) {
+	LOG_LS_WARNING(MSGID_LSHUB_NO_CLIENT, 0, "value of gid is bigger then INT_MAX!");
+	return false;
+    }
+
+    if (!_LSTransportMessageAppendInt32(&iter, static_cast<int32_t>(gid)) ||
         !_LSTransportMessageAppendInvalid(&iter)) {
         LOG_LS_ERROR(MSGID_LS_OOM_ERR, 0, "%s", LS_ERROR_TEXT_OOM);
         return false;
@@ -1937,6 +1982,19 @@ _LSHubSendQueryGidReply(const _LSTransportMessage *message, const gid_t gid) {
     return true;
 }
 
+/**
+ *******************************************************************************
+ * @brief Send a reply to a "QueryProcessInfo" message.
+ *
+ * @param  message       IN     query name message to which we are replying
+ * @param  pid           IN     process id
+ * @param  uid           IN     user id
+ * @param  gid           IN     group id
+ *
+ * @retval  true on success
+ * @retval  false on failure
+ *******************************************************************************
+ */
 static bool
 _LSHubSendQueryProcessInfoReply(const _LSTransportMessage *message, const pid_t pid,
                                 const uid_t uid, const gid_t gid) {
@@ -1951,9 +2009,20 @@ _LSHubSendQueryProcessInfoReply(const _LSTransportMessage *message, const pid_t 
 
     _LSTransportMessageIter iter;
     _LSTransportMessageIterInit(reply_message.get(), &iter);
-    if (!_LSTransportMessageAppendInt32(&iter, pid) ||
-        !_LSTransportMessageAppendInt32(&iter, uid) ||
-        !_LSTransportMessageAppendInt32(&iter, gid) ||
+
+    if (uid >= INT_MAX) {
+	LOG_LS_WARNING(MSGID_LSHUB_NO_CLIENT, 0, "value of uid is bigger then INT_MAX!");
+	return false;
+    }
+
+    if (gid >= INT_MAX) {
+	LOG_LS_WARNING(MSGID_LSHUB_NO_CLIENT, 0, "value of gid is bigger then INT_MAX!");
+	return false;
+    }
+
+    if (!_LSTransportMessageAppendInt32(&iter, static_cast<int32_t>(pid)) ||
+        !_LSTransportMessageAppendInt32(&iter, static_cast<int32_t>(uid)) ||
+        !_LSTransportMessageAppendInt32(&iter, static_cast<int32_t>(gid)) ||
         !_LSTransportMessageAppendInvalid(&iter)) {
         LOG_LS_ERROR(MSGID_LS_OOM_ERR, 0, "%s", LS_ERROR_TEXT_OOM);
         return false;
@@ -3303,33 +3372,43 @@ _LSHubSendMonitorStatus(_LSTransportMessage *message)
 }
 
 const _LSTransportCred*
-GetCredentialInfo(const _LSTransportMessage *message)
+GetCredentialInfo(_LSTransportMessage *message)
 {
     _LSTransportMessageIter iter;
     const char *service_name = nullptr;
     const char *unique_name = nullptr;
     const _LSTransportCred* cred = nullptr;
+    _ClientId* client_id = nullptr;
 
     // get the service name and unique name from transport message
-    _LSTransportMessageIterInit((_LSTransportMessage*)message, &iter);
+    _LSTransportMessageIterInit(message, &iter);
     _LSTransportMessageGetString(&iter, &service_name);
     _LSTransportMessageIterNext(&iter);
     _LSTransportMessageGetString(&iter, &unique_name);
 
     // find the client which has service name or unique name.
-    _ClientId* id = AvailableMapLookup(service_name);
-    if (!id) {
-        LOG_LS_WARNING(MSGID_LSHUB_NO_CLIENT, 0, "Unable to find client in available services map.\
-                trying to find client in connected client map");
-        id = AvailableMapLookupByUniqueName(unique_name);
+    if (service_name != nullptr) {
+        client_id = AvailableMapLookup(service_name);
+        if (!client_id) {
+            LOG_LS_WARNING(MSGID_LSHUB_NO_CLIENT, 0, "Unable to find client in available services map.\
+                    trying to find client in connected client map");
+            if (unique_name != nullptr) {
+                client_id = AvailableMapLookupByUniqueName(unique_name);
+            }
+        }
+    } else if (unique_name != nullptr) {
+        client_id = AvailableMapLookupByUniqueName(unique_name);
+    } else {
+        LOG_LS_ERROR(MSGID_LSHUB_NO_CLIENT, 0, "Failed to get service and unique name");
+        return nullptr;
     }
 
-    if (!id) {
+    if (!client_id) {
         LOG_LS_ERROR(MSGID_LSHUB_NO_CLIENT, 0, "Failed to get client in connected client map");
         return nullptr;
     }
 
-    return _LSTransportClientGetCred(id->client);
+    return _LSTransportClientGetCred(client_id->client);
 }
 
 /**
@@ -3343,7 +3422,7 @@ GetCredentialInfo(const _LSTransportMessage *message)
  *******************************************************************************
  */
 static void
-_LSHubSendQueryError(_LSTransportClient *client, _LSTransportMessageType msg_type, long err_code)
+_LSHubSendQueryError(_LSTransportClient *client, _LSTransportMessageType msg_type, int32_t err_code)
 {
     LS_ASSERT(client);
 
@@ -3393,7 +3472,7 @@ _LSHubSendQueryError(_LSTransportClient *client, _LSTransportMessageType msg_typ
  *******************************************************************************
  */
 static void
-_LSHubHandleQueryPid(const _LSTransportMessage *message)
+_LSHubHandleQueryPid(_LSTransportMessage *message)
 {
     LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryPid);
 
@@ -3421,7 +3500,7 @@ _LSHubHandleQueryPid(const _LSTransportMessage *message)
  *******************************************************************************
  */
 static void
-_LSHubHandleQueryUid(const _LSTransportMessage *message)
+_LSHubHandleQueryUid(_LSTransportMessage *message)
 {
     LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryUid);
 
@@ -3449,7 +3528,7 @@ _LSHubHandleQueryUid(const _LSTransportMessage *message)
  *******************************************************************************
  */
 static void
-_LSHubHandleQueryGid(const _LSTransportMessage *message)
+_LSHubHandleQueryGid(_LSTransportMessage *message)
 {
     LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryGid);
 
@@ -3478,7 +3557,7 @@ _LSHubHandleQueryGid(const _LSTransportMessage *message)
  *******************************************************************************
  */
 static void
-_LSHubHandleQueryProcessInfo(const _LSTransportMessage *message)
+_LSHubHandleQueryProcessInfo(_LSTransportMessage *message)
 {
     LS_ASSERT(_LSTransportMessageGetType(message) == _LSTransportMessageTypeQueryProcessInfo);
 
@@ -3621,14 +3700,14 @@ static jvalue_ref DumpCategories(const _ClientId *id, const char *category)
         GHashTableIter cat_it;
         g_hash_table_iter_init(&cat_it, id->categories);
 
-        const char *registered_category = NULL;
-        const GSList *method_list = NULL;
-        while (g_hash_table_iter_next(&cat_it, (gpointer *) &registered_category, (gpointer *) &method_list))
+        gpointer registered_category = NULL;
+        gpointer method_list = NULL;
+        while (g_hash_table_iter_next(&cat_it, &registered_category, &method_list))
         {
             jvalue_ref functions = jarray_create(0);
             for (; method_list; method_list = g_slist_next(method_list))
-                jarray_append(functions, jstring_create(static_cast<const char *>(method_list->data)));
-            jobject_put(payload, jstring_create(registered_category), functions);
+                jarray_append(functions, jstring_create(static_cast<const char *>(static_cast<GSList *>(method_list)->data)));
+            jobject_put(payload, jstring_create(static_cast<const char *>(registered_category)), functions);
         }
     }
     else

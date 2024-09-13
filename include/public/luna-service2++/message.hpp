@@ -139,19 +139,19 @@ public:
     }
 
     pid_t getSenderPid() const {
-        return LSMessageGetSenderPid(_message);
+        return LSMessageGetSenderPid(get());
     }
 
     uid_t getSenderUid() const {
-        return LSMessageGetSenderUid(_message);
+        return LSMessageGetSenderUid(get());
     }
 
     gid_t getSenderGid() const {
-        return LSMessageGetSenderGid(_message);
+        return LSMessageGetSenderGid(get());
     }
 
     bool getSenderProcessInfo(LSProcessInfo* proc_info) const {
-        return LSMessageGetSenderProcessInfo(_message, proc_info);
+        return LSMessageGetSenderProcessInfo(get(), proc_info);
     }
 
     const char *getCategory() const

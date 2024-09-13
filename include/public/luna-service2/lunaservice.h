@@ -411,10 +411,10 @@ const char * LSMessageGetSender(LSMessage *message);
 const char * LSMessageGetSenderServiceName(LSMessage *message);
 const char * LSMessageGetSenderExePath(LSMessage *message);
 const char * LSMessageGetSenderTrustLevel(LSMessage *message);
-pid_t LSMessageGetSenderPid(LSMessage *message);
-uid_t LSMessageGetSenderUid(LSMessage *message);
-gid_t LSMessageGetSenderGid(LSMessage *message);
-bool LSMessageGetSenderProcessInfo(LSMessage *message, LSProcessInfo* proc_info);
+pid_t LSMessageGetSenderPid(const LSMessage *message);
+uid_t LSMessageGetSenderUid(const LSMessage *message);
+gid_t LSMessageGetSenderGid(const LSMessage *message);
+bool LSMessageGetSenderProcessInfo(const LSMessage *message, LSProcessInfo* proc_info);
 
 const char * LSMessageGetCategory(LSMessage *message);
 const char * LSMessageGetMethod(LSMessage *message);

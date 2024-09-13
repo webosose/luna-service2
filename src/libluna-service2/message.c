@@ -359,7 +359,7 @@ LSMessageGetSenderServiceName(LSMessage *message)
  * @retval -1 otherwise
  *******************************************************************************
  */
-pid_t LSMessageGetSenderPid(LSMessage *message)
+pid_t LSMessageGetSenderPid(const LSMessage *message)
 {
     LS_ASSERT(message != NULL);
 
@@ -378,7 +378,7 @@ pid_t LSMessageGetSenderPid(LSMessage *message)
  * @retval -1 otherwise
  *******************************************************************************
  */
-uid_t LSMessageGetSenderUid(LSMessage *message)
+uid_t LSMessageGetSenderUid(const LSMessage *message)
 {
     LS_ASSERT(message != NULL);
 
@@ -397,7 +397,7 @@ uid_t LSMessageGetSenderUid(LSMessage *message)
  * @retval -1 otherwise
  *******************************************************************************
  */
-gid_t LSMessageGetSenderGid(LSMessage *message)
+gid_t LSMessageGetSenderGid(const LSMessage *message)
 {
     LS_ASSERT(message != NULL);
 
@@ -416,7 +416,7 @@ gid_t LSMessageGetSenderGid(LSMessage *message)
  * @return false otherwise
  *******************************************************************************
  */
-bool LSMessageGetSenderProcessInfo(LSMessage *message, LSProcessInfo* proc_info)
+bool LSMessageGetSenderProcessInfo(const LSMessage *message, LSProcessInfo* proc_info)
 {
     LS_ASSERT(message != NULL);
     LS_ASSERT(proc_info != NULL);
