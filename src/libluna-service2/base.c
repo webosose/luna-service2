@@ -55,6 +55,7 @@
 void _LSHandleMessageFailure(_LSTransportMessage *message, _LSTransportMessageFailureType failure_type, void *context);
 void _LSDisconnectHandler(_LSTransportClient *client, _LSTransportDisconnectType type, void *context);
 bool _LSHandleReply(LSHandle *sh, _LSTransportMessage *transport_msg);
+extern inline const _char8_t* getBaseFileName_(void);
 #ifdef ENHANCED_ACG
 static LSMessageHandlerResult _LSCheckProvidedTrustedGroups(LSHandle *sh,
     _LSTransportClient *client, LSMethodEntry *method);
