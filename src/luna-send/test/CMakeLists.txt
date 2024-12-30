@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2018 LG Electronics, Inc.
+# Copyright (c) 2015-2025 LG Electronics, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-add_definitions(-DLUNA_SEND="${CMAKE_CURRENT_BINARY_DIR}/../luna-send")
+add_definitions(-DLUNA_SEND="${WEBOS_INSTALL_BINDIR}/luna-send")
 
 set(INTEGRATION_TEST_SOURCES
     "luna-send-q.cpp"
