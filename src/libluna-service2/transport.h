@@ -1,4 +1,4 @@
-// Copyright (c) 2008-2024 LG Electronics, Inc.
+// Copyright (c) 2008-2025 LG Electronics, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -163,6 +163,11 @@ bool _LSTransportInitializeSecurityGroups(_LSTransport *transport, const char *m
 bool _LSTransportInitializeTrustLevel(_LSTransport *transport, const char * provided_map_json
                         , int provided_map_length,  const char * required_map_json, int required_map_length
                         , const char * trust_as_string, int trust_string_length);
+
+pid_t _LSTransportSendQueryPid(const _LSTransportMessage *message);
+uid_t _LSTransportSendQueryUid(const _LSTransportMessage *message);
+gid_t _LSTransportSendQueryGid(const _LSTransportMessage *message);
+bool _LSTransportSendQueryProcessInfo(const _LSTransportMessage *message, LSProcessInfo *proc_info);
 
 /** @brief Category pattern ACG bitmask
  *
